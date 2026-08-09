@@ -1,0 +1,1 @@
+-- Les offres sont déjà insérées par la migration. Ajoutez ici uniquement des données locales non sensibles.

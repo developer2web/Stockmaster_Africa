@@ -1,0 +1,1 @@
+import{useLocalSearchParams}from'expo-router';import{ProductFormScreen}from'@/features/products/ProductFormScreen';export default function NewProduct(){const{barcode}=useLocalSearchParams<{barcode?:string}>();return <ProductFormScreen initialBarcode={barcode}/>}

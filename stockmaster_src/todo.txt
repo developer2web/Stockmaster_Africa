@@ -1,0 +1,153 @@
+# StockMaster — reste à faire avant lancement
+
+## P0 — Bloquants de production
+
+- [x] Audit technique du 2 août 2026 : TypeScript, lint, 25 tests Vitest et
+  Expo Doctor (18/18) validés localement.
+- [ ] Restaurer les accès CLI de maintenance : activer le compte GitHub
+  `developer2web`, reconnecter Supabase avec un compte autorisé sur StockMaster,
+  puis revérifier la CI, les migrations et les Edge Functions distantes.
+
+- [x] Pousser les commits `9e6e44a` et `f799424` sur GitHub.
+- [x] Corriger et relancer la CI :
+  - l’application, le lint, TypeScript et Vitest sont validés ;
+  - la reconstruction complète de la base est validée ;
+  - [x] remplacer les deux assertions obsolètes qui attendaient encore les
+    fonctionnalités IA retirées ;
+  - [x] workflow GitHub `30317653955` entièrement vert.
+- [ ] Protéger au niveau SQL les champs financiers sensibles — lot `010`
+  temporairement conservé dans le stash `wip-financial-column-security-010`
+  jusqu’à validation complète, pour ne pas appeler des RPC non déployées :
+  - prix d’achat ;
+  - coût total ;
+  - bénéfice brut ;
+  - marge des produits et des ventes.
+- [ ] Vérifier qu’un employé ne peut pas récupérer ces champs avec une requête
+  directe à Supabase, même s’ils sont masqués dans l’interface — tests ajoutés,
+  validation CI en attente.
+- [x] Reconstruire une base vide uniquement à partir des migrations dans la CI.
+- [x] Exécuter tous les tests Supabase/pgtAP sur cette base reconstruite.
+
+## P0 — Paiements et abonnements
+
+- [ ] Choisir le prestataire Mobile Money de production.
+- [ ] Configurer `PAYMENT_PROVIDER_URL` et `PAYMENT_WEBHOOK_SECRET`.
+- [ ] Adapter le connecteur aux requêtes et webhooks réels du prestataire.
+- [ ] Vérifier la signature de chaque webhook côté serveur.
+- [ ] Tester les paiements réussis, échoués, annulés, expirés et rejoués.
+- [ ] Tester les changements Basic → Pro → Premium.
+- [ ] Tester le renouvellement, la période de grâce et l’expiration.
+- [ ] Ajouter la procédure de remboursement et de rapprochement des paiements.
+
+## P1 — Tests fonctionnels et sécurité
+
+- [x] Uniformiser les refus de connexion par portail sans révéler le rôle du compte.
+- [x] Rendre générique le message lorsqu’une invitation utilise un email déjà associé.
+- [x] Regrouper les modules de gestion admin dans un menu déroulant placé à
+  côté du nom de l’entreprise dans l’en-tête.
+- [x] Afficher « mot de passe » sans la mention « temporaire » sur le portail employé.
+- [x] Simplifier les libellés employés en utilisant « mot de passe » sans la
+  mention « temporaire ».
+
+- [x] Réduire les rôles automatiques à Manager, Employé et Comptable, avec des
+  permissions de base et migration des anciens Caissiers/Gestionnaires de stock.
+- [ ] Déployer la migration `202608020012_simplify_default_employee_roles.sql`.
+
+- [x] Remplacer les UUID Web incompatibles avec Expo Go par `expo-crypto` pour
+  les ventes, la caisse, les dépenses, le stock et les images produits.
+- [x] Sécuriser tous les boutons Retour avec une destination de remplacement
+  lorsqu’aucun historique de navigation n’existe.
+- [x] Retirer temporairement les remises de l’écran Nouvelle vente et envoyer
+  systématiquement `discount: 0` à la transaction Supabase.
+- [x] Rendre le bootstrap de la première entreprise idempotent côté client et
+  dans la migration `202608020011_idempotent_initial_business_bootstrap.sql`.
+- [x] N’autoriser l’écran « Finaliser l’entreprise » que lorsque Supabase
+  confirme explicitement le statut `no_membership`.
+- [x] Ajouter une nouvelle tentative contrôlée au chargement des entreprises et
+  boutiques accessibles avant d’afficher un état vide.
+- [ ] Déployer la migration `202608020011_idempotent_initial_business_bootstrap.sql`
+  puis valider sur Expo Go les parcours authentifiés corrigés.
+
+- [x] Supprimer les erreurs globales « Could not find the function » causées par
+  l’appel prématuré des RPC de la migration `010`.
+- [x] Ajouter un bouton de retour depuis « Mot de passe oublié » vers la page
+  principale de connexion sur Expo Go et Web.
+- [x] Empêcher le flash « Aucune boutique accessible » pendant le chargement
+  initial ou le rafraîchissement de l’espace utilisateur.
+- [ ] Tester l’inscription et la confirmation de l’adresse email.
+- [ ] Tester la création d’entreprise et de première boutique.
+- [ ] Tester deux entreprises complètement isolées.
+- [ ] Tester deux boutiques avec stocks, ventes, dépenses et caisses séparés.
+- [ ] Tester le changement de boutique pendant une utilisation active.
+- [ ] Tester l’invitation, la connexion, la suspension et la suppression d’un employé.
+- [ ] Tester tous les rôles et toutes les permissions.
+- [ ] Tester vente, annulation métier, dépense, caisse et bénéfice net.
+- [ ] Tester l’idempotence avec les doubles clics et les requêtes rejouées.
+- [ ] Tester la devise par pays et son verrouillage après la première vente.
+- [ ] Ajouter des tests de bout en bout pour les parcours critiques.
+
+## P1 — Appareils et accessibilité
+
+- [x] Corriger la responsivité mobile de l’inventaire et du stock : métriques,
+  recherche, actions, cartes et historiques sans débordement.
+- [x] Positionner le menu hamburger comme premier élément réel de l’en-tête admin.
+
+- [x] Diagnostiquer l’accès d’un collaborateur distant : Supabase est sain et
+  un tunnel Expo public remplace le mode LAN inaccessible hors du réseau local.
+- [ ] Tester un petit et un grand téléphone Android.
+- [ ] Tester un iPhone.
+- [ ] Tester une tablette Android et un iPad.
+- [ ] Tester portrait et paysage.
+- [ ] Tester les grandes tailles de caractères.
+- [ ] Tester le thème sombre.
+- [ ] Tester le scanner, la caméra et la sélection de photos.
+- [ ] Tester une connexion lente, une coupure réseau et une reprise de session.
+
+## P1 — Exploitation et fiabilité
+
+- [ ] Remplacer ou isoler `xlsx@0.18.5` (vulnérabilités élevées sans correctif
+  npm) et traiter les alertes transitives compatibles avec Expo SDK 54, sans
+  utiliser `npm audit fix --force` ni migrer Expo dans ce lot.
+
+- [ ] Connecter les crashs à un service de production comme Sentry.
+- [ ] Centraliser les journaux structurés et créer des alertes critiques.
+- [ ] Surveiller les Edge Functions, webhooks et erreurs Supabase.
+- [ ] Configurer les sauvegardes Supabase adaptées au forfait de production.
+- [ ] Restaurer une sauvegarde dans un environnement isolé pour valider la procédure.
+- [ ] Définir le RPO, le RTO et la procédure de réponse aux incidents.
+- [ ] Ajouter limitation de débit et protection contre les abus sur les fonctions publiques.
+
+## P1 — Suppression de compte et conformité
+
+- [ ] Ajouter l’écran Super Admin pour traiter les demandes de suppression.
+- [ ] Définir le délai de traitement et les statuts de suivi.
+- [ ] Définir les durées légales de conservation des données financières.
+- [ ] Mettre en place l’anonymisation ou l’archivage des écritures à conserver.
+- [ ] Faire valider la politique de confidentialité et les conditions par un professionnel.
+- [ ] Publier la politique de confidentialité sur une URL publique.
+- [ ] Publier les conditions d’utilisation sur une URL publique.
+- [ ] Publier une page Web de demande de suppression de compte.
+- [ ] Confirmer l’email et l’URL d’assistance.
+
+## P2 — Google Play et App Store
+
+- [ ] Créer ou finaliser les comptes développeur Apple et Google.
+- [ ] Générer les builds EAS `preview` signés.
+- [ ] Tester via TestFlight et la piste fermée Google Play.
+- [ ] Créer un compte de démonstration avec deux boutiques.
+- [ ] Produire les captures indiquées dans `docs/store-listing.md`.
+- [ ] Vérifier que les captures ne contiennent aucune donnée personnelle.
+- [ ] Compléter Google Data Safety.
+- [ ] Compléter Apple App Privacy.
+- [ ] Ajouter les URL publiques de confidentialité, assistance et suppression.
+- [ ] Générer les builds EAS `production`.
+- [ ] Soumettre les applications et corriger les remarques de validation.
+
+## P2 — Qualité continue
+
+- [ ] Continuer à reformater les anciens fichiers encore très condensés.
+- [ ] Ajouter une pagination aux autres listes pouvant dépasser plusieurs centaines
+  de lignes : employés, dépenses, fournisseurs et journaux Super Admin.
+- [ ] Ajouter une recherche et des filtres serveur aux gros historiques.
+- [ ] Mesurer les performances avec plusieurs milliers de produits et de ventes.
+- [ ] Maintenir Expo SDK 54 jusqu’à une migration séparée et entièrement testée.

@@ -1,0 +1,7 @@
+appId: com.stockmaster.app
+---
+- launchApp:
+    clearState: true
+- assertVisible: "StockMaster"
+- assertVisible: "Administrateur"
+- assertVisible: "Employé"

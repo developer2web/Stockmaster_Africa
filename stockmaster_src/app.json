@@ -1,0 +1,74 @@
+{
+  "expo": {
+    "name": "StockMaster",
+    "slug": "stockmaster",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/images/stockmaster-icon.png",
+    "scheme": "stockmaster",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.stockmaster.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "StockMaster utilise la caméra pour scanner les produits.",
+        "NSPhotoLibraryUsageDescription": "StockMaster utilise vos photos pour illustrer les produits.",
+        "NSPhotoLibraryAddUsageDescription": "StockMaster peut enregistrer des images de produits."
+      }
+    },
+    "android": {
+      "package": "com.stockmaster.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#07162F",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/stockmaster-icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#07162F",
+          "image": "./assets/images/stockmaster-icon.png",
+          "imageWidth": 180,
+          "dark": {
+            "backgroundColor": "#020817",
+            "image": "./assets/images/stockmaster-icon.png"
+          }
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autoriser StockMaster à utiliser la caméra pour scanner les produits",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Autoriser StockMaster à sélectionner les images de produits",
+          "cameraPermission": "Autoriser StockMaster à photographier les produits",
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7a753ee5-b665-4fe1-b560-06eb71d66249"
+      }
+    }
+  }
+}

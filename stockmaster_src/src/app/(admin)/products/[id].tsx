@@ -1,0 +1,1 @@
+import{useLocalSearchParams}from'expo-router';import{ProductFormScreen}from'@/features/products/ProductFormScreen';export default function ProductDetails(){const{id}=useLocalSearchParams<{id:string}>();return <ProductFormScreen id={id}/>}

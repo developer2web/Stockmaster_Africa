@@ -1,0 +1,43 @@
+project_id = "stockmaster"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:8081"
+additional_redirect_urls = ["stockmaster://**", "http://localhost:8081/**"]
+
+[functions.invite-employee]
+verify_jwt = true
+
+[functions.bootstrap-super-admin]
+verify_jwt = false
+
+[functions.create-payment]
+verify_jwt = true
+
+[functions.renew-subscription]
+verify_jwt = true
+
+[functions.check-payment-status]
+verify_jwt = true
+
+[functions.payment-webhook]
+verify_jwt = false
