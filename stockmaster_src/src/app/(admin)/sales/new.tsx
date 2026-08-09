@@ -6,6 +6,8 @@ import { Card, Chip, HelperText, IconButton, Searchbar, SegmentedButtons, Text, 
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { ProductThumbnail } from '@/components/products/ProductThumbnail';
+import { SelectField } from '@/components/forms/SelectField';
+import { getCustomers } from '@/features/customers/api';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { createSale, getSaleStock } from '@/features/sales/api';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
@@ -22,6 +24,7 @@ export default function NewSale() {
   const storeId = membership?.storeId ?? '';
   const [search, setSearch] = useState('');
   const [payment, setPayment] = useState('cash');
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const cache = useQueryClient();
   const { items, add, setQuantity, remove, clear } = useSaleCart();
   const scannedAdded = useRef(false);
@@ -29,6 +32,11 @@ export default function NewSale() {
     queryKey: ['sale-stock', company, storeId, employee],
     queryFn: () => getSaleStock(company, storeId, !employee),
     enabled: !!company && !!storeId,
+  });
+  const customers = useQuery({
+    queryKey: ['customers', company, ''],
+    queryFn: () => getCustomers(company),
+    enabled: !!company,
   });
 
   useEffect(() => {
@@ -52,7 +60,7 @@ export default function NewSale() {
     ),
   }), [items]);
   const save = useMutation({
-    mutationFn: () => createSale(storeId, payment, items),
+    mutationFn: () => createSale(storeId, payment, items, customerId),
     onSuccess: async (result) => {
       await Promise.all([
         cache.invalidateQueries({ queryKey: ['sales', company] }),
@@ -62,6 +70,7 @@ export default function NewSale() {
         cache.invalidateQueries({ queryKey: ['cash-summary', company, storeId] }),
       ]);
       clear();
+      setCustomerId(null);
       router.replace((employee ? `/employee/sales/${result.saleId}` : `/sales/${result.saleId}`) as never);
     },
   });
@@ -113,6 +122,13 @@ export default function NewSale() {
           </Card>
         );
       })}
+      <Text variant="titleMedium">Client (facultatif)</Text>
+      <SelectField
+        label="Associer à un client"
+        value={customerId}
+        onChange={setCustomerId}
+        options={[{ label: 'Client de passage', value: null }, ...(customers.data ?? []).filter((item) => item.is_active).map((item) => ({ label: item.name, value: item.id }))]}
+      />
       <Text variant="titleMedium">Paiement</Text>
       <SegmentedButtons value={payment} onValueChange={setPayment} buttons={[{ value: 'cash', label: 'Espèces' }, { value: 'card', label: 'Carte' }, { value: 'mobile_money', label: 'Mobile' }]} />
       <Card mode="contained" style={{ backgroundColor: theme.colors.primaryContainer }}>

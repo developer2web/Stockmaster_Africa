@@ -12,7 +12,7 @@ export default function SaleDetails() {
   const employee = membership?.role === 'employee';
   const { id } = useLocalSearchParams<{ id: string }>();
   const { formatForCurrency } = useCurrency();
-  const sale = useQuery({ queryKey: ['sale', id], queryFn: () => getSale(id!), enabled: !!id });
+  const sale = useQuery({ queryKey: ['sale', id, employee], queryFn: () => getSale(id!, !employee), enabled: !!id });
   const money = (value: number) => formatForCurrency(value, sale.data?.currency_code ?? 'CAD');
 
   return (

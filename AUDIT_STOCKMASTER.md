@@ -216,3 +216,33 @@ Toutes dans `/app/stockmaster_src` (ton code) :
 > déployer sur ton Supabase (protection au niveau colonne + RPC admin). Non
 > appliqué encore car cela doit être testé sur ta base pour ne pas casser les
 > lectures admin.
+
+---
+
+# ✅ CHANTIERS #4 / #3 / #2 IMPLÉMENTÉS (à déployer + tester sur ton Supabase)
+
+Vérifié : `tsc --noEmit` ✅ + `eslint` ✅. Non exécuté (nécessite tes clés Supabase).
+Guide complet : `/app/DEPLOY_GUIDE_STOCKMASTER.md`.
+
+## #4 — Faille financière
+- Migration `supabase/migrations/202608100001_financial_column_privacy.sql` :
+  helper `is_company_admin`, révocation des colonnes `cost_total`/`gross_profit`
+  (ventes) et `purchase_price_snapshot`/`gross_profit` (lignes de vente) pour
+  les comptes `authenticated`, vues admin `sale_financials` / `sale_item_financials`.
+- Frontend rebranché : `getSales`, `getSale`, `getFinancialDetails` lisent les
+  financials via les vues (admin uniquement).
+
+## #3 — Barre d'onglets (admin)
+- `(admin)/_layout.tsx` transformé en `Tabs` : Accueil, Ventes, Stock, Caisse,
+  Rapports ; autres modules accessibles via le menu (masqués de la barre).
+- Stacks imbriqués ajoutés : `(admin)/sales/_layout.tsx`, `(admin)/products/_layout.tsx`,
+  `(admin)/customers/_layout.tsx`.
+
+## #2 — Clients + ardoise + historique
+- Migration `supabase/migrations/202608100002_customers_ardoise.sql` :
+  tables `customers` + `customer_ledger`, RPC atomique `record_customer_entry`,
+  vue `customer_balances`, FK `sales.customer_id → customers`.
+- Frontend : `features/customers/api.ts`, `schemas/customers.ts`, écrans
+  `customers/` (liste, création, fiche avec solde d'ardoise, dette/paiement,
+  historique d'achat, édition), entrée « Clients » dans le menu admin, et
+  sélection facultative d'un client sur l'écran de vente.

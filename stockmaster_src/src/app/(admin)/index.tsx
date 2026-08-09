@@ -20,6 +20,7 @@ const primaryModules = [
 const managementModules = [
   ['barcode-scan', 'Scanner', '/scanner'],
   ['package-variant-closed', 'Produits', '/products'],
+  ['account-group-outline', 'Clients', '/customers'],
   ['shape-outline', 'Catégories', '/categories'],
   ['truck-outline', 'Fournisseurs', '/suppliers'],
   ['store-cog-outline', 'Boutiques', '/stores'],

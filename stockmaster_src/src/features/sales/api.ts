@@ -9,23 +9,51 @@ function fail(error: { message: string } | null) {
 
 export const SALE_PAGE_SIZE = 30;
 
-export async function getSales(companyId: string, storeId: string, page = 0): Promise<Sale[]> {
+export async function getSales(companyId: string, storeId: string, page = 0, withFinancials = false): Promise<Sale[]> {
   const start = page * SALE_PAGE_SIZE;
   const { data, error } = await supabase
     .from('sales')
-    .select('id,company_id,store_id,customer_id,reference,subtotal,discount_total,total,cost_total,gross_profit,currency_code,secondary_currency_code,secondary_exchange_rate,exchange_rate_effective_at,payment_method,created_by,created_at,store:stores(name),creator:profiles!sales_created_by_fkey(full_name)')
+    .select('id,company_id,store_id,customer_id,reference,subtotal,discount_total,total,currency_code,secondary_currency_code,secondary_exchange_rate,exchange_rate_effective_at,payment_method,created_by,created_at,store:stores(name),creator:profiles!sales_created_by_fkey(full_name)')
     .eq('company_id', companyId)
     .eq('store_id', storeId)
     .order('created_at', { ascending: false })
     .range(start, start + SALE_PAGE_SIZE - 1);
   fail(error);
-  return (data ?? []) as unknown as Sale[];
+  const sales = (data ?? []) as unknown as Sale[];
+  if (withFinancials && sales.length) {
+    const { data: fin } = await supabase
+      .from('sale_financials')
+      .select('sale_id,cost_total,gross_profit')
+      .in('sale_id', sales.map((sale) => sale.id));
+    const map = new Map((fin ?? []).map((row) => [(row as { sale_id: string }).sale_id, row as { cost_total: number; gross_profit: number }]));
+    for (const sale of sales) {
+      const row = map.get(sale.id);
+      sale.cost_total = Number(row?.cost_total ?? 0);
+      sale.gross_profit = Number(row?.gross_profit ?? 0);
+    }
+  }
+  return sales;
 }
 
-export async function getSale(id: string): Promise<Sale> {
-  const { data, error } = await supabase.from('sales').select('id,company_id,store_id,customer_id,reference,subtotal,discount_total,total,cost_total,gross_profit,currency_code,secondary_currency_code,secondary_exchange_rate,exchange_rate_effective_at,payment_method,created_by,created_at,store:stores(name),creator:profiles!sales_created_by_fkey(full_name),sale_items(id,sale_id,product_id,product_variant_id,purchase_price_snapshot,sale_price,quantity,discount,gross_profit,line_total,product:products(name,sku),variant:product_variants(name,sku))').eq('id', id).single();
+export async function getSale(id: string, withFinancials = false): Promise<Sale> {
+  const { data, error } = await supabase.from('sales').select('id,company_id,store_id,customer_id,reference,subtotal,discount_total,total,currency_code,secondary_currency_code,secondary_exchange_rate,exchange_rate_effective_at,payment_method,created_by,created_at,store:stores(name),creator:profiles!sales_created_by_fkey(full_name),sale_items(id,sale_id,product_id,product_variant_id,sale_price,quantity,discount,line_total,product:products(name,sku),variant:product_variants(name,sku))').eq('id', id).single();
   fail(error);
-  return data as unknown as Sale;
+  const sale = data as unknown as Sale;
+  if (withFinancials) {
+    const [{ data: fin }, { data: itemFin }] = await Promise.all([
+      supabase.from('sale_financials').select('cost_total,gross_profit').eq('sale_id', id).maybeSingle(),
+      supabase.from('sale_item_financials').select('sale_item_id,purchase_price_snapshot,gross_profit').eq('sale_id', id),
+    ]);
+    sale.cost_total = Number((fin as { cost_total?: number } | null)?.cost_total ?? 0);
+    sale.gross_profit = Number((fin as { gross_profit?: number } | null)?.gross_profit ?? 0);
+    const map = new Map((itemFin ?? []).map((row) => [(row as { sale_item_id: string }).sale_item_id, row as { purchase_price_snapshot: number; gross_profit: number }]));
+    for (const item of sale.sale_items ?? []) {
+      const row = map.get(item.id);
+      item.purchase_price_snapshot = Number(row?.purchase_price_snapshot ?? 0);
+      item.gross_profit = Number(row?.gross_profit ?? 0);
+    }
+  }
+  return sale;
 }
 
 export async function getSaleStock(companyId: string, storeId: string, includeCost = true): Promise<SaleStockItem[]> {
@@ -68,6 +96,7 @@ export async function createSale(
   storeId: string,
   paymentMethod: string,
   items: CartItem[],
+  customerId: string | null = null,
   operationId = createOperationId(),
 ): Promise<{ saleId: string; reference: string; total: number; grossProfit: number }> {
   if (!storeId) throw new Error('Sélectionnez une boutique avant de valider la vente.');
@@ -82,7 +111,7 @@ export async function createSale(
     p_store_id: storeId,
     p_payment_method: paymentMethod,
     p_items: items.map((item) => ({ productId: item.productId, variantId: item.variantId, quantity: item.quantity, discount: 0 })),
-    p_customer_id: null,
+    p_customer_id: customerId,
     p_operation_id: operationId,
   });
   fail(error);

@@ -17,11 +17,17 @@ export type FinancialDetails={
 };
 export async function getFinancialDetails(companyId:string,startDate:string,endDate:string,storeId:string|null):Promise<FinancialDetails>{
   const end=`${endDate}T23:59:59.999Z`;
-  let sales=supabase.from('sales').select('reference,created_at,total,gross_profit,payment_method,store:stores(name)').eq('company_id',companyId).gte('created_at',`${startDate}T00:00:00.000Z`).lte('created_at',end).order('created_at',{ascending:false}).limit(1000);
+  let sales=supabase.from('sales').select('id,reference,created_at,total,payment_method,store:stores(name)').eq('company_id',companyId).gte('created_at',`${startDate}T00:00:00.000Z`).lte('created_at',end).order('created_at',{ascending:false}).limit(1000);
   let expenses=supabase.from('expenses').select('label,expense_date,amount,store:stores(name)').eq('company_id',companyId).gte('expense_date',startDate).lte('expense_date',endDate).order('expense_date',{ascending:false}).limit(1000);
   let cash=supabase.from('cash_transactions').select('designation,created_at,transaction_type,amount,source,store:stores(name)').eq('company_id',companyId).gte('created_at',`${startDate}T00:00:00.000Z`).lte('created_at',end).order('created_at',{ascending:false}).limit(1000);
   if(storeId){sales=sales.eq('store_id',storeId);expenses=expenses.eq('store_id',storeId);cash=cash.eq('store_id',storeId)}
   const[salesResult,expensesResult,cashResult]=await Promise.all([sales,expenses,cash]);
   if(salesResult.error)throw new Error(salesResult.error.message);if(expensesResult.error)throw new Error(expensesResult.error.message);if(cashResult.error)throw new Error(cashResult.error.message);
-  return{sales:(salesResult.data??[])as unknown as FinancialDetails['sales'],expenses:(expensesResult.data??[])as unknown as FinancialDetails['expenses'],cash:(cashResult.data??[])as unknown as FinancialDetails['cash']};
+  const salesRows=(salesResult.data??[])as unknown as ({id:string}&FinancialDetails['sales'][number])[];
+  if(salesRows.length){
+    const{data:fin}=await supabase.from('sale_financials').select('sale_id,gross_profit').in('sale_id',salesRows.map((row)=>row.id));
+    const map=new Map((fin??[]).map((row)=>[(row as{sale_id:string}).sale_id,Number((row as{gross_profit:number}).gross_profit)]));
+    for(const row of salesRows)row.gross_profit=map.get(row.id)??0;
+  }
+  return{sales:salesRows as unknown as FinancialDetails['sales'],expenses:(expensesResult.data??[])as unknown as FinancialDetails['expenses'],cash:(cashResult.data??[])as unknown as FinancialDetails['cash']};
 }

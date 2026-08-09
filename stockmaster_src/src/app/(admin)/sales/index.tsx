@@ -25,7 +25,7 @@ export default function SalesScreen() {
   useSalesRealtime(company);
   const sales = useInfiniteQuery({
     queryKey: ['sales', company, store],
-    queryFn: ({ pageParam }) => getSales(company, store, pageParam),
+    queryFn: ({ pageParam }) => getSales(company, store, pageParam, !employee),
     initialPageParam: 0,
     getNextPageParam: (lastPage, pages) => lastPage.length === SALE_PAGE_SIZE ? pages.length : undefined,
     enabled: !!company && !!store,
