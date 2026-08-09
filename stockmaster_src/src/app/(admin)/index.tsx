@@ -70,7 +70,7 @@ export default function AdminDashboard() {
         <Appbar.Action icon="logout" onPress={signOut} />
       </Appbar.Header>
       <ScrollView contentContainerStyle={[styles.page, compact && styles.pageCompact]} showsVerticalScrollIndicator={false}>
-        <View style={[styles.hero, compact && styles.compactHero, { backgroundColor: theme.colors.primary }]}>
+        <View style={[styles.hero, compact && styles.compactHero, { backgroundColor: '#087F5B' }]}>
           <View style={styles.heroTop}><View style={styles.grow}><Text variant="headlineSmall" style={styles.heroTitle}>Pilotez votre activité</Text><Text style={styles.heroText}>Une vue claire de votre entreprise, en temps réel.</Text></View><Chip icon="check-decagram">{membership?.subscriptionStatus ?? 'actif'}</Chip></View>
           <View style={styles.heroStats}>
             <View><Text style={styles.heroLabel}>Articles en stock</Text><Text variant="titleLarge" style={styles.heroTitle}>{(overview.data?.stockQuantity ?? 0).toLocaleString('fr-FR')}</Text></View>

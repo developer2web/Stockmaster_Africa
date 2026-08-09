@@ -10,6 +10,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { createSale, getSaleStock } from '@/features/sales/api';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { cartKey, useSaleCart } from '@/stores/saleCart';
+import { parseDecimal } from '@/utils/number';
 
 export default function NewSale() {
   const { formatMoney } = useCurrency();
@@ -25,8 +26,8 @@ export default function NewSale() {
   const { items, add, setQuantity, remove, clear } = useSaleCart();
   const scannedAdded = useRef(false);
   const stock = useQuery({
-    queryKey: ['sale-stock', company, storeId],
-    queryFn: () => getSaleStock(company, storeId),
+    queryKey: ['sale-stock', company, storeId, employee],
+    queryFn: () => getSaleStock(company, storeId, !employee),
     enabled: !!company && !!storeId,
   });
 
@@ -106,7 +107,7 @@ export default function NewSale() {
           <Card key={id} mode="contained" style={{ backgroundColor: theme.colors.surface }}>
             <Card.Title title={item.name} subtitle={`${formatMoney(item.salePrice)} • disponible ${item.available.toFixed(3)}`} right={() => <IconButton icon="delete" onPress={() => remove(id)} />} />
             <Card.Content style={styles.list}>
-              <TextInput style={styles.field} mode="outlined" label="Quantité" keyboardType="decimal-pad" value={String(item.quantity)} onChangeText={(value) => setQuantity(id, Number(value) || 0)} />
+              <TextInput style={styles.field} mode="outlined" label="Quantité" keyboardType="decimal-pad" value={String(item.quantity)} onChangeText={(value) => setQuantity(id, parseDecimal(value) || 0)} />
               <Text>Total ligne : {formatMoney(item.salePrice * item.quantity)}{!employee ? ` • Bénéfice : ${formatMoney((item.salePrice - item.purchasePrice) * item.quantity)}` : ''}</Text>
             </Card.Content>
           </Card>

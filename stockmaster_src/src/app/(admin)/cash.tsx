@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { CASH_PAGE_SIZE, createCashTransaction, getCashSummary, getCashTransactions } from '@/features/cash/api';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
+import { parseDecimal } from '@/utils/number';
 
 type TransactionType = 'deposit' | 'withdrawal';
 
@@ -40,7 +41,7 @@ export default function CashScreen() {
   const withdrawals = summary.data?.withdrawals ?? 0;
   const balance = summary.data?.balance ?? 0;
   const mutation = useMutation({
-    mutationFn: () => createCashTransaction({ companyId, storeId, type: type!, designation, amount: Number(amount) }),
+    mutationFn: () => createCashTransaction({ companyId, storeId, type: type!, designation, amount: parseDecimal(amount) }),
     onSuccess: async () => {
       await cache.invalidateQueries({ queryKey: ['cash-transactions', companyId, storeId] });
       await cache.invalidateQueries({ queryKey: ['cash-summary', companyId, storeId] });
@@ -50,7 +51,7 @@ export default function CashScreen() {
       setSuccessMessage(type === 'deposit' ? 'Fonds ajoutés avec succès.' : 'Dépense enregistrée avec succès.');
     },
   });
-  const valid = !!storeId && designation.trim().length >= 2 && Number(amount) > 0;
+  const valid = !!storeId && designation.trim().length >= 2 && parseDecimal(amount) > 0;
 
   return (
     <AdminPage title="Caisse">

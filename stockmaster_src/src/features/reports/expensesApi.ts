@@ -2,6 +2,7 @@ import type { ExpenseInput } from '@/schemas/reports';
 import { supabase } from '@/services/supabase/client';
 import type { Expense } from '@/types/database';
 import { createOperationId } from '@/utils/operationId';
+import { parseDecimal } from '@/utils/number';
 
 export async function getExpenses(companyId: string, storeId: string): Promise<Expense[]> {
   const { data, error } = await supabase.from('expenses')
@@ -16,13 +17,13 @@ export async function getExpenses(companyId: string, storeId: string): Promise<E
 
 export async function createExpense(_companyId: string, input: ExpenseInput, operationId = createOperationId()) {
   if (!input.storeId) throw new Error('Sélectionnez une boutique avant cette dépense.');
-  if (!Number.isFinite(Number(input.amount)) || Number(input.amount) <= 0) {
+  if (!Number.isFinite(parseDecimal(input.amount)) || parseDecimal(input.amount) <= 0) {
     throw new Error('Le montant doit être supérieur à zéro.');
   }
   const { error } = await supabase.rpc('record_expense', {
     p_store_id: input.storeId,
     p_label: input.label.trim(),
-    p_amount: Number(input.amount),
+    p_amount: parseDecimal(input.amount),
     p_expense_date: input.expenseDate,
     p_operation_id: operationId,
   });

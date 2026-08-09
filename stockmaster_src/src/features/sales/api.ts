@@ -28,10 +28,13 @@ export async function getSale(id: string): Promise<Sale> {
   return data as unknown as Sale;
 }
 
-export async function getSaleStock(companyId: string, storeId: string): Promise<SaleStockItem[]> {
+export async function getSaleStock(companyId: string, storeId: string, includeCost = true): Promise<SaleStockItem[]> {
+  const productColumns = includeCost
+    ? 'id,name,sku,sale_price,purchase_price,image_urls,is_active,product_variants(id,name,sku,sale_price,purchase_price,is_active)'
+    : 'id,name,sku,sale_price,image_urls,is_active,product_variants(id,name,sku,sale_price,is_active)';
   const [levelsResult, productsResult] = await Promise.all([
     supabase.from('stock_levels').select('id,product_id,product_variant_id,quantity').eq('company_id', companyId).eq('store_id', storeId),
-    supabase.from('products').select('id,name,sku,sale_price,purchase_price,image_urls,is_active,product_variants(id,name,sku,sale_price,purchase_price,is_active)').eq('company_id', companyId).eq('store_id',storeId).eq('is_active', true).order('name'),
+    supabase.from('products').select(productColumns).eq('company_id', companyId).eq('store_id',storeId).eq('is_active', true).order('name'),
   ]);
   fail(levelsResult.error);
   fail(productsResult.error);
@@ -39,8 +42,8 @@ export async function getSaleStock(companyId: string, storeId: string): Promise<
   const levelFor = (productId: string, variantId: string | null) => levels.find((row) => row.product_id === productId && row.product_variant_id === variantId);
 
   return ((productsResult.data ?? []) as unknown as {
-    id: string; name: string; sku: string; sale_price: number; purchase_price: number; image_urls: string[];
-    product_variants: { id: string; name: string; sku: string; sale_price: number | null; purchase_price: number | null; is_active: boolean }[];
+    id: string; name: string; sku: string; sale_price: number; purchase_price?: number; image_urls: string[];
+    product_variants: { id: string; name: string; sku: string; sale_price: number | null; purchase_price?: number | null; is_active: boolean }[];
   }[]).flatMap((product) => {
     const variants = (product.product_variants ?? []).filter((variant) => variant.is_active);
     const entries = variants.length ? variants : [null];
@@ -53,7 +56,7 @@ export async function getSaleStock(companyId: string, storeId: string): Promise<
         name: variant ? `${product.name} • ${variant.name}` : product.name,
         sku: variant?.sku ?? product.sku,
         salePrice: Number(variant?.sale_price ?? product.sale_price),
-        purchasePrice: Number(variant?.purchase_price ?? product.purchase_price),
+        purchasePrice: includeCost ? Number(variant?.purchase_price ?? product.purchase_price ?? 0) : 0,
         available: Number(level?.quantity ?? 0),
         imageUrl: product.image_urls?.[0] ?? null,
       };
@@ -67,10 +70,10 @@ export async function createSale(
   items: CartItem[],
   operationId = createOperationId(),
 ): Promise<{ saleId: string; reference: string; total: number; grossProfit: number }> {
-  if (!storeId) throw new Error('SÃ©lectionnez une boutique avant de valider la vente.');
+  if (!storeId) throw new Error('Sélectionnez une boutique avant de valider la vente.');
   if (!items.length) throw new Error('Ajoutez au moins un produit au panier.');
   if (items.some((item) => !Number.isFinite(item.quantity) || item.quantity <= 0)) {
-    throw new Error('Toutes les quantitÃ©s doivent Ãªtre supÃ©rieures Ã  zÃ©ro.');
+    throw new Error('Toutes les quantités doivent être supérieures à zéro.');
   }
   if (items.some((item) => item.quantity > item.available)) {
     throw new Error('Le stock disponible est insuffisant pour un ou plusieurs produits.');

@@ -2,6 +2,7 @@ import { supabase } from '@/services/supabase/client';
 import type { StockLevel, StockMovement } from '@/types/database';
 import type { StockMovementInput } from '@/schemas/inventory';
 import { createOperationId } from '@/utils/operationId';
+import { parseDecimal } from '@/utils/number';
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -61,7 +62,7 @@ export async function recordStockMovement(
   values: StockMovementInput,
   operationId = createOperationId(),
 ): Promise<number> {
-  const delta = Number(values.quantity) * (values.direction === 'out' ? -1 : 1);
+  const delta = parseDecimal(values.quantity) * (values.direction === 'out' ? -1 : 1);
   const { data, error } = await supabase.rpc('record_stock_movement', {
     p_product_id: productId,
     p_store_id: values.storeId,

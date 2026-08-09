@@ -193,3 +193,26 @@ Modèle déjà riche : companies, stores, memberships, roles/permissions, produc
 - **Realtime** utilisé pour les accès → à étendre au stock/ventes pour du temps réel multi-caisses.
 - **Exports PDF/Excel** déjà solides (feuilles multiples, formules Excel).
 - **Sécurité** globalement très soignée (RPC atomiques, RLS, signature webhook) — le seul vrai trou reste le filtrage colonne financière (#1).
+
+---
+
+# ✅ CORRECTIONS APPLIQUÉES (Phase 1 — sûres, vérifiées par TypeScript)
+
+Toutes dans `/app/stockmaster_src` (ton code) :
+
+1. **Texte cassé (mojibake)** corrigé — `src/features/sales/api.ts` (« Sélectionnez… », « Toutes les quantités doivent être supérieures à zéro. »).
+2. **Virgule décimale** — nouvel util `src/utils/number.ts → parseDecimal()` (gère « 1,5 » et « 1 250,75 »), appliqué à :
+   - Quantité de vente (`sales/new.tsx`)
+   - Montant caisse (`cash.tsx`)
+   - Dépenses (`schemas/reports.ts`, `expensesApi.ts`)
+   - Mouvements de stock (`schemas/inventory.ts`, `inventory/api.ts`, `StockAdjustmentDialog.tsx`)
+   - Prix produits/variantes (`schemas/catalog.ts`, `products/api.ts`)
+3. **Écran mort supprimé** — `src/features/dashboard/DashboardScreen.tsx` (n'était utilisé nulle part).
+4. **Contraste mode sombre** — bannière du tableau de bord admin sur fond vert de marque constant (`#087F5B`), texte blanc lisible dans les 2 thèmes.
+5. **Fuite financière côté client (volet frontend du #4)** — `getSaleStock()` n'envoie plus le prix d'achat/coût au téléphone des employés (paramètre `includeCost`, forcé à `false` pour les employés). Le calcul du bénéfice reste côté serveur.
+
+> ⚠️ Le **volet base de données du #4** (empêcher un employé de lire les colonnes
+> financières par requête Supabase directe) nécessite une **migration SQL** à
+> déployer sur ton Supabase (protection au niveau colonne + RPC admin). Non
+> appliqué encore car cela doit être testé sur ta base pour ne pas casser les
+> lectures admin.
