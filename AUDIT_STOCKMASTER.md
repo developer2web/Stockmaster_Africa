@@ -146,3 +146,50 @@ vaut y mettre des placeholders pour éviter toute confusion.
 | 8 | 🟡 P2 | Catalogue vente non paginé | `features/sales/api.ts` |
 | 9 | 🟡 P2 | Locale monétaire figée | `currency/CurrencyProvider.tsx` |
 | 10-14 | 🔵 P3 | testID / SafeArea / ESLint / logs / env | divers |
+
+---
+
+# 🎨 AUDIT DESIGN (UI/UX)
+
+Base : react-native-paper (Material Design 3), thème vert émeraude/teal, light + dark complets.
+
+## Points forts
+- Thème cohérent, mode sombre complet, identité violette distincte pour l'espace employé (bonne séparation admin/employé).
+- Responsive (breakpoints compact/wide, `maxWidth` centré) → OK tablette + web.
+- Écran d'authentification soigné (orbes animés, apparition en fondu).
+- Bons composants réutilisables : MetricCard, Ranking, StatCard, EmptyState, ErrorState, AdminPage, ProductThumbnail avec placeholder.
+
+## À améliorer
+1. **Pas de barre d'onglets (bottom tabs)** : tout passe par le dashboard + menu « hamburger ». Avec 4 zones clés (Ventes / Inventaire / Caisse / Rapports), une **bottom tab bar** rendrait l'accès bien plus rapide au pouce. Actuellement il faut revenir au dashboard pour changer de module.
+2. **Contraste dark mode sur le hero admin** : texte blanc sur `theme.colors.primary` qui vaut `#63E6BE` (vert clair) en sombre → lisibilité faible. Utiliser `onPrimary`/couleur foncée.
+3. **Quantités en `.toFixed(3)`** → « Stock 5.000 » s'affiche pour des articles à l'unité. Afficher les décimales seulement si nécessaire.
+4. **Dates saisies en texte** (`AAAA-MM-JJ` dans les rapports personnalisés) au lieu d'un vrai sélecteur de date → erreurs de saisie fréquentes.
+5. **Pas de graphiques** : les rapports n'ont que des `ProgressBar`. Ajouter des courbes/barres (victory-native / react-native-gifted-charts) pour visualiser les tendances de ventes/bénéfices.
+6. **Pas de pull-to-refresh** (RefreshControl) sur les listes (produits, ventes, caisse) — geste mobile attendu.
+7. **SafeArea bas** non gérée (rappel P3 #11) — le FAB/boutons collent au bas sur iPhone récents.
+8. Emojis décoratifs dans le texte (« Bonjour 👋 ») — acceptable, mais les guidelines recommandent de s'appuyer sur les icônes.
+
+---
+
+# 🗃️ AUDIT DONNÉES (modèle) — présent vs à ajouter
+
+Modèle déjà riche : companies, stores, memberships, roles/permissions, products, variants, categories, suppliers, stock_levels, stock_movements, sales/sale_items, cash_transactions, expenses, plans/features, subscriptions, payment_transactions, currency_exchange_rates, audit… ✅
+
+## Données présentes mais sous-exploitées / manquantes
+1. **Clients / CRM absents** : `sales.customer_id` existe mais toujours `null`, et il n'y a **aucune table clients**. → Module Clients (fidélité, historique, **crédit/ardoise** — très courant en Afrique de l'Ouest).
+2. **Pas d'achats / réceptions fournisseurs** : les permissions `purchases.read` existent, mais pas de module de commande/réception liant coût et stock. Le stock s'ajuste à la main.
+3. **Remises désactivées** : le schéma gère `discount` mais l'UI le force à 0. À réactiver proprement.
+4. **Pas de TVA/taxes** : aucune notion de taxe → limite la facturation formelle.
+5. **Pas d'unité de mesure** (kg, L, pièce) alors que les quantités sont décimales → affichage « 5.000 » ambigu.
+6. **Reçu/ticket client** : seulement un rapport financier PDF/Excel ; pas de ticket de caisse imprimable par vente.
+7. **Alertes stock faible** : `low_stock_threshold` existe mais pas d'écran d'alertes proactif.
+8. **Taux de change secondaire** saisi à la main, pas de mise à jour automatique.
+9. **Étiquettes code-barres/QR imprimables** : les codes existent, la génération d'étiquettes serait un vrai plus.
+
+---
+
+# 🧩 AUTRES OBSERVATIONS
+- **Idempotence prête** (`operation_id` partout) → base parfaite pour un **mode hors-ligne** (marché à connexion instable).
+- **Realtime** utilisé pour les accès → à étendre au stock/ventes pour du temps réel multi-caisses.
+- **Exports PDF/Excel** déjà solides (feuilles multiples, formules Excel).
+- **Sécurité** globalement très soignée (RPC atomiques, RLS, signature webhook) — le seul vrai trou reste le filtrage colonne financière (#1).
