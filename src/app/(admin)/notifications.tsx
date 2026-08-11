@@ -1,0 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
+import { Card,Chip,HelperText,Icon,Text,useTheme } from 'react-native-paper';
+import { AdminPage } from '@/components/ui/AdminPage';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { useAuth } from '@/features/auth/AuthProvider';
+import { getInternalNotifications } from '@/features/notifications/api';
+export default function NotificationsScreen(){const{membership}=useAuth();const theme=useTheme();const store=membership?.storeId??'';const query=useQuery({queryKey:['internal-notifications',store],queryFn:()=>getInternalNotifications(store),enabled:!!store});return <AdminPage title="Notifications">{!!query.error&&<HelperText type="error" visible>{query.error.message}</HelperText>}{query.data?.map(item=><Card key={item.id} mode="contained" style={{backgroundColor:theme.colors.surface}}><Card.Content style={{flexDirection:'row',alignItems:'center',gap:12}}><Icon source={item.type==='stock_out'?'alert-octagon':item.type==='low_stock'?'alert-outline':item.type==='customer_debt'?'account-cash-outline':'truck-check-outline'} size={28} color={item.severity==='3'?'#C92A2A':item.severity==='2'?'#E67700':'#1971C2'}/><Text style={{flex:1}}><Text variant="titleMedium">{item.title}</Text>{'\n'}{item.body}</Text><Chip>{item.type==='stock_out'?'Urgent':'À voir'}</Chip></Card.Content></Card>)}{!query.isLoading&&!query.data?.length&&<EmptyState icon="bell-check-outline" title="Tout va bien" message="Aucune rupture, dette ou alerte récente pour cette boutique."/>}</AdminPage>}
