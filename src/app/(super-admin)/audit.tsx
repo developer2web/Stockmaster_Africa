@@ -5,6 +5,7 @@ import { Button, Card, Chip, Searchbar, Text, useTheme } from 'react-native-pape
 import { PlatformPage } from '@/components/superAdmin/PlatformPage';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { getPlatformAudit } from '@/features/superAdmin/api';
 import { FilterMenu } from '@/components/superAdmin/FilterMenu';
 
@@ -26,6 +27,7 @@ export default function AuditScreen() {
     (result[key] ??= []).push(item);
     return result;
   }, {});
+  if (query.isLoading) return <LoadingScreen label="Chargement du journal…" />;
   return (
     <PlatformPage title="Journal d’activité">
       <Searchbar placeholder="Entreprise, utilisateur ou type d’objet" value={search} onChangeText={setSearch} />
@@ -36,8 +38,8 @@ export default function AuditScreen() {
       </View>
       {query.error && <ErrorState message={query.error.message} onRetry={() => query.refetch()} />}
       {!query.isLoading && !query.error && items.length === 0 && <EmptyState title="Aucune activité" message="Le journal ne contient aucun événement correspondant." />}
-      {Object.entries(days).map(([day, logs]) => <View key={day} style={styles.day}><View style={styles.dayTitle}><Text variant="titleMedium" style={styles.bold}>{day}</Text><Chip compact>{logs.length} activité(s)</Chip></View>{logs.map((log) => <Card key={log.id} mode="contained" style={{ backgroundColor: theme.colors.surface }}><Card.Content style={styles.row}><Chip icon={log.action === 'delete' ? 'delete-outline' : log.action === 'insert' ? 'plus-circle-outline' : 'pencil-outline'}>{labels[log.action] ?? log.action}</Chip><View style={styles.copy}><Text variant="titleMedium" style={styles.bold}>{log.entity_type}</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>{log.company?.name ?? 'Entreprise'} · {log.actor?.full_name || 'Système'}</Text></View><Text style={{ color: theme.colors.onSurfaceVariant }}>{new Date(log.created_at).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' })}</Text></Card.Content></Card>)}</View>)}
+      {Object.entries(days).map(([day, logs]) => <View key={day} style={styles.day}><View style={styles.dayTitle}><Text variant="titleMedium" style={styles.dayLabel}>{day}</Text><Chip compact>{logs.length}</Chip></View>{logs.map((log) => <Card key={log.id} mode="contained" style={{backgroundColor:theme.colors.surface}}><Card.Content style={styles.logContent}><View style={styles.logHeading}><View style={styles.copy}><Text variant="titleMedium" style={styles.bold}>{log.entity_type}</Text><Text variant="bodySmall" style={{color:theme.colors.onSurfaceVariant}}>{log.company?.name??'Entreprise'} · {log.actor?.full_name||'Système'}</Text></View><Text variant="labelMedium" style={{color:theme.colors.onSurfaceVariant}}>{new Date(log.created_at).toLocaleTimeString('fr-CA',{hour:'2-digit',minute:'2-digit'})}</Text></View><Chip compact style={styles.selfStart} icon={log.action==='delete'?'delete-outline':log.action==='insert'?'plus-circle-outline':'pencil-outline'}>{labels[log.action]??log.action}</Chip></Card.Content></Card>)}</View>)}
     </PlatformPage>
   );
 }
-const styles = StyleSheet.create({ row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12 }, copy: { flex: 1, minWidth: 180 }, bold: { fontWeight: '700' }, filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, day: { gap: 8 }, dayTitle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 } });
+const styles=StyleSheet.create({copy:{flex:1,minWidth:0,gap:2},bold:{fontWeight:'800'},filters:{flexDirection:'row',flexWrap:'wrap',gap:8},day:{gap:8},dayTitle:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},dayLabel:{fontWeight:'800',flex:1,textTransform:'capitalize'},logContent:{gap:10,paddingTop:14},logHeading:{flexDirection:'row',alignItems:'flex-start',gap:10},selfStart:{alignSelf:'flex-start'}});

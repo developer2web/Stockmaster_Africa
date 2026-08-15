@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Button, Card, Chip, Searchbar, Switch, Text, useTheme } from 'react-native-paper';
 
 import { PlatformPage } from '@/components/superAdmin/PlatformPage';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { FilterMenu } from '@/components/superAdmin/FilterMenu';
 import {
@@ -16,6 +17,8 @@ import {
 
 export default function CompaniesScreen() {
   const theme = useTheme();
+  const {width}=useWindowDimensions();
+  const mobile=width<600;
   const cache = useQueryClient();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'all' | 'active' | 'suspended'>('all');
@@ -56,6 +59,8 @@ export default function CompaniesScreen() {
       (plan === 'all' || item.plan_code === plan),
   );
 
+  if (query.isLoading) return <LoadingScreen label="Chargement des entreprises…" />;
+
   return (
     <PlatformPage title="Entreprises et abonnements">
       <Searchbar
@@ -69,6 +74,7 @@ export default function CompaniesScreen() {
         {(status !== 'all' || plan !== 'all') && <Button compact onPress={() => { setStatus('all'); setPlan('all'); }}>Réinitialiser</Button>}
       </View>
       {!!activeMutation.error && <Text style={{ color: theme.colors.error }}>{activeMutation.error.message}</Text>}
+      {!!planMutation.error && <Text style={{ color: theme.colors.error }}>{planMutation.error.message}</Text>}
       {query.error && <ErrorState message={query.error.message} onRetry={() => query.refetch()} />}
       {!query.isLoading && !query.error && items.length === 0 && (
         <EmptyState
@@ -81,26 +87,15 @@ export default function CompaniesScreen() {
           <Card
             key={company.id}
             mode="contained"
-            style={[styles.card, { backgroundColor: theme.colors.surface }]}
+            style={[styles.card, mobile && styles.cardMobile, { backgroundColor: theme.colors.surface }]}
           >
-            <Card.Title
-              title={company.name}
-              subtitle={company.slug || 'Aucun identifiant public'}
-              right={() => (
-                <Switch
-                  value={company.is_active}
-                  disabled={activeMutation.isPending}
-                  onValueChange={(active) =>
-                    setPendingAction({ kind: 'active', id: company.id, name: company.name, active })}
-                />
-              )}
-            />
             <Card.Content style={styles.content}>
+              <View style={styles.cardHeading}><View style={styles.grow}><Text variant="titleLarge" numberOfLines={2} style={styles.bold}>{company.name}</Text><Text variant="bodySmall" style={{color:theme.colors.onSurfaceVariant}}>{company.slug||'Identifiant non défini'}</Text></View><View style={styles.status}><Text variant="labelSmall">{company.is_active?'Active':'Suspendue'}</Text><Switch value={company.is_active} disabled={activeMutation.isPending} onValueChange={(active)=>setPendingAction({kind:'active',id:company.id,name:company.name,active})}/></View></View>
               <View style={styles.chips}>
                 <Chip icon="store-outline">{company.store_count} boutiques</Chip>
                 <Chip icon="account-group-outline">{company.user_count} utilisateurs</Chip>
               </View>
-              <Text variant="titleLarge" style={styles.bold}>
+              <Text variant={mobile?'headlineSmall':'titleLarge'} style={styles.bold}>
                 {new Intl.NumberFormat('fr-CA', {
                   style: 'currency',
                   currency: company.currency_code,
@@ -115,7 +110,7 @@ export default function CompaniesScreen() {
                 {(company.plan_code ?? 'Aucun forfait').toUpperCase()} ·{' '}
                 {company.subscription_status ?? 'inactif'}
               </Chip>
-              <Text variant="labelLarge">Attribuer un forfait pendant 30 jours</Text>
+              <Text variant="labelLarge">Forfait pour les 30 prochains jours</Text>
               <View style={styles.chips}>
                 {(['basic', 'pro', 'premium'] as const).map((planCode) => (
                   <Chip
@@ -129,9 +124,6 @@ export default function CompaniesScreen() {
                   </Chip>
                 ))}
               </View>
-              {!!planMutation.error && (
-                <Text style={{ color: theme.colors.error }}>{planMutation.error.message}</Text>
-              )}
             </Card.Content>
           </Card>
         ))}
@@ -159,9 +151,13 @@ export default function CompaniesScreen() {
 
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
-  card: { flexGrow: 1, flexBasis: 350, borderRadius: 20 },
-  content: { gap: 10 },
+  card: { flexGrow: 1, flexBasis: 350, minWidth:0,borderRadius: 18 },
+  cardMobile: { width: '100%', flexBasis: 'auto', flexGrow: 0, flexShrink: 1 },
+  content: { gap: 12,paddingTop:16 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   filterBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   bold: { fontWeight: '800' },
+  cardHeading:{flexDirection:'row',alignItems:'flex-start',gap:10},
+  grow:{flex:1,minWidth:0},
+  status:{alignItems:'center',gap:2},
 });

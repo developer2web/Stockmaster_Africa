@@ -9,7 +9,7 @@ import { AppBackButton } from './AppBackButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { hasAnyPermission } from '@/features/auth/permissions';
 
-export function AdminPage({ title, action, children }: PropsWithChildren<{ title: string; action?: ReactNode }>) {
+export function AdminPage({ title, action, backToHome = false, children }: PropsWithChildren<{ title: string; action?: ReactNode; backToHome?: boolean }>) {
   const theme = useTheme();
   const { session, membership, stores, selectStore } = useAuth();
   const employeeName = String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
@@ -34,7 +34,7 @@ export function AdminPage({ title, action, children }: PropsWithChildren<{ title
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <Appbar.Header elevated style={{ backgroundColor: employee ? employeeHeader : theme.colors.surface }}>
-        <AppBackButton fallback={employee ? '/employee' : '/(admin)'} light={employee} />
+        <AppBackButton fallback={employee ? '/employee' : '/(admin)'} light={employee} forceFallback={backToHome} />
         <Appbar.Content
           style={styles.headerContent}
           title={title}

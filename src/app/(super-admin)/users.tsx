@@ -5,6 +5,7 @@ import { Button, Card, Chip, Searchbar, Switch, Text, useTheme } from 'react-nat
 import { PlatformPage } from '@/components/superAdmin/PlatformPage';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { FilterMenu } from '@/components/superAdmin/FilterMenu';
 import { getPlatformUsers, setMembershipActive } from '@/features/superAdmin/api';
@@ -27,6 +28,7 @@ export default function UsersScreen() {
     (status === 'all' || (status === 'active' ? item.is_active : !item.is_active)) &&
     (company === 'all' || item.company_name === company) &&
     (role === 'all' || item.role_name === role));
+  if (query.isLoading) return <LoadingScreen label="Chargement des utilisateurs…" />;
   return (
     <PlatformPage title="Utilisateurs">
       <Searchbar placeholder="Nom, email ou entreprise" value={search} onChangeText={setSearch} />
@@ -41,12 +43,11 @@ export default function UsersScreen() {
       {!query.isLoading && !query.error && items.length === 0 && <EmptyState title="Aucun utilisateur" message="Aucun résultat trouvé." />}
       {items.map((user) => (
         <Card key={user.membership_id} mode="contained" style={{ backgroundColor: theme.colors.surface }}>
-          <Card.Title title={user.full_name || 'Utilisateur'} subtitle={user.email} right={() => <Switch value={user.is_active} disabled={mutation.isPending} onValueChange={(active) => setPending({ id: user.membership_id, name: user.full_name || user.email, active })} />} />
-          <Card.Content style={styles.row}><Chip icon="office-building-outline">{user.company_name}</Chip><Chip icon="badge-account-outline">{user.role_name}</Chip>{user.store_name && <Chip icon="store-outline">{user.store_name}</Chip>}<Text style={{ color: theme.colors.onSurfaceVariant }}>Ajouté le {new Date(user.created_at).toLocaleDateString('fr-CA')}</Text></Card.Content>
+          <Card.Content style={styles.content}><View style={styles.heading}><View style={styles.copy}><Text variant="titleMedium" style={styles.bold}>{user.full_name||'Utilisateur'}</Text><Text selectable variant="bodySmall" style={{color:theme.colors.onSurfaceVariant}}>{user.email}</Text></View><View style={styles.status}><Text variant="labelSmall">{user.is_active?'Actif':'Suspendu'}</Text><Switch value={user.is_active} disabled={mutation.isPending} onValueChange={(active)=>setPending({id:user.membership_id,name:user.full_name||user.email,active})}/></View></View><View style={styles.row}><Chip icon="office-building-outline">{user.company_name}</Chip><Chip icon="badge-account-outline">{user.role_name}</Chip>{user.store_name&&<Chip icon="store-outline">{user.store_name}</Chip>}</View><Text variant="bodySmall" style={{color:theme.colors.onSurfaceVariant}}>Ajouté le {new Date(user.created_at).toLocaleDateString('fr-CA')}</Text></Card.Content>
         </Card>
       ))}
       <ConfirmDialog visible={pending !== null} title={pending?.active ? 'Réactiver l’utilisateur' : 'Suspendre l’utilisateur'} message={pending?.active ? `Réactiver l’accès de ${pending?.name} ?` : `Suspendre ${pending?.name} ? La session sera refusée au prochain contrôle d’accès.`} destructive={!pending?.active} loading={mutation.isPending} onCancel={() => setPending(null)} onConfirm={() => pending && mutation.mutate({ id: pending.id, active: pending.active }, { onSuccess: () => setPending(null) })} />
     </PlatformPage>
   );
 }
-const styles = StyleSheet.create({ row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }, filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 } });
+const styles = StyleSheet.create({content:{gap:12,paddingTop:16},heading:{flexDirection:'row',alignItems:'flex-start',gap:10},copy:{flex:1,minWidth:0,gap:2},status:{alignItems:'center'},bold:{fontWeight:'800'},row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }, filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 } });

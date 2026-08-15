@@ -1,6 +1,6 @@
 import { useMutation,useQuery,useQueryClient } from '@tanstack/react-query';
 import { useEffect,useState } from 'react';
-import { ScrollView,StyleSheet,View } from 'react-native';
+import { ScrollView,StyleSheet,useWindowDimensions,View } from 'react-native';
 import { Card,Checkbox,Chip,Dialog,FAB,HelperText,Icon,Portal,SegmentedButtons,Snackbar,Switch,Text,TextInput,useTheme } from 'react-native-paper';
 import { SelectField } from '@/components/forms/SelectField';
 import { PlatformPage } from '@/components/superAdmin/PlatformPage';
@@ -14,7 +14,7 @@ const typeLabels={free_days:'Jours gratuits',percentage:'Réduction en %',fixed_
 const audienceLabels={all:'Tous les clients',new_clients:'Nouveaux clients',existing_clients:'Clients existants'};
 
 export default function Promotions(){
-  const theme=useTheme();const cache=useQueryClient();const[section,setSection]=useState<'trial'|'orange'|'promos'>('trial');const[open,setOpen]=useState(false);const[editing,setEditing]=useState<Promotion|null>(null);const[form,setForm]=useState(fresh());const[message,setMessage]=useState('');
+  const theme=useTheme();const{width}=useWindowDimensions();const mobile=width<600;const cache=useQueryClient();const[section,setSection]=useState<'trial'|'orange'|'promos'>('trial');const[open,setOpen]=useState(false);const[editing,setEditing]=useState<Promotion|null>(null);const[form,setForm]=useState(fresh());const[message,setMessage]=useState('');
   const promotions=useQuery({queryKey:['promotions-admin'],queryFn:getPromotions});const plans=useQuery({queryKey:['plans'],queryFn:getPlans});const settings=useQuery({queryKey:['billing-settings'],queryFn:getBillingSettings});const companies=useQuery({queryKey:['platform-companies'],queryFn:getPlatformCompanies});
   const[billing,setBilling]=useState({orangeMoneyNumber:'',orangeMoneyAccountName:'',trialDays:'14',gracePeriodDays:'5',trialEnabled:true});const[trialCompany,setTrialCompany]=useState<string|null>(null);const[trialDays,setTrialDays]=useState('14');
   useEffect(()=>{if(settings.data)setBilling({orangeMoneyNumber:settings.data.orangeMoneyNumber,orangeMoneyAccountName:settings.data.orangeMoneyAccountName,trialDays:String(settings.data.trialDays),gracePeriodDays:String(settings.data.gracePeriodDays),trialEnabled:settings.data.trialEnabled})},[settings.data]);
@@ -25,9 +25,9 @@ export default function Promotions(){
   const generateCode=()=>{const prefix=form.name.trim().replace(/[^A-Za-z0-9]/g,'').slice(0,7).toUpperCase()||'PROMO';setForm(v=>({...v,code:`${prefix}${Math.floor(1000+Math.random()*9000)}`}))};
   const configError=billingSave.error?.message??grant.error?.message;
 
-  return <PlatformPage title="Abonnements et promotions" action={section==='promos'?<FAB size="small" icon="plus" label="Créer" onPress={()=>show()}/>:undefined}>
-    <View style={[styles.hero,{backgroundColor:theme.colors.primaryContainer}]}><View style={[styles.heroIcon,{backgroundColor:theme.colors.primary}]}><Icon source="ticket-percent-outline" size={30} color={theme.colors.onPrimary}/></View><View style={styles.grow}><Text variant="headlineSmall" style={styles.bold}>Centre de facturation</Text><Text>Configurez l’essai, Orange Money et vos campagnes sans modifier le code.</Text></View></View>
-    <SegmentedButtons value={section} onValueChange={value=>setSection(value as typeof section)} buttons={[{value:'trial',label:'Essai gratuit',icon:'gift-outline'},{value:'orange',label:'Orange Money',icon:'cellphone'},{value:'promos',label:'Promotions',icon:'ticket-percent'}]}/>
+  return <PlatformPage title="Offres et promotions" action={section==='promos'?<FAB size="small" icon="plus" label={mobile?undefined:'Créer'} onPress={()=>show()}/>:undefined}>
+    {!mobile&&<View style={[styles.hero,{backgroundColor:theme.colors.primaryContainer}]}><View style={[styles.heroIcon,{backgroundColor:theme.colors.primary}]}><Icon source="ticket-percent-outline" size={30} color={theme.colors.onPrimary}/></View><View style={styles.grow}><Text variant="headlineSmall" style={styles.bold}>Centre de facturation</Text><Text>Configurez l’essai, Orange Money et vos campagnes.</Text></View></View>}
+    <SegmentedButtons value={section} onValueChange={value=>setSection(value as typeof section)} buttons={[{value:'trial',label:mobile?'Essai':'Essai gratuit',icon:'gift-outline'},{value:'orange',label:mobile?'Orange':'Orange Money',icon:'cellphone'},{value:'promos',label:mobile?'Promos':'Promotions',icon:'ticket-percent'}]}/>
 
     {section==='trial'&&<>
       <Card mode="outlined"><Card.Title title="Essai gratuit automatique" subtitle="Pour chaque nouvelle entreprise" left={()=><Icon source="gift-outline" size={28}/>} right={()=><Switch value={billing.trialEnabled} onValueChange={trialEnabled=>setBilling(v=>({...v,trialEnabled}))} style={{marginRight:12}}/>}/><Card.Content style={styles.content}><View style={styles.metric}><Text variant="displaySmall" style={styles.bold}>{billing.trialDays||'14'}</Text><Text>jours gratuits</Text></View><TextInput mode="outlined" label="Durée de l’essai" value={billing.trialDays} onChangeText={trialDays=>setBilling(v=>({...v,trialDays}))} keyboardType="number-pad" right={<TextInput.Affix text="jours"/>}/><TextInput mode="outlined" label="Période de grâce après expiration" value={billing.gracePeriodDays} onChangeText={gracePeriodDays=>setBilling(v=>({...v,gracePeriodDays}))} keyboardType="number-pad" right={<TextInput.Affix text="jours"/>}/><HelperText type="info" visible>Les données ne sont jamais supprimées après l’essai. Seules les opérations métier sont limitées jusqu’au paiement.</HelperText><AppButton icon="content-save-check" loading={billingSave.isPending} disabled={billingSave.isPending||!(Number(billing.trialDays)>=1)||!(Number(billing.gracePeriodDays)>=0)} onPress={()=>billingSave.mutate()}>Enregistrer l’essai automatique</AppButton></Card.Content></Card>

@@ -26,7 +26,10 @@ function writeStructuredLog(
     context,
     stack: normalized.stack,
   };
-  if (severity === 'warning') console.warn(JSON.stringify(record));
+  // React Native LogBox already displays the original render exception in development.
+  // Logging it again with console.error creates a second, misleading red screen.
+  if (__DEV__) console.log(JSON.stringify(record));
+  else if (severity === 'warning') console.warn(JSON.stringify(record));
   else console.error(JSON.stringify(record));
   return normalized;
 }

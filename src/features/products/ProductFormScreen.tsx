@@ -44,10 +44,10 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products' }: { 
 
   useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku, barcode:product.data.barcode??'', categoryId:product.data.category_id, supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:String(product.data.purchase_price), salePrice:String(product.data.sale_price), initialQuantity:'0', lowStockThreshold:String(product.data.low_stock_threshold), isActive:product.data.is_active }); }, [product.data,reset]);
 
-  const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onSuccess:async(saved)=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]})]); router.replace(basePath as never); } });
+  const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onSuccess:async(saved)=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['employee-products',company,store]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]})]); router.replace(basePath as never); } });
   const [confirm,setConfirm] = useState(false);
   const [adjust,setAdjust] = useState<'in'|'out'|null>(null);
-  const remove = useMutation({ mutationFn:()=>deleteProduct(id!), onSuccess:async()=>{ await qc.invalidateQueries({queryKey:['products',company]}); router.replace(basePath as never); } });
+  const remove = useMutation({ mutationFn:()=>deleteProduct(id!), onSuccess:async()=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company]}),qc.invalidateQueries({queryKey:['employee-products',company]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company]})]); router.replace(basePath as never); } });
   const stockQuantity=(levels.data??[]).reduce((sum,row)=>sum+Number(row.quantity),0);
   const margin=product.data?Number(product.data.sale_price)-Number(product.data.purchase_price):0;
   const stockValue=product.data?stockQuantity*Number(product.data.purchase_price):0;

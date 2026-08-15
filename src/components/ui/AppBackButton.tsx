@@ -1,11 +1,12 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { Icon, useTheme } from 'react-native-paper';
+import { router } from 'expo-router';
 import { safeBack } from '@/utils/navigation';
 
-export function AppBackButton({ fallback, light = false }: { fallback: string; light?: boolean }) {
+export function AppBackButton({ fallback, light = false, forceFallback = false }: { fallback: string; light?: boolean; forceFallback?: boolean }) {
   const theme = useTheme();
   const color = light ? '#FFFFFF' : theme.colors.onSurface;
-  return <Pressable accessibilityRole="button" accessibilityLabel="Retour" hitSlop={10} onPress={() => safeBack(fallback)} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
+  return <Pressable accessibilityRole="button" accessibilityLabel="Retour" hitSlop={10} onPress={() => forceFallback ? router.replace(fallback as never) : safeBack(fallback)} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
     <Icon source="arrow-left" size={30} color={color} />
   </Pressable>;
 }
