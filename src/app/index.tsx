@@ -8,7 +8,9 @@ import { supabase } from '@/services/supabase/client';
 export default function Index() {
   const { session, membership, businesses, stores, membershipError, isAccessBlocked, needsOnboarding, isWorkspaceLoading, refreshMembership, signOut } = useAuth();
   const billingOnboarding=useQuery({queryKey:['billing-onboarding',membership?.companyId],queryFn:async()=>{const{data,error}=await supabase.rpc('billing_onboarding_required',{p_company_id:membership!.companyId});if(error)throw error;return!!data},enabled:!!session&&membership?.role==='company_admin'&&!!membership.companyId});
+  const assurance=useQuery({queryKey:['mfa-assurance',session?.user.id],queryFn:async()=>{const{data,error}=await supabase.auth.mfa.getAuthenticatorAssuranceLevel();if(error)throw error;return data},enabled:!!session,staleTime:0});
   if (!session) return <Redirect href="/(auth)/login" />;
+  if(assurance.data?.nextLevel==='aal2'&&assurance.data.currentLevel!=='aal2')return <Redirect href="/(auth)/mfa"/>;
   if (!membership && isWorkspaceLoading) return <LoadingScreen label="Chargement de vos boutiques…" />;
   if (membershipError) {
     return (

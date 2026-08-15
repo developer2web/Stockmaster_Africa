@@ -1,4 +1,5 @@
 import { PropsWithChildren, useEffect, useState } from 'react';
+import { Image } from 'expo-image';
 import { Animated, Easing, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Surface, Text, useTheme } from 'react-native-paper';
 
@@ -33,7 +34,7 @@ export function AuthScreen({ title, subtitle, children }: PropsWithChildren<{ ti
       </View>
       <ScrollView contentContainerStyle={[styles.page, compact && styles.compactPage]} keyboardShouldPersistTaps="handled">
         <View style={[styles.brand, compact && styles.compactBrand]}>
-          <View style={[styles.logoMark, compact && styles.compactLogoMark]}><Text style={[styles.logoLetter, compact && styles.compactLogoLetter]}>S</Text></View>
+          <Image source={require('../../../assets/images/stockmaster-icon.png')} style={[styles.logoMark, compact && styles.compactLogoMark]} contentFit="cover" transition={180} />
           <Text variant={compact ? 'headlineLarge' : 'displaySmall'} style={styles.logo}>StockMaster</Text>
           <Text variant="bodyLarge" style={styles.subtitle}>{subtitle}</Text>
         </View>
@@ -56,10 +57,8 @@ const styles = StyleSheet.create({
   compactPage: { justifyContent: 'flex-start', padding: 12, paddingVertical: 18, gap: 16, minHeight: undefined },
   brand: { alignItems: 'center', gap: 8 },
   compactBrand: { gap: 4 },
-  logoMark: { width: 54, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#18C795', transform: [{ rotate: '-7deg' }], shadowColor: '#18C795', shadowOpacity: 0.45, shadowRadius: 20 },
-  logoLetter: { color: '#06251D', fontSize: 30, lineHeight: 36, fontWeight: '900' },
-  compactLogoMark: { width: 44, height: 44, borderRadius: 14 },
-  compactLogoLetter: { fontSize: 24, lineHeight: 30 },
+  logoMark: { width: 70, height: 70, borderRadius: 20, shadowColor: '#18C795', shadowOpacity: 0.45, shadowRadius: 20 },
+  compactLogoMark: { width: 54, height: 54, borderRadius: 16 },
   logo: { color: '#F5FFFC', fontWeight: '800', letterSpacing: -1.2 },
   subtitle: { color: '#B8D6CF', textAlign: 'center' },
   cardWrap: { width: '100%', maxWidth: 540, alignSelf: 'center' },

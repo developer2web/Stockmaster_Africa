@@ -79,7 +79,7 @@ export default function RegisterScreen() {
         return;
       }
 
-      if(data.user?.identities?.length===0){setError('Cette adresse email possède déjà un compte StockMaster. Connectez-vous avec ce compte. Si vous êtes employé et souhaitez devenir administrateur, faites la demande depuis Paramètres > Devenir administrateur.');return}
+      if(data.user?.identities?.length===0){setError('Cette adresse email possède déjà un compte StockMaster. Connectez-vous avec ce compte. Une adresse email ne peut être utilisée qu’une seule fois.');return}
 
       if (data.session) {
         const { error: setupError } = await supabase.rpc('bootstrap_company', {

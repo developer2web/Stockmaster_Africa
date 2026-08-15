@@ -34,7 +34,7 @@ export default function EmployeeCatalog() {
       <AdminPage title="Catalogue">
         <View style={styles.stats}>
           {[
-            can('products.read') && ['Produits', products.data?.length ?? 0, 'package-variant-closed', '#087F5B'],
+            can('products.read') && ['Produits', products.data?.length ?? 0, 'package-variant-closed', '#084B50'],
             can('categories.read') && ['Catégories', categories.data?.length ?? 0, 'shape-outline', '#1971C2'],
             can('suppliers.read') && ['Fournisseurs', suppliers.data?.length ?? 0, 'truck-outline', '#E67700'],
           ].filter(Boolean).map((item) => {

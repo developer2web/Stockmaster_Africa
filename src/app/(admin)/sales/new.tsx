@@ -14,6 +14,7 @@ import { createSale, getSaleStock } from '@/features/sales/api';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { cartKey, useSaleCart } from '@/stores/saleCart';
 import { formatQuantity, parseDecimal } from '@/utils/number';
+import { useOffline } from '@/features/offline/OfflineProvider';
 
 export default function NewSale() {
   const { formatMoney } = useCurrency();
@@ -31,7 +32,8 @@ export default function NewSale() {
   const [amountPaid, setAmountPaid] = useState('');
   const [customerId, setCustomerId] = useState<string | null>(null);
   const cache = useQueryClient();
-  const { items, add, setQuantity, setDiscount, remove, clear } = useSaleCart();
+  const { refreshQueue } = useOffline();
+  const { items, add, setQuantity, setDiscount, remove } = useSaleCart();
   const scannedAdded = useRef(false);
   const stock = useQuery({
     queryKey: ['sale-stock', company, storeId, employee],
@@ -69,8 +71,17 @@ export default function NewSale() {
     ),
   }), [items]);
   const save = useMutation({
-    mutationFn: () => createSale(storeId, payment, items, customerId, payment==='credit'?0:payment==='partial'?parseDecimal(amountPaid):totals.total),
+    mutationFn: () => createSale(company, storeId, payment, items, customerId, payment==='credit'?0:payment==='partial'?parseDecimal(amountPaid):totals.total),
     onSuccess: async (result) => {
+      useSaleCart.getState().clear();
+      scannedAdded.current = true;
+      setCustomerId(null);
+      setAmountPaid('');
+      if (result.queued) {
+        await refreshQueue();
+        router.replace((employee ? '/employee/sales' : '/sales') as never);
+        return;
+      }
       await Promise.all([
         cache.invalidateQueries({ queryKey: ['sales', company] }),
         cache.invalidateQueries({ queryKey: ['stock-levels', company] }),
@@ -78,9 +89,6 @@ export default function NewSale() {
         cache.invalidateQueries({ queryKey: ['cash-transactions', company, storeId] }),
         cache.invalidateQueries({ queryKey: ['cash-summary', company, storeId] }),
       ]);
-      clear();
-      setCustomerId(null);
-      setAmountPaid('');
       router.replace((employee ? `/employee/sales/${result.saleId}` : `/sales/${result.saleId}`) as never);
     },
   });
@@ -154,8 +162,8 @@ export default function NewSale() {
         options={[{ label: 'Client de passage', value: null }, ...(customers.data ?? []).filter((item) => item.is_active).map((item) => ({ label: item.name, value: item.id }))]}
       />
       <Text variant="titleMedium">Paiement</Text>
-      {width >= 700 ? <SegmentedButtons value={payment} onValueChange={setPayment} buttons={[{ value: 'cash', label: 'Espèces' }, { value: 'mobile_money', label: 'Mobile' }, { value: 'card', label: 'Carte' }, { value: 'bank_transfer', label: 'Virement' }, { value: 'credit', label: 'Crédit',disabled:companySettings.data?.allow_credit_sales===false }, { value: 'partial', label: 'Partiel',disabled:companySettings.data?.allow_credit_sales===false }]} /> : <View style={styles.paymentGrid}>{[
-        ['cash','Espèces'],['mobile_money','Mobile Money'],['card','Carte'],['bank_transfer','Virement'],['credit','Crédit'],['partial','Partiel'],
+      {width >= 700 ? <SegmentedButtons value={payment} onValueChange={setPayment} buttons={[{ value: 'cash', label: 'Espèces' }, { value: 'mobile_money', label: 'Mobile Money' }, { value: 'credit', label: 'Crédit',disabled:companySettings.data?.allow_credit_sales===false }, { value: 'partial', label: 'Partiel',disabled:companySettings.data?.allow_credit_sales===false }]} /> : <View style={styles.paymentGrid}>{[
+        ['cash','Espèces'],['mobile_money','Mobile Money'],['credit','Crédit'],['partial','Partiel'],
       ].map(([value,label])=><Chip key={value} selected={payment===value} disabled={(value==='credit'||value==='partial')&&companySettings.data?.allow_credit_sales===false} onPress={()=>setPayment(value)}>{label}</Chip>)}</View>}
       {(payment==='credit'||payment==='partial')&&<Card mode="outlined"><Card.Content style={styles.list}>{payment==='partial'&&<TextInput mode="outlined" label="Montant payé maintenant" keyboardType="decimal-pad" value={amountPaid} onChangeText={setAmountPaid}/>}<Text>{payment==='credit'?`Dette client : ${formatMoney(totals.total)}`:`Reste dû : ${formatMoney(Math.max(0,totals.total-(parseDecimal(amountPaid)||0)))}`}</Text>{!customerId&&<HelperText type="error" visible>Choisissez obligatoirement le client associé à cette dette.</HelperText>}</Card.Content></Card>}
       <Card mode="contained" style={[styles.checkout,{ backgroundColor: theme.colors.primaryContainer }]}>

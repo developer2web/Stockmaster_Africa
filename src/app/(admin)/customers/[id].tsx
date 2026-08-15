@@ -14,6 +14,9 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { getCustomer, getCustomerLedger, getCustomerSales, recordCustomerEntry, saveCustomer } from '@/features/customers/api';
 import { customerSchema, type CustomerInput } from '@/schemas/customers';
+import { printPaymentReceipt, sharePaymentReceipt } from '@/features/payments/receipt';
+import { getCustomerLoyalty } from '@/features/loyalty/api';
+import { useReceiptAction } from '@/features/payments/useReceiptAction';
 
 const paymentLabels: Record<string, string> = { cash: 'Espèces', card: 'Carte', mobile_money: 'Mobile Money', bank_transfer: 'Virement', mixed: 'Mixte' };
 
@@ -26,10 +29,12 @@ export default function CustomerDetails() {
   const store = membership?.storeId ?? null;
   const canWrite = membership?.role === 'company_admin' || !!membership?.permissions.includes('sales.write');
   const queryClient = useQueryClient();
+  const receiptAction=useReceiptAction();
 
   const customer = useQuery({ queryKey: ['customer', id], queryFn: () => getCustomer(id!), enabled: !!id });
   const ledger = useQuery({ queryKey: ['customer-ledger', id], queryFn: () => getCustomerLedger(id!), enabled: !!id });
   const sales = useQuery({ queryKey: ['customer-sales', company, id], queryFn: () => getCustomerSales(company, id!), enabled: !!company && !!id });
+  const loyalty = useQuery({ queryKey: ['customer-loyalty', id], queryFn: () => getCustomerLoyalty(id!), enabled: !!id });
 
   const [entryType, setEntryType] = useState<'credit' | 'payment' | null>(null);
   const [amount, setAmount] = useState('');
@@ -83,6 +88,7 @@ export default function CustomerDetails() {
               <Text style={{ color: owes ? theme.colors.onErrorContainer : theme.colors.onPrimaryContainer }}>{owes ? 'Ce client a une dette en cours.' : 'Ce client est à jour.'}</Text>
             </Card.Content>
           </Card>
+          <Card mode="contained" style={{ backgroundColor: theme.colors.secondaryContainer }}><Card.Title title={`${loyalty.data?.points ?? 0} point(s) fidélité`} subtitle={`${loyalty.data?.lifetime_earned ?? 0} point(s) gagnés au total`} left={()=><Icon source="star-circle" size={34} color={theme.colors.secondary}/>} /></Card>
 
           {(customer.data.phone || customer.data.email || customer.data.address || customer.data.note) && (
             <Card mode="outlined"><Card.Content style={{ gap: 4 }}>
@@ -122,6 +128,7 @@ export default function CustomerDetails() {
                   </View>
                   <Text variant="titleMedium" style={{ fontWeight: '800', color: credit ? theme.colors.error : theme.colors.primary }}>{credit ? '+' : '−'}{formatMoney(Number(row.amount))}</Text>
                 </Card.Content>
+                {!credit&&<Card.Actions>{(()=>{const data={title:'Reçu de paiement client',party:customer.data!.name,amount:Number(row.amount),balanceBefore:Number(row.balance_before??0),balanceAfter:Number(row.balance_after??0),date:row.created_at,reference:`CLIENT-${row.id.slice(0,8).toUpperCase()}`,note:row.note,company:membership?.companyName,store:membership?.storeName,issuedBy:membership?.role==='company_admin'?'Administrateur':'Employé'};const printKey=`print-${row.id}`,shareKey=`share-${row.id}`;return <><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(data,formatMoney))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(data,formatMoney))}>Partager</AppButton></>})()}</Card.Actions>}
               </Card>
             );
           })}
@@ -161,6 +168,7 @@ export default function CustomerDetails() {
         </Dialog>
       </Portal>
       <Snackbar visible={!!message} onDismiss={() => setMessage('')} duration={3000}>{message}</Snackbar>
+      <Snackbar visible={!!receiptAction.error} onDismiss={receiptAction.clearError}>{receiptAction.error}</Snackbar>
     </AdminPage>
   );
 }

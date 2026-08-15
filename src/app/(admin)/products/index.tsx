@@ -2,7 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Card, Chip, FAB, HelperText, Searchbar, Text, useTheme } from 'react-native-paper';
+import { Card, Chip, FAB, HelperText, Menu, Searchbar, Snackbar, Text, useTheme } from 'react-native-paper';
 
 import { ProductThumbnail } from '@/components/products/ProductThumbnail';
 import { AdminPage } from '@/components/ui/AdminPage';
@@ -12,6 +12,8 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { getProducts, PRODUCT_PAGE_SIZE } from '@/features/products/api';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { shareProductsExport } from '@/features/products/excel';
+import { shareProductCatalog } from '@/features/products/catalog';
 
 export default function ProductsScreen() {
   const { formatMoney } = useCurrency();
@@ -20,6 +22,8 @@ export default function ProductsScreen() {
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? '';
   const [search, setSearch] = useState('');
+  const [actionsOpen,setActionsOpen]=useState(false);
+  const [actionError,setActionError]=useState('');
   const debounced = useDebouncedValue(search);
   const products = useInfiniteQuery({
     queryKey: ['products', company, store, debounced],
@@ -29,11 +33,12 @@ export default function ProductsScreen() {
     enabled: !!company && !!store,
   });
   const rows = products.data?.pages.flat() ?? [];
+  const runAction=async(action:()=>Promise<void>)=>{setActionsOpen(false);setActionError('');try{await action()}catch(error){setActionError(error instanceof Error?error.message:'Action impossible')}};
 
   return (
     <AdminPage
       title="Produits"
-      action={<FAB size="small" icon="plus" onPress={() => router.push('/products/new' as never)} />}
+      action={<View style={{flexDirection:'row',gap:6}}><Menu visible={actionsOpen} onDismiss={()=>setActionsOpen(false)} anchor={<FAB size="small" icon="dots-vertical" accessibilityLabel="Actions produits" onPress={()=>setActionsOpen(true)}/>}><Menu.Item leadingIcon="whatsapp" title="Partager le catalogue" onPress={()=>void runAction(()=>shareProductCatalog(membership?.companyName??'StockMaster',rows,formatMoney))}/><Menu.Item leadingIcon="download" title="Exporter Excel" onPress={()=>void runAction(()=>shareProductsExport(company,store))}/><Menu.Item leadingIcon="file-excel" title="Importer Excel" onPress={()=>{setActionsOpen(false);router.push('/products/import' as never)}}/></Menu><FAB size="small" icon="plus" accessibilityLabel="Nouveau produit" onPress={() => router.push('/products/new' as never)} /></View>}
     >
       <Searchbar
         placeholder="Nom, SKU ou code-barres"
@@ -73,6 +78,7 @@ export default function ProductsScreen() {
           message={search ? 'Essayez un autre nom, SKU ou code-barres.' : 'Créez votre premier produit pour constituer le catalogue.'}
         />
       )}
+      <Snackbar visible={!!actionError} onDismiss={()=>setActionError('')} duration={4000}>{actionError}</Snackbar>
     </AdminPage>
   );
 }

@@ -18,18 +18,14 @@ export type DashboardTrends = {
 
 export async function getDashboardTrends(companyId:string,storeId:string):Promise<DashboardTrends>{
   const start=new Date();start.setHours(0,0,0,0);start.setDate(start.getDate()-6);
-  const {data:sales,error}=await supabase.from('sales').select('id,total,created_at').eq('company_id',companyId).eq('store_id',storeId).gte('created_at',start.toISOString()).order('created_at');
+  const {data,error}=await supabase.rpc('get_dashboard_trends_safe',{p_company_id:companyId,p_store_id:storeId,p_start:start.toISOString()});
   if(error)throw new Error(userErrorMessage(error));
+  const value=(data??{}) as {sales?:{id:string;total:number;created_at:string}[];topProducts?:{name:string;quantity:number}[]};
+  const sales=value.sales??[];
   const days=Array.from({length:7},(_,index)=>{const date=new Date(start);date.setDate(start.getDate()+index);return{date:date.toISOString().slice(0,10),revenue:0}});
   const dayMap=new Map(days.map(day=>[day.date,day]));
   for(const sale of sales??[]){const day=dayMap.get(String(sale.created_at).slice(0,10));if(day)day.revenue+=Number(sale.total)}
-  if(!(sales??[]).length)return{days,topProducts:[]};
-  const {data:items,error:itemsError}=await supabase.from('sale_items').select('quantity,product:products(name)').in('sale_id',(sales??[]).map(sale=>sale.id));
-  if(itemsError)throw new Error(userErrorMessage(itemsError));
-  const totals=new Map<string,number>();
-  for(const item of (items??[]) as unknown as {quantity:number;product:{name:string}|null}[]){const name=item.product?.name??'Produit';totals.set(name,(totals.get(name)??0)+Number(item.quantity))}
-  const topProducts=[...totals].map(([name,quantity])=>({name,quantity})).sort((a,b)=>b.quantity-a.quantity).slice(0,5);
-  return{days,topProducts};
+  return{days,topProducts:(value.topProducts??[]).map(row=>({name:row.name,quantity:Number(row.quantity)}))};
 }
 
 export async function getAdminOverview(companyId: string, storeId: string): Promise<AdminOverview> {

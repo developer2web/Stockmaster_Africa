@@ -18,6 +18,7 @@ export default function EmployeeEntry() {
   const theme = useTheme();
   const compact = width < 600;
   const wide = width >= 980;
+  const employeeName = String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
 
   if (!session) return <EmployeeLogin />;
   if (!membership && isWorkspaceLoading) return <LoadingScreen label="Chargement de vos boutiques…" />;
@@ -58,7 +59,7 @@ export default function EmployeeEntry() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.dark ? '#0E0B20' : '#F5F3FF' }]}>
       <Appbar.Header elevated style={{ backgroundColor: theme.dark ? '#201A4D' : '#352B78' }}>
-        <Appbar.Content title="Espace Employé" titleStyle={{color:'#FFFFFF',fontWeight:'800'}} subtitle={`${membership.companyName} • ${membership.storeName ?? 'Boutique'}`} subtitleStyle={{color:'#D9D4FF'}} />
+        <Appbar.Content title={employeeName} titleStyle={{color:'#FFFFFF',fontWeight:'800'}} subtitle={`${membership.companyName} • ${membership.storeName ?? 'Boutique'}`} subtitleStyle={{color:'#D9D4FF'}} />
         {stores.length > 1 && <Appbar.Action color="#FFFFFF" icon="swap-horizontal" accessibilityLabel="Changer de boutique" onPress={() => router.push('/choose-store')} />}
         <Appbar.Action color="#FFFFFF" icon="logout" accessibilityLabel="Se déconnecter" onPress={signOut} />
       </Appbar.Header>
@@ -72,7 +73,7 @@ export default function EmployeeEntry() {
           </View>
           <View style={styles.heroCopy}>
             <Text variant={compact ? 'headlineSmall' : 'headlineMedium'} style={{ color: theme.dark ? '#F2EFFF' : '#2A225A', fontWeight: '800' }}>
-              Bonjour 👋
+              Bonjour {employeeName} 👋
             </Text>
             <Text variant="bodyLarge" style={{ color: theme.dark ? '#D9D4FF' : '#514A7A' }}>
               Retrouvez rapidement les outils utiles à votre travail.
@@ -92,7 +93,7 @@ export default function EmployeeEntry() {
         </View>
 
         {canCreateSale && (
-          <Card mode="contained" onPress={() => router.push('/employee/sales/new' as never)} style={[styles.saleShortcut, { backgroundColor: '#087F5B' }]}>
+          <Card mode="contained" onPress={() => router.push('/employee/sales/new' as never)} style={[styles.saleShortcut, { backgroundColor: '#084B50' }]}>
             <Card.Content style={styles.saleShortcutContent}>
               <View style={styles.saleShortcutCopy}>
                 <Text variant="titleLarge" style={styles.saleShortcutTitle}>Nouvelle vente</Text>

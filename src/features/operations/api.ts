@@ -22,11 +22,14 @@ export type SupplierPayment = {
   amount: number;
   payment_method: 'cash' | 'mobile_money' | 'card' | 'bank_transfer';
   note: string | null;
+  balance_before: number | null;
+  balance_after: number | null;
   created_at: string;
+  creator: { full_name:string } | null;
 };
 
 export async function getSupplierAccount(companyId: string, storeId: string, supplierId: string) {
-  const [purchases, payments] = await Promise.all([
+  const [purchases, payments,summary] = await Promise.all([
     supabase
       .from('purchases')
       .select('id,total,amount_paid,amount_due,payment_status,created_at')
@@ -37,22 +40,25 @@ export async function getSupplierAccount(companyId: string, storeId: string, sup
       .limit(100),
     supabase
       .from('supplier_payments')
-      .select('id,amount,payment_method,note,created_at')
+      .select('id,amount,payment_method,note,balance_before,balance_after,created_at,creator:profiles!supplier_payments_created_by_fkey(full_name)')
       .eq('company_id', companyId)
       .eq('store_id', storeId)
       .eq('supplier_id', supplierId)
       .order('created_at', { ascending: false })
       .limit(100),
+    supabase.rpc('get_supplier_account_summary',{p_store_id:storeId,p_supplier_id:supplierId}),
   ]);
   fail(purchases.error);
   fail(payments.error);
+  fail(summary.error);
   const purchaseRows = (purchases.data ?? []) as SupplierPurchase[];
+  const totals=Array.isArray(summary.data)?summary.data[0]:summary.data;
   return {
     purchases: purchaseRows,
-    payments: (payments.data ?? []) as SupplierPayment[],
-    total: purchaseRows.reduce((sum, row) => sum + Number(row.total), 0),
-    paid: purchaseRows.reduce((sum, row) => sum + Number(row.amount_paid), 0),
-    due: purchaseRows.reduce((sum, row) => sum + Number(row.amount_due), 0),
+    payments: (payments.data ?? []) as unknown as SupplierPayment[],
+    total: Number(totals?.total??0),
+    paid: Number(totals?.paid??0),
+    due: Number(totals?.due??0),
   };
 }
 

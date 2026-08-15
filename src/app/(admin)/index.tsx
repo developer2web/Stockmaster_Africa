@@ -12,7 +12,7 @@ import { getCashSummary } from '@/features/cash/api';
 const iso = (date: Date) => date.toISOString().slice(0, 10);
 
 const primaryModules = [
-  ['cart-plus', 'Ventes', 'Nouvelle vente et historique', '/sales', '#087F5B'],
+  ['cart-plus', 'Ventes', 'Nouvelle vente et historique', '/sales', '#084B50'],
   ['warehouse', 'Inventaire', 'Quantités et valeur du stock', '/stock', '#1971C2'],
   ['wallet-outline', 'Caisse', 'Solde, entrées et dépenses', '/cash', '#E67700'],
   ['chart-box-outline', 'Rapports', 'Bilans et bénéfices', '/reports', '#7048E8'],
@@ -73,7 +73,7 @@ export default function AdminDashboard() {
             </Card.Content>
           </Card>
         )}
-        <View style={[styles.hero, compact && styles.compactHero, { backgroundColor: '#087F5B' }]}>
+        <View style={[styles.hero, compact && styles.compactHero, { backgroundColor: '#084B50' }]}>
           <View style={styles.heroTop}><View style={styles.grow}><Text variant="headlineSmall" style={styles.heroTitle}>Pilotez votre activité</Text><Text style={styles.heroText}>Une vue claire de votre entreprise, en temps réel.</Text></View><Chip icon="check-decagram">{membership?.subscriptionStatus ?? 'actif'}</Chip></View>
           <View style={styles.heroStats}>
             <View><Text style={styles.heroLabel}>Articles en stock</Text><Text variant="titleLarge" style={styles.heroTitle}>{(overview.data?.stockQuantity ?? 0).toLocaleString('fr-FR')}</Text></View>
@@ -156,12 +156,12 @@ const styles = StyleSheet.create({
   topCard: { flexGrow:1,flexBasis:300,borderRadius:20 },
   bars: { minHeight:145,flexDirection:'row',alignItems:'flex-end',justifyContent:'space-around',gap:8 },
   barColumn: { flex:1,alignItems:'center',justifyContent:'flex-end',gap:5 },
-  bar: { width:'70%',maxWidth:42,minHeight:5,backgroundColor:'#087F5B',borderRadius:8 },
+  bar: { width:'70%',maxWidth:42,minHeight:5,backgroundColor:'#084B50',borderRadius:8 },
   mobileTrends: { gap: 12 },
   mobileTrendRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   mobileTrendDate: { width: 42 },
   mobileTrack: { flex: 1, height: 8, borderRadius: 8, overflow: 'hidden' },
-  mobileFill: { height: '100%', backgroundColor: '#166534', borderRadius: 8 },
+  mobileFill: { height: '100%', backgroundColor: '#084B50', borderRadius: 8 },
   mobileAmount: { width: 92, textAlign: 'right' },
   topRow: { flexDirection:'row',alignItems:'center',gap:8 },
 });

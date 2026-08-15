@@ -5,7 +5,7 @@ import { useWindowDimensions } from 'react-native';
 import { RoleGuard } from '@/features/auth/RoleGuard';
 import { AdminNavigation } from '@/components/navigation/AdminNavigation';
 
-const BRAND = '#087F5B';
+const BRAND = '#084B50';
 
 export default function Layout() {
   const theme = useTheme();
@@ -58,7 +58,10 @@ export default function Layout() {
         <Tabs.Screen name="company" options={{ href: null }} />
         <Tabs.Screen name="expenses" options={{ href: null }} />
         <Tabs.Screen name="scanner" options={{ href: null }} />
+        <Tabs.Screen name="inventory-count" options={{ href: null }} />
         <Tabs.Screen name="purchases" options={{ href: null }} />
+        <Tabs.Screen name="orders" options={{ href: null }} />
+        <Tabs.Screen name="support" options={{ href: null }} />
         <Tabs.Screen name="transfers" options={{ href: null }} />
         <Tabs.Screen name="notifications" options={{ href: null }} />
         <Tabs.Screen name="more" options={{ href: null }} />

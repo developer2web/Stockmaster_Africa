@@ -21,6 +21,8 @@ export type CashTransaction = {
 export const CASH_PAGE_SIZE = 40;
 
 export type CashSummary = { deposits: number; withdrawals: number; balance: number };
+export type CashClosure = { id:string;closure_date:string;expected_amount:number;counted_amount:number;difference:number;note:string|null;closed_by_label:string;created_at:string;closer:{full_name:string}|null };
+export type CashSessionStatus = { requiresOpening:boolean;closureId:string|null;expectedInitial:number;closedAt:string|null;closedByLabel:string|null };
 
 export async function getCashSummary(storeId: string): Promise<CashSummary> {
   const { data, error } = await supabase.rpc('get_store_cash_summary', { p_store_id: storeId });
@@ -63,4 +65,29 @@ export async function createCashTransaction(input: {
     p_operation_id: operationId,
   });
   if (error) throw new Error(userErrorMessage(error));
+}
+
+export async function getCashClosures(companyId:string,storeId:string):Promise<CashClosure[]> {
+  const {data,error}=await supabase.from('cash_closures').select('id,closure_date,expected_amount,counted_amount,difference,note,closed_by_label,created_at,closer:profiles!cash_closures_closed_by_fkey(full_name)').eq('company_id',companyId).eq('store_id',storeId).order('created_at',{ascending:false}).limit(100);
+  if(error)throw new Error(userErrorMessage(error));
+  return (data??[]) as unknown as CashClosure[];
+}
+
+export async function closeCash(storeId:string,countedAmount:number,note:string) {
+  if(!Number.isFinite(countedAmount)||countedAmount<0)throw new Error('Le montant compté est invalide.');
+  const {error}=await supabase.rpc('close_store_cash',{p_store_id:storeId,p_counted_amount:countedAmount,p_note:note.trim()||null});
+  if(error)throw new Error(userErrorMessage(error));
+}
+
+export async function getCashSessionStatus(storeId:string):Promise<CashSessionStatus>{
+  const{data,error}=await supabase.rpc('get_store_cash_session_status',{p_store_id:storeId});
+  if(error)throw new Error(userErrorMessage(error));
+  const row=Array.isArray(data)?data[0]:data;
+  return {requiresOpening:!!row?.requires_opening,closureId:row?.closure_id??null,expectedInitial:Number(row?.expected_initial??0),closedAt:row?.closed_at??null,closedByLabel:row?.closed_by_label??null};
+}
+
+export async function openCash(storeId:string,countedAmount:number,note:string){
+  if(!Number.isFinite(countedAmount)||countedAmount<0)throw new Error('Le montant initial est invalide.');
+  const{error}=await supabase.rpc('open_store_cash',{p_store_id:storeId,p_counted_amount:countedAmount,p_note:note.trim()||null});
+  if(error)throw new Error(userErrorMessage(error));
 }

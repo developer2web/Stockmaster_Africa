@@ -4,6 +4,7 @@ import type { Category, Product, Supplier } from '@/types/database';
 import { userErrorMessage } from '@/utils/errors';
 import { parseDecimal } from '@/utils/number';
 import { createOperationId } from '@/utils/operationId';
+import { withOfflineCache } from '@/features/offline/storage';
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(userErrorMessage(error));
@@ -12,6 +13,7 @@ function fail(error: { message: string } | null) {
 const empty = (value?: string) => value?.trim() || null;
 
 export async function getCategories(companyId: string, storeId: string): Promise<Category[]> {
+  return withOfflineCache(`categories:${companyId}:${storeId}`, async () => {
   const { data, error } = await supabase
     .from('categories')
     .select('id,company_id,store_id,name,description,is_active,created_at')
@@ -21,6 +23,7 @@ export async function getCategories(companyId: string, storeId: string): Promise
     .limit(250);
   fail(error);
   return (data ?? []) as Category[];
+  });
 }
 
 export async function saveCategory(companyId: string, storeId: string, value: CategoryInput, id?: string) {
@@ -38,6 +41,7 @@ export async function saveCategory(companyId: string, storeId: string, value: Ca
 }
 
 export async function getSuppliers(companyId: string, storeId: string): Promise<Supplier[]> {
+  return withOfflineCache(`suppliers:${companyId}:${storeId}`, async () => {
   const { data, error } = await supabase
     .from('suppliers')
     .select('id,company_id,store_id,name,email,phone,address,is_active,created_at')
@@ -47,6 +51,7 @@ export async function getSuppliers(companyId: string, storeId: string): Promise<
     .limit(250);
   fail(error);
   return (data ?? []) as Supplier[];
+  });
 }
 
 export async function saveSupplier(companyId: string, storeId: string, value: SupplierInput, id?: string) {
@@ -74,6 +79,7 @@ export async function getProducts(
   search = '',
   page = 0,
 ): Promise<Product[]> {
+  return withOfflineCache(`products:${companyId}:${storeId}:${search.trim().toLowerCase()}:${page}`, async () => {
   const start = page * PRODUCT_PAGE_SIZE;
   let query = supabase
     .from('products')
@@ -89,6 +95,7 @@ export async function getProducts(
   const { data, error } = await query;
   fail(error);
   return (data ?? []) as unknown as Product[];
+  });
 }
 export async function getProduct(id:string):Promise<Product>{const{data,error}=await supabase.from('products').select('id,company_id,store_id,category_id,supplier_id,name,description,sku,qr_code,barcode,unit,purchase_price,sale_price,low_stock_threshold,image_url,image_urls,is_active,created_at,category:categories(name),supplier:suppliers(name),product_variants(id,product_id,name,sku,barcode,attributes,purchase_price,sale_price,is_active)').eq('id',id).single();fail(error);return data as unknown as Product}
 export async function saveProduct(companyId:string,storeId:string,v:ProductInput,id?:string):Promise<string>{const payload={company_id:companyId,store_id:storeId,name:v.name,description:empty(v.description),sku:v.sku,barcode:empty(v.barcode),category_id:v.categoryId,supplier_id:v.supplierId,unit:v.unit,purchase_price:parseDecimal(v.purchasePrice),sale_price:parseDecimal(v.salePrice),low_stock_threshold:parseDecimal(v.lowStockThreshold),is_active:v.isActive};if(id){const{error}=await supabase.from('products').update(payload).eq('id',id);fail(error);return id}const{data,error}=await supabase.rpc('create_product_with_initial_stock',{p_store_id:storeId,p_name:v.name,p_description:v.description,p_sku:v.sku,p_barcode:v.barcode,p_category_id:v.categoryId,p_supplier_id:v.supplierId,p_unit:v.unit,p_purchase_price:parseDecimal(v.purchasePrice),p_sale_price:parseDecimal(v.salePrice),p_low_stock_threshold:parseDecimal(v.lowStockThreshold),p_is_active:v.isActive,p_initial_quantity:parseDecimal(v.initialQuantity),p_operation_id:createOperationId()});fail(error);if(!data)throw new Error('Le produit n’a pas été créé.');return data as string}

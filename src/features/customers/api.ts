@@ -3,6 +3,7 @@ import { userErrorMessage } from '@/utils/errors';
 import { createOperationId } from '@/utils/operationId';
 import { parseDecimal } from '@/utils/number';
 import type { CustomerInput } from '@/schemas/customers';
+import { withOfflineCache } from '@/features/offline/storage';
 
 export type Customer = {
   id: string;
@@ -26,6 +27,8 @@ export type CustomerLedgerEntry = {
   amount: number;
   sale_id: string | null;
   note: string | null;
+  balance_before: number | null;
+  balance_after: number | null;
   created_at: string;
 };
 
@@ -56,6 +59,7 @@ async function attachBalances(customers: Customer[]) {
 }
 
 export async function getCustomers(companyId: string, search = ''): Promise<Customer[]> {
+  return withOfflineCache(`customers:${companyId}:${search.trim().toLowerCase()}`, async () => {
   let query = supabase
     .from('customers')
     .select('id,company_id,store_id,name,phone,email,address,note,is_active,created_at')
@@ -69,6 +73,7 @@ export async function getCustomers(companyId: string, search = ''): Promise<Cust
   const { data, error } = await query;
   fail(error);
   return attachBalances((data ?? []) as Customer[]);
+  });
 }
 
 export async function getCustomer(id: string): Promise<Customer> {
@@ -109,7 +114,7 @@ export async function saveCustomer(companyId: string, storeId: string | null, va
 export async function getCustomerLedger(customerId: string): Promise<CustomerLedgerEntry[]> {
   const { data, error } = await supabase
     .from('customer_ledger')
-    .select('id,customer_id,store_id,entry_type,amount,sale_id,note,created_at')
+    .select('id,customer_id,store_id,entry_type,amount,sale_id,note,balance_before,balance_after,created_at')
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false })
     .limit(200);
@@ -118,15 +123,9 @@ export async function getCustomerLedger(customerId: string): Promise<CustomerLed
 }
 
 export async function getCustomerSales(companyId: string, customerId: string): Promise<CustomerSale[]> {
-  const { data, error } = await supabase
-    .from('sales')
-    .select('id,reference,total,payment_method,created_at,store:stores(name)')
-    .eq('company_id', companyId)
-    .eq('customer_id', customerId)
-    .order('created_at', { ascending: false })
-    .limit(100);
+  const { data, error } = await supabase.rpc('get_customer_sales_safe',{p_company_id:companyId,p_customer_id:customerId});
   fail(error);
-  return (data ?? []) as unknown as CustomerSale[];
+  return (Array.isArray(data)?data:[]) as unknown as CustomerSale[];
 }
 
 export async function recordCustomerEntry(

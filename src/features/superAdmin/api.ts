@@ -67,6 +67,9 @@ export type PlatformPayment = {
 
 export type Promotion = { id:string;name:string;code:string|null;promotion_type:'free_days'|'percentage'|'fixed_amount';value:number;starts_at:string;expires_at:string;usage_limit:number|null;audience:'new_clients'|'existing_clients'|'all';is_active:boolean;promotion_plans:{plan_id:string}[] };
 export type PlatformAdminRequest={id:string;user_id:string;email:string;full_name:string;company_name:string;store_name:string;country_code:string;status:string;review_reason:string|null;created_at:string;reviewed_at:string|null};
+export type CompanyHealth={company_id:string;company_name:string;is_active:boolean;last_sale_at:string|null;last_activity_at:string|null;error_count_7d:number;fatal_count_7d:number;open_tickets:number;subscription_status:string|null};
+export type SupportTicket={id:string;company_id:string;subject:string;description:string;priority:'low'|'normal'|'high'|'urgent';status:'open'|'in_progress'|'resolved'|'closed';resolution:string|null;created_at:string;company?:{name:string}|null;creator?:{full_name:string}|null};
+export type AppErrorEvent={id:string;severity:string;code:string;message:string;platform:string|null;app_version:string|null;created_at:string;company:{name:string}|null;user:{full_name:string}|null};
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(userErrorMessage(error));
@@ -140,3 +143,7 @@ export async function updateBillingSettings(input:{orangeMoneyNumber:string;oran
 export async function grantCompanyTrial(companyId:string,days:number){const{error}=await supabase.rpc('super_admin_grant_trial',{p_company_id:companyId,p_days:days});fail(error)}
 export async function getAdminAccessRequests():Promise<PlatformAdminRequest[]>{const{data,error}=await supabase.rpc('super_admin_admin_access_requests');fail(error);return(data??[]) as PlatformAdminRequest[]}
 export async function reviewAdminAccessRequest(id:string,approve:boolean,reason=''){const{error}=await supabase.rpc('super_admin_review_admin_access',{p_request_id:id,p_approve:approve,p_reason:reason.trim()||null});fail(error)}
+export async function getCompanyHealth():Promise<CompanyHealth[]>{const{data,error}=await supabase.rpc('super_admin_company_health');fail(error);return(data??[]) as CompanyHealth[]}
+export async function getSupportTickets():Promise<SupportTicket[]>{const{data,error}=await supabase.from('support_tickets').select('id,company_id,subject,description,priority,status,resolution,created_at,company:companies(name),creator:profiles!support_tickets_created_by_fkey(full_name)').order('created_at',{ascending:false});fail(error);return(data??[]) as unknown as SupportTicket[]}
+export async function updateSupportTicket(id:string,status:SupportTicket['status'],resolution:string){const{error}=await supabase.rpc('update_support_ticket',{p_ticket_id:id,p_status:status,p_resolution:resolution||null});fail(error)}
+export async function getAppErrors():Promise<AppErrorEvent[]>{const{data,error}=await supabase.from('app_error_events').select('id,severity,code,message,platform,app_version,created_at,company:companies(name),user:profiles!app_error_events_user_id_fkey(full_name)').order('created_at',{ascending:false}).limit(200);fail(error);return(data??[]) as unknown as AppErrorEvent[]}

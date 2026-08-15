@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { ScrollView } from 'react-native';
-import { Card, Chip, Dialog, FAB, HelperText, Portal, Searchbar, Switch, Text, TextInput } from 'react-native-paper';
+import { Card, Chip, Dialog, FAB, HelperText, Portal, Searchbar, Snackbar, Switch, Text, TextInput } from 'react-native-paper';
 import { FormField } from '@/components/forms/FormField';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
@@ -16,6 +16,8 @@ import { getSuppliers, getSupplierStats, saveSupplier } from '@/features/product
 import { supplierSchema, type SupplierInput } from '@/schemas/catalog';
 import type { Supplier } from '@/types/database';
 import { parseDecimal } from '@/utils/number';
+import { printPaymentReceipt, sharePaymentReceipt } from '@/features/payments/receipt';
+import { useReceiptAction } from '@/features/payments/useReceiptAction';
 
 const paymentLabels: Record<SupplierPayment['payment_method'], string> = {
   cash: 'Espèces',
@@ -37,6 +39,8 @@ export default function Suppliers() {
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<SupplierPayment['payment_method']>('cash');
+  const [paymentMode,setPaymentMode]=useState<'total'|'custom'>('total');
+  const receiptAction=useReceiptAction();
 
   const query = useQuery({ queryKey: ['suppliers', company, store], queryFn: () => getSuppliers(company, store), enabled: !!company && !!store });
   const stats = useQuery({ queryKey: ['supplier-stats', company, store], queryFn: () => getSupplierStats(company, store), enabled: !!company && !!store });
@@ -67,7 +71,7 @@ export default function Suppliers() {
     },
   });
   const paymentMutation = useMutation({
-    mutationFn: () => recordSupplierPayment({ storeId: store, supplierId: selected!.id, amount: parseDecimal(amount), paymentMethod, note }),
+    mutationFn: () => recordSupplierPayment({ storeId: store, supplierId: selected!.id, amount: paymentMode==='total'?Number(account.data?.due??0):parseDecimal(amount), paymentMethod, note }),
     onSuccess: async () => {
       await Promise.all([
         cache.invalidateQueries({ queryKey: ['supplier-account', company, store, selected?.id] }),
@@ -91,6 +95,7 @@ export default function Suppliers() {
     setAmount('');
     setNote('');
     setPaymentMethod('cash');
+    setPaymentMode('total');
     setSelected(item);
   };
   const parsedAmount = parseDecimal(amount);
@@ -111,7 +116,7 @@ export default function Suppliers() {
         </Card.Content>
         <Card.Actions>
           <AppButton mode="text" icon="pencil" onPress={() => show(item)}>Modifier</AppButton>
-          {due > 0 && <AppButton icon="cash-check" onPress={() => showPayment(item)}>Régler</AppButton>}
+          <AppButton icon={due>0?'cash-check':'file-document-outline'} onPress={() => showPayment(item)}>{due>0?'Régler / Reçus':'Compte / Reçus'}</AppButton>
         </Card.Actions>
       </Card>;
     })}
@@ -136,7 +141,9 @@ export default function Suppliers() {
         <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}><ScrollView contentContainerStyle={{ gap: 12, paddingHorizontal: 24, paddingBottom: 16 }} keyboardShouldPersistTaps="handled">
           {!!account.error && <HelperText type="error" visible>{account.error.message}</HelperText>}
           <Card mode="contained"><Card.Title title={`Dette restante : ${formatMoney(account.data?.due ?? 0)}`} subtitle={`Déjà payé : ${formatMoney(account.data?.paid ?? 0)} • Achats : ${formatMoney(account.data?.total ?? 0)}`} /></Card>
-          <TextInput mode="outlined" label="Montant du règlement" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
+          <Text variant="titleSmall">Type de règlement</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}><Chip icon="check-all" selected={paymentMode==='total'} onPress={()=>{setPaymentMode('total');setAmount(String(account.data?.due??''));}}>Paiement total</Chip><Chip icon="pencil-outline" selected={paymentMode==='custom'} onPress={()=>{setPaymentMode('custom');setAmount('');}}>Montant personnalisé</Chip></ScrollView>
+          {paymentMode==='total'?<Card mode="outlined"><Card.Title title={formatMoney(account.data?.due??0)} subtitle="La totalité de la dette sera réglée"/></Card>:<TextInput mode="outlined" label="Montant personnalisé" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />}
           <Text variant="titleSmall">Moyen de paiement</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {(Object.keys(paymentLabels) as SupplierPayment['payment_method'][]).map((method) => <Chip key={method} selected={paymentMethod === method} onPress={() => setPaymentMethod(method)}>{paymentLabels[method]}</Chip>)}
@@ -147,11 +154,12 @@ export default function Suppliers() {
           {(account.data?.purchases ?? []).filter((row) => Number(row.amount_due) > 0).map((row) => <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.amount_due))} subtitle={`${row.payment_status === 'partial' ? 'Paiement partiel' : 'À payer'} • ${new Date(row.created_at).toLocaleDateString('fr-CA')}`} /></Card>)}
           {!(account.data?.purchases ?? []).some((row) => Number(row.amount_due) > 0) && !account.isLoading && <Text>Aucune dette fournisseur.</Text>}
           <Text variant="titleMedium">Historique des règlements</Text>
-          {(account.data?.payments ?? []).map((row) => <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.amount))} subtitle={`${paymentLabels[row.payment_method]} • ${new Date(row.created_at).toLocaleString('fr-CA')}`} />{!!row.note && <Card.Content><Text>{row.note}</Text></Card.Content>}</Card>)}
+          {(account.data?.payments ?? []).map((row) => {const receipt={title:'Reçu de paiement fournisseur',party:selected?.name??'Fournisseur',amount:Number(row.amount),balanceBefore:Number(row.balance_before??0),balanceAfter:Number(row.balance_after??0),date:row.created_at,reference:`FOURN-${row.id.slice(0,8).toUpperCase()}`,note:row.note,company:membership?.companyName,store:membership?.storeName,issuedBy:row.creator?.full_name||(membership?.role==='company_admin'?'Administrateur':'Employé')};const printKey=`print-${row.id}`,shareKey=`share-${row.id}`;return <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.amount))} subtitle={`${paymentLabels[row.payment_method]} • ${new Date(row.created_at).toLocaleString('fr-CA')}`} />{!!row.note && <Card.Content><Text>{row.note}</Text></Card.Content>}<Card.Actions><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(receipt,formatMoney))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(receipt,formatMoney))}>Partager</AppButton></Card.Actions></Card>})}
           {!account.data?.payments.length && !account.isLoading && <Text>Aucun règlement enregistré.</Text>}
         </ScrollView></Dialog.ScrollArea>
-        <Dialog.Actions><AppButton mode="text" onPress={() => setSelected(null)}>Fermer</AppButton><AppButton icon="cash-check" loading={paymentMutation.isPending} disabled={paymentMutation.isPending || account.isLoading || !(parsedAmount > 0) || parsedAmount > (account.data?.due ?? 0)} onPress={() => paymentMutation.mutate()}>Enregistrer le paiement</AppButton></Dialog.Actions>
+        <Dialog.Actions><AppButton mode="text" onPress={() => setSelected(null)}>Fermer</AppButton><AppButton icon="cash-check" loading={paymentMutation.isPending} disabled={paymentMutation.isPending || account.isLoading || !((paymentMode==='total'?(account.data?.due??0):parsedAmount)>0) || (paymentMode==='custom'&&parsedAmount > (account.data?.due ?? 0))} onPress={() => paymentMutation.mutate()}>Enregistrer</AppButton></Dialog.Actions>
       </Dialog>
     </Portal>
+    <Snackbar visible={!!receiptAction.error} onDismiss={receiptAction.clearError}>{receiptAction.error}</Snackbar>
   </AdminPage>;
 }

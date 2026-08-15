@@ -19,26 +19,25 @@
     "android": {
       "package": "com.stockmaster.app",
       "adaptiveIcon": {
-        "backgroundColor": "#07162F",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#084B50",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/images/stockmaster-icon.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#07162F",
+          "backgroundColor": "#084B50",
           "image": "./assets/images/stockmaster-icon.png",
           "imageWidth": 180,
           "dark": {
-            "backgroundColor": "#020817",
+            "backgroundColor": "#032F32",
             "image": "./assets/images/stockmaster-icon.png"
           }
         }

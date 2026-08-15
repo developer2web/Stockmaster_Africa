@@ -276,6 +276,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (event === 'SIGNED_IN') {
           setMembership(null);
           setLoading(true);
+          void supabase.rpc('record_security_event',{p_event_type:'login',p_device_label:`StockMaster • ${Platform.OS}`});
         }
         setTimeout(async () => {
           await refreshMembership();

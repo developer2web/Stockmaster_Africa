@@ -11,7 +11,8 @@ import { hasAnyPermission } from '@/features/auth/permissions';
 
 export function AdminPage({ title, action, children }: PropsWithChildren<{ title: string; action?: ReactNode }>) {
   const theme = useTheme();
-  const { membership, stores, selectStore } = useAuth();
+  const { session, membership, stores, selectStore } = useAuth();
+  const employeeName = String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
   const { subscription } = useSubscription();
   const { width } = useWindowDimensions();
   const compact = width < 600;
@@ -40,7 +41,7 @@ export function AdminPage({ title, action, children }: PropsWithChildren<{ title
           titleStyle={[compact && styles.compactTitle, employee && styles.employeeTitle]}
           subtitle={
             employee
-              ? `ESPACE EMPLOYÉ • ${membership?.storeName ?? 'Boutique'}`
+              ? `${employeeName} • ${membership?.storeName ?? 'Boutique'}`
               : `Boutique active : ${membership?.storeName ?? 'Non sélectionnée'}`
           }
           subtitleStyle={employee ? styles.employeeSubtitle : styles.storeSubtitle}

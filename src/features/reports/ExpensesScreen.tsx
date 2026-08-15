@@ -15,6 +15,7 @@ import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { expenseSchema, type ExpenseInput } from '@/schemas/reports';
 import type { Expense } from '@/types/database';
 import { createExpense, deleteExpense, getExpenses } from './expensesApi';
+import { useOffline } from '@/features/offline/OfflineProvider';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -24,6 +25,7 @@ export default function ExpensesScreen() {
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? '';
   const queryClient = useQueryClient();
+  const { refreshQueue } = useOffline();
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState<Expense | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
@@ -39,11 +41,11 @@ export default function ExpensesScreen() {
   };
   const add = useMutation({
     mutationFn: (value: ExpenseInput) => createExpense(company, { ...value, storeId: store }),
-    onSuccess: async () => {
-      await refresh();
+    onSuccess: async (result) => {
+      if (result.queued) await refreshQueue(); else await refresh();
       setOpen(false);
       reset({ label: '', amount: '', expenseDate: today(), storeId: store });
-      setSuccessMessage('Dépense enregistrée avec succès.');
+      setSuccessMessage(result.queued ? 'Dépense enregistrée hors ligne. Elle sera synchronisée automatiquement.' : 'Dépense enregistrée avec succès.');
     },
   });
   const remove = useMutation({ mutationFn: deleteExpense, onSuccess: async () => { await refresh(); setRemoving(null); } });

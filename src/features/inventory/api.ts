@@ -76,3 +76,8 @@ export async function recordStockMovement(
   const row = Array.isArray(data) ? data[0] : data;
   return Number(row?.new_quantity ?? 0);
 }
+
+export type InventoryCount={id:string;status:string;note:string|null;created_at:string;inventory_items:{id:string;product_id:string;product_variant_id:string|null;expected_quantity:number;counted_quantity:number|null;difference:number|null;product:{name:string;sku:string}|null;variant:{name:string;sku:string}|null}[]};
+export async function startInventory(storeId:string,note=''){const{data,error}=await supabase.rpc('start_store_inventory',{p_store_id:storeId,p_note:note.trim()||null});fail(error);return data as string;}
+export async function getInventory(id:string):Promise<InventoryCount>{const{data,error}=await supabase.from('inventories').select('id,status,note,created_at,inventory_items(id,product_id,product_variant_id,expected_quantity,counted_quantity,difference,product:products(name,sku),variant:product_variants(name,sku))').eq('id',id).single();fail(error);return data as unknown as InventoryCount;}
+export async function finalizeInventory(id:string,counts:{itemId:string;countedQuantity:number}[]){const{error}=await supabase.rpc('finalize_store_inventory',{p_inventory_id:id,p_counts:counts});fail(error);}

@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { Card, FAB, HelperText, Text } from 'react-native-paper';
 
 import { AdminPage } from '@/components/ui/AdminPage';
@@ -35,12 +36,15 @@ export default function SalesScreen() {
     queryFn: () => getLifetimeNetProfit(store),
     enabled: !!company && !!store && !employee,
   });
+  const refetchSales=sales.refetch;
+  const refetchFinancials=financialReport.refetch;
+  useFocusEffect(useCallback(()=>{if(company&&store){void refetchSales();if(!employee)void refetchFinancials()}},[company,store,employee,refetchSales,refetchFinancials]));
   const rows = sales.data?.pages.flat() ?? [];
   const revenue = rows.reduce((sum, sale) => sum + Number(sale.total), 0);
 
   return (
     <AdminPage title="Ventes" action={membership?.role === 'company_admin' || membership?.permissions.includes('sales.write') ? <FAB size="small" icon="plus" onPress={() => router.push((employee ? '/employee/sales/new' : '/sales/new') as never)} /> : undefined}>
-      <Card><Card.Content><Text variant="headlineSmall">{formatMoney(revenue)}</Text><Text>Chiffre d’affaires affiché</Text>{!employee && <Text variant="titleMedium" style={{ color: '#087F5B' }}>{formatMoney(financialReport.data ?? 0)} de bénéfice net après toutes les dépenses</Text>}</Card.Content></Card>
+      <Card><Card.Content><Text variant="headlineSmall">{formatMoney(revenue)}</Text><Text>Chiffre d’affaires affiché</Text>{!employee && <Text variant="titleMedium" style={{ color: '#084B50' }}>{formatMoney(financialReport.data ?? 0)} de bénéfice net après toutes les dépenses</Text>}</Card.Content></Card>
       {!!sales.error && <HelperText type="error" visible>{sales.error.message}</HelperText>}
       {rows.map((sale) => {
         const historicalMoney = (value: number) => formatForCurrency(value, sale.currency_code);

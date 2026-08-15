@@ -1,10 +1,10 @@
 export const lightTheme = {
   colors: {
-    primary: '#166534',
+    primary: '#084B50',
     onPrimary: '#FFFFFF',
-    primaryContainer: '#DCFCE7',
-    onPrimaryContainer: '#073D2E',
-    secondary: '#0B7285',
+    primaryContainer: '#D7EFF0',
+    onPrimaryContainer: '#032F32',
+    secondary: '#146C72',
     onSecondary: '#FFFFFF',
     secondaryContainer: '#D9F2F5',
     onSecondaryContainer: '#073D46',
@@ -25,10 +25,10 @@ export const lightTheme = {
 
 export const darkTheme = {
   colors: {
-    primary: '#63E6BE',
-    onPrimary: '#00382A',
-    primaryContainer: '#07513D',
-    onPrimaryContainer: '#A7F3D7',
+    primary: '#79CED1',
+    onPrimary: '#002F32',
+    primaryContainer: '#084B50',
+    onPrimaryContainer: '#BDECEF',
     secondary: '#66D9E8',
     onSecondary: '#00363E',
     secondaryContainer: '#164E58',

@@ -48,3 +48,4 @@ example
 supabase/.temp/
 .expo-lan*.log
 .expo-lan-qr.png
+tmp/

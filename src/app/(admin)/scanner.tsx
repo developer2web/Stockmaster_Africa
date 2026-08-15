@@ -10,7 +10,7 @@ import { userErrorMessage } from '@/utils/errors';
 import { useAuth } from '@/features/auth/AuthProvider';
 
 export default function ScannerScreen() {
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const { mode, inventoryId } = useLocalSearchParams<{ mode?: string; inventoryId?: string }>();
   const { membership } = useAuth();
   const { height, width } = useWindowDimensions();
   const cameraHeight = Math.max(240, Math.min(420, height * 0.52, width * 1.15));
@@ -47,6 +47,7 @@ export default function ScannerScreen() {
       const found = await lookupProductCode(code, membership?.storeId ?? '');
       if (found) {
         if (mode === 'sale') router.replace({ pathname: (employee?'/employee/sales/new':'/sales/new') as never, params: { productId: found.productId, variantId: found.variantId ?? '' } });
+        else if(mode==='inventory')router.replace({pathname:'/inventory-count' as never,params:{inventoryId:inventoryId??'',productId:found.productId}});
         else router.replace(`/products/${found.productId}` as never);
         return;
       }
@@ -54,12 +55,12 @@ export default function ScannerScreen() {
     } catch (scanError) {
       setError(userErrorMessage(scanError, 'Recherche impossible. Réessayez.'));
     }
-  }, [employee, locked, membership?.storeId, mode]);
+  }, [employee, inventoryId, locked, membership?.storeId, mode]);
 
   const scanned = useCallback(({ data }: BarcodeScanningResult) => { void find(data); }, [find]);
   const cameraActive = permission?.granted && !locked;
 
-  return <AdminPage title={mode === 'sale' ? 'Scanner pour la vente' : 'Scanner un produit'}>
+  return <AdminPage title={mode === 'sale' ? 'Scanner pour la vente' : mode==='inventory'?'Scanner pour l’inventaire':'Scanner un produit'}>
     {!permission && <Card><Card.Content><Text>Chargement de la caméra…</Text></Card.Content></Card>}
     {permission && !permission.granted && <Card mode="outlined"><Card.Content style={styles.permission}>
       <Icon source="camera-off" size={42} />
@@ -106,7 +107,7 @@ const styles = StyleSheet.create({
   permission: { alignItems: 'center', gap: 12 },
   cameraWrap: { borderRadius: 24, overflow: 'hidden', backgroundColor: '#000' },
   camera: { flex: 1 },
-  frame: { position: 'absolute', left: '12%', right: '12%', top: '22%', bottom: '22%', borderWidth: 3, borderColor: '#63E6BE', borderRadius: 22 },
+  frame: { position: 'absolute', left: '12%', right: '12%', top: '22%', bottom: '22%', borderWidth: 3, borderColor: '#79CED1', borderRadius: 22 },
   frameLocked: { borderColor: '#FFD43B' },
   torch: { position: 'absolute', right: 12, top: 12 },
   status: { position: 'absolute', bottom: 14, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.62)', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8 },

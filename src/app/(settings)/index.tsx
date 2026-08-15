@@ -54,6 +54,9 @@ export default function SettingsScreen() {
     </>}
 
     <Text variant="titleMedium">Compte et sécurité</Text>
+    <Card mode="outlined" onPress={() => router.push('/(settings)/security' as never)}><Card.Title title="Sécurité et 2FA" subtitle="Double authentification et sessions actives" left={() => <Icon source="shield-key-outline" size={28} />} right={() => <Icon source="chevron-right" size={24} />} /></Card>
+    <Card mode="outlined" onPress={() => router.push('/(settings)/security-history' as never)}><Card.Title title="Journal des connexions" subtitle="Historique récent des accès au compte" left={() => <Icon source="history" size={28} />} right={() => <Icon source="chevron-right" size={24} />} /></Card>
+    <Card mode="outlined" onPress={() => router.push('/(settings)/offline' as never)}><Card.Title title="Synchronisation hors ligne" subtitle="Opérations en attente et conflits de stock" left={() => <Icon source="cloud-sync-outline" size={28} />} right={() => <Icon source="chevron-right" size={24} />} /></Card>
     <Card mode="outlined">
       <Card.Title title="Mot de passe" subtitle="L’ancien mot de passe sera vérifié" left={() => <Icon source="shield-lock-outline" size={28} />} />
       <Card.Actions><AppButton mode="text" icon="lock-reset" onPress={() => { passwordMutation.reset(); setPasswordValidation(''); setPasswordOpen(true); }}>Modifier en sécurité</AppButton></Card.Actions>

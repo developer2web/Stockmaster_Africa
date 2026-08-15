@@ -45,7 +45,7 @@ export default function Accounting() {
   const permissions = membership?.permissions ?? [];
   const query = useQuery({ queryKey: ['accounting', company, store, ...permissions], queryFn: () => summary(company, store, membership!), enabled: !!company && !!store && !!membership });
   const cards = [
-    hasPermission(membership,'sales.read') && { label: 'Ventes', value: query.data?.sales ?? 0, icon: 'trending-up', color: '#087F5B' },
+    hasPermission(membership,'sales.read') && { label: 'Ventes', value: query.data?.sales ?? 0, icon: 'trending-up', color: '#084B50' },
     hasPermission(membership,'purchases.read') && { label: 'Achats', value: query.data?.purchases ?? 0, icon: 'basket-outline', color: '#1971C2' },
     hasPermission(membership,'expenses.read') && { label: 'Dépenses', value: query.data?.expenses ?? 0, icon: 'cash-minus', color: '#C92A2A', action: () => router.push('/employee/expenses' as never) },
     hasPermission(membership,'payments.read') && { label: 'Paiements', value: query.data?.payments ?? 0, icon: 'credit-card-outline', color: '#7048E8' },

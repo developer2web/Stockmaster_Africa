@@ -16,7 +16,7 @@ const links = [
   ['Journal d’activité', 'Consulter les opérations sensibles', 'history', '/(super-admin)/audit'],
   ['Paiements', 'Valider Orange Money et suivre Stripe', 'credit-card-check-outline', '/(super-admin)/payments'],
   ['Promotions', 'Codes promo, essais et configuration', 'ticket-percent-outline', '/(super-admin)/promotions'],
-  ['Demandes Admin', 'Valider les employés qui deviennent administrateurs', 'account-convert-outline', '/(super-admin)/admin-requests'],
+  ['Centre opérationnel', 'Santé, support et erreurs applicatives', 'heart-pulse', '/(super-admin)/operations'],
 ] as const;
 
 function money(value: number, currencyCode: string) {
@@ -40,7 +40,7 @@ export default function SuperAdminDashboard() {
 
   const data = query.data!;
   const stats = [
-    ['Entreprises', data.companies, 'office-building-outline', '#087F5B'],
+    ['Entreprises', data.companies, 'office-building-outline', '#084B50'],
     ['Entreprises actives', data.active_companies, 'office-building-check-outline', '#2F9E44'],
     ['Entreprises suspendues', Math.max(0, data.companies - data.active_companies), 'office-building-remove-outline', '#C92A2A'],
     ['Magasins', data.stores, 'store-outline', '#1971C2'],

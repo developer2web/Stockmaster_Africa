@@ -47,7 +47,7 @@ function Ranking({ title, rows, valueKey = 'gross_profit' }: { title: string; ro
 
 export default function ReportsScreen() {
   const { formatMoney: money, primaryCode } = useCurrency();
-  const { membership } = useAuth();
+  const { membership, session } = useAuth();
   const employee = membership?.role === 'employee';
   const { canUseFeature } = useSubscription();
   const theme = useTheme();
@@ -83,7 +83,12 @@ export default function ReportsScreen() {
     setExportError('');
     setExporting(format);
     try {
-      const context = { report: data, companyName: membership?.companyName ?? 'StockMaster', currencyCode: primaryCode, periodLabel, cashBalance, details: details.data ?? { sales: [], expenses: [], cash: [] } };
+      const preparedBy = membership?.role === 'company_admin' ? 'Administrateur' : String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
+      const selectedEmployee=filters.data?.employees.find(item=>item.id===employeeId)?.name;
+      const selectedProduct=filters.data?.products.find(item=>item.id===productId)?.name;
+      const selectedCategory=filters.data?.categories.find(item=>item.id===categoryId)?.name;
+      const scopeLabel=[membership?.storeName??'Toutes les boutiques',selectedEmployee&&`Employé : ${selectedEmployee}`,selectedProduct&&`Produit : ${selectedProduct}`,selectedCategory&&`Catégorie : ${selectedCategory}`].filter(Boolean).join(' • ');
+      const context = { report: data, companyName: membership?.companyName ?? 'StockMaster', currencyCode: primaryCode, periodLabel, cashBalance, details: details.data ?? { sales: [], expenses: [], cash: [] }, preparedBy, scopeLabel };
       if (format === 'pdf') await exportFinancialPdf(context);
       else await exportFinancialCsv(context);
     } catch (error) {
@@ -95,7 +100,7 @@ export default function ReportsScreen() {
   const periodCards = [
     ['today', 'Rapport journalier', 'calendar-today', '#1971C2'],
     ['month', 'Rapport mensuel', 'calendar-month-outline', '#7048E8'],
-    ['year', 'Rapport annuel', 'calendar-range', '#087F5B'],
+    ['year', 'Rapport annuel', 'calendar-range', '#084B50'],
   ] as const;
 
   if (employee) {
@@ -108,7 +113,7 @@ export default function ReportsScreen() {
             <View style={styles.metricGrid}>
               <MetricCard label="Total des ventes" value={money(data.revenue)} icon="cart-check" color="#1971C2" />
               <MetricCard label="Quantité vendue" value={data.quantitySold.toLocaleString('fr-FR')} icon="counter" color="#7048E8" />
-              <MetricCard label="Nombre de ventes" value={String(data.saleCount)} icon="receipt-text-outline" color="#087F5B" />
+              <MetricCard label="Nombre de ventes" value={String(data.saleCount)} icon="receipt-text-outline" color="#084B50" />
             </View>
           )}
           {data && !data.saleCount && (
@@ -139,9 +144,9 @@ export default function ReportsScreen() {
         {(report.isLoading || filters.isLoading) && <LoadingScreen label="Calcul du rapport…" />}
         {!!filters.error && <HelperText type="error" visible>{filters.error.message}</HelperText>}
         {!!report.error && <HelperText type="error" visible>{report.error.message}</HelperText>}
-        {data && view === 'global' && <><View style={styles.metricGrid}><MetricCard label="Revenus" value={money(data.revenue)} icon="cash-multiple" color="#1971C2" /><MetricCard label="Bénéfice brut" value={money(data.grossProfit)} icon="trending-up" color="#087F5B" /><MetricCard label="Dépenses" value={money(data.expenses)} icon="cash-minus" color="#C92A2A" /><MetricCard label="Bénéfice net" value={money(data.netProfit)} icon="chart-line" color={data.netProfit >= 0 ? '#087F5B' : '#C92A2A'} /><MetricCard label="Valeur du stock" value={money(data.stockValue)} icon="warehouse" color="#E67700" /><MetricCard label="Solde de caisse" value={money(cashBalance)} icon="wallet-outline" color="#7048E8" /><MetricCard label="Valeur de la boutique" value={money(data.stockValue + cashBalance)} icon="store-check-outline" color="#087F5B" /></View><Card mode="contained" style={{ backgroundColor: data.netProfit >= 0 ? theme.colors.primaryContainer : theme.colors.errorContainer }}><Card.Content style={styles.netProfit}><Icon source={data.netProfit >= 0 ? 'arrow-up-circle' : 'arrow-down-circle'} size={34} color={data.netProfit >= 0 ? theme.colors.primary : theme.colors.error} /><View><Text>Bénéfice net de la période</Text><Text variant="headlineMedium" style={styles.bold}>{money(data.netProfit)}</Text></View><Chip>{variation(data.netProfit, data.previous.netProfit)}</Chip></Card.Content></Card><Card mode="outlined"><Card.Content><Text style={{ color: theme.colors.onSurfaceVariant }}>Valeur de la boutique = valeur d’achat du stock restant + solde de caisse. Il s’agit d’un indicateur opérationnel, pas d’une valorisation commerciale de l’entreprise.</Text></Card.Content></Card><View style={styles.twoColumns}><Ranking title="Produits les plus rentables" rows={data.topProducts} /><Ranking title="Performance des boutiques" rows={data.stores} valueKey="revenue" /></View></>}
-        {data && view === 'sales' && <><View style={styles.metricGrid}><MetricCard label="Total des ventes" value={money(data.revenue)} icon="cart-check" color="#1971C2" /><MetricCard label="Coût des marchandises" value={money(data.costOfGoods)} icon="package-variant" color="#E67700" /><MetricCard label="Quantité vendue" value={data.quantitySold.toLocaleString('fr-FR')} icon="counter" color="#7048E8" /><MetricCard label="Nombre de ventes" value={String(data.saleCount)} icon="receipt-text-outline" color="#087F5B" /></View><View style={styles.twoColumns}><Ranking title="Moyens de paiement" rows={data.paymentMethods} valueKey="amount" /><Ranking title="Performance des employés" rows={data.employees} valueKey="revenue" /></View></>}
-        {data && view === 'expenses' && <><View style={styles.metricGrid}><MetricCard label="Dépenses totales" value={money(data.expenses)} icon="cash-minus" color="#C92A2A" /><MetricCard label="Valeur du stock" value={money(data.stockValue)} icon="warehouse" color="#E67700" /><MetricCard label="Marge après dépenses" value={money(data.netProfit)} icon="scale-balance" color={data.netProfit >= 0 ? '#087F5B' : '#C92A2A'} /></View><Card mode="outlined"><Card.Content style={styles.netProfit}><Icon source="information-outline" size={28} color={theme.colors.secondary} /><Text style={styles.grow}>Le bénéfice net correspond au bénéfice brut diminué de toutes les dépenses enregistrées sur la période.</Text></Card.Content></Card></>}
+        {data && view === 'global' && <><View style={styles.metricGrid}><MetricCard label="Revenus" value={money(data.revenue)} icon="cash-multiple" color="#1971C2" /><MetricCard label="Bénéfice brut" value={money(data.grossProfit)} icon="trending-up" color="#084B50" /><MetricCard label="Dépenses" value={money(data.expenses)} icon="cash-minus" color="#C92A2A" /><MetricCard label="Bénéfice net" value={money(data.netProfit)} icon="chart-line" color={data.netProfit >= 0 ? '#084B50' : '#C92A2A'} /><MetricCard label="Valeur du stock" value={money(data.stockValue)} icon="warehouse" color="#E67700" /><MetricCard label="Solde de caisse" value={money(cashBalance)} icon="wallet-outline" color="#7048E8" /><MetricCard label="Valeur de la boutique" value={money(data.stockValue + cashBalance)} icon="store-check-outline" color="#084B50" /></View><Card mode="contained" style={{ backgroundColor: data.netProfit >= 0 ? theme.colors.primaryContainer : theme.colors.errorContainer }}><Card.Content style={styles.netProfit}><Icon source={data.netProfit >= 0 ? 'arrow-up-circle' : 'arrow-down-circle'} size={34} color={data.netProfit >= 0 ? theme.colors.primary : theme.colors.error} /><View><Text>Bénéfice net de la période</Text><Text variant="headlineMedium" style={styles.bold}>{money(data.netProfit)}</Text></View><Chip>{variation(data.netProfit, data.previous.netProfit)}</Chip></Card.Content></Card><Card mode="outlined"><Card.Content><Text style={{ color: theme.colors.onSurfaceVariant }}>Valeur de la boutique = valeur d’achat du stock restant + solde de caisse. Il s’agit d’un indicateur opérationnel, pas d’une valorisation commerciale de l’entreprise.</Text></Card.Content></Card><View style={styles.twoColumns}><Ranking title="Produits les plus rentables" rows={data.topProducts} /><Ranking title="Performance des boutiques" rows={data.stores} valueKey="revenue" /></View></>}
+        {data && view === 'sales' && <><View style={styles.metricGrid}><MetricCard label="Total des ventes" value={money(data.revenue)} icon="cart-check" color="#1971C2" /><MetricCard label="Coût des marchandises" value={money(data.costOfGoods)} icon="package-variant" color="#E67700" /><MetricCard label="Quantité vendue" value={data.quantitySold.toLocaleString('fr-FR')} icon="counter" color="#7048E8" /><MetricCard label="Nombre de ventes" value={String(data.saleCount)} icon="receipt-text-outline" color="#084B50" /></View><View style={styles.twoColumns}><Ranking title="Moyens de paiement" rows={data.paymentMethods} valueKey="amount" /><Ranking title="Performance des employés" rows={data.employees} valueKey="revenue" /></View></>}
+        {data && view === 'expenses' && <><View style={styles.metricGrid}><MetricCard label="Dépenses totales" value={money(data.expenses)} icon="cash-minus" color="#C92A2A" /><MetricCard label="Valeur du stock" value={money(data.stockValue)} icon="warehouse" color="#E67700" /><MetricCard label="Marge après dépenses" value={money(data.netProfit)} icon="scale-balance" color={data.netProfit >= 0 ? '#084B50' : '#C92A2A'} /></View><Card mode="outlined"><Card.Content style={styles.netProfit}><Icon source="information-outline" size={28} color={theme.colors.secondary} /><Text style={styles.grow}>Le bénéfice net correspond au bénéfice brut diminué de toutes les dépenses enregistrées sur la période.</Text></Card.Content></Card></>}
         {data && !data.saleCount && <EmptyState icon="chart-line" title="Aucune vente" message="Modifiez la période ou les filtres pour afficher un rapport." />}
       </AdminPage>
     </PermissionGuard>

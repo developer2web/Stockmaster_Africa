@@ -36,7 +36,7 @@ export default function StockScreen() {
   return (
     <AdminPage
       title="Inventaire"
-      action={<IconButton accessibilityLabel="Scanner un produit" icon="barcode-scan" onPress={() => router.push('/scanner' as never)} />}
+      action={<View style={{flexDirection:'row',alignItems:'center'}}><IconButton accessibilityLabel="Faire l’inventaire" icon="clipboard-list-outline" onPress={()=>router.push('/inventory-count' as never)}/><IconButton accessibilityLabel="Scanner un produit" icon="barcode-scan" onPress={() => router.push('/scanner' as never)} /></View>}
     >
       <View style={[styles.summary, compact && styles.compactSummary, { backgroundColor: theme.colors.primaryContainer }]}>
         <View style={[styles.summaryIcon, { backgroundColor: theme.colors.primary }]}>
