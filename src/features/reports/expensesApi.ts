@@ -5,7 +5,12 @@ import { createOperationId } from '@/utils/operationId';
 import { parseDecimal } from '@/utils/number';
 import { isDeviceOffline } from '@/features/offline/connectivity';
 import { enqueueOfflineOperation } from '@/features/offline/queue';
+import { createOfflineMetadata } from '@/features/offline/device';
 import { withOfflineCache } from '@/features/offline/storage';
+
+export type ExpenseRequest={id:string;label:string;amount:number;expense_date:string;status:'pending'|'approved'|'rejected';review_note:string|null;created_at:string};
+export async function getExpenseRequests(companyId:string,storeId:string){const{data,error}=await supabase.from('expense_requests').select('id,label,amount,expense_date,status,review_note,created_at').eq('company_id',companyId).eq('store_id',storeId).order('created_at',{ascending:false}).limit(100);if(error)throw new Error(error.message);return(data??[]) as ExpenseRequest[]}
+export async function reviewExpenseRequest(id:string,approve:boolean,note?:string){const{data,error}=await supabase.rpc('review_expense_request',{p_request_id:id,p_approve:approve,p_note:note??null});if(error)throw new Error(error.message);return data as string}
 
 export async function getExpenses(companyId: string, storeId: string): Promise<Expense[]> {
   return withOfflineCache(`expenses:${companyId}:${storeId}`, async () => {
@@ -19,7 +24,6 @@ export async function getExpenses(companyId: string, storeId: string): Promise<E
   return (data ?? []) as unknown as Expense[];
   });
 }
-
 export async function createExpense(_companyId: string, input: ExpenseInput, operationId = createOperationId()) {
   if (!input.storeId) throw new Error('Sélectionnez une boutique avant cette dépense.');
   if (!Number.isFinite(parseDecimal(input.amount)) || parseDecimal(input.amount) <= 0) {
@@ -33,15 +37,13 @@ export async function createExpense(_companyId: string, input: ExpenseInput, ope
     p_operation_id: operationId,
   };
   if (await isDeviceOffline()) {
-    await enqueueOfflineOperation({ id: operationId, type: 'expense', payload });
+    const metadata=await createOfflineMetadata();
+    await enqueueOfflineOperation({ id: operationId, type: 'expense', createdAt:metadata.createdAt,deviceId:metadata.deviceId,payload });
     return { queued: true };
   }
-  const { error } = await supabase.rpc('record_expense', payload);
+  const { data,error } = await supabase.rpc('record_expense', payload);
   if (error) throw new Error(error.message);
-  return { queued: false };
+  const{data:request}=await supabase.from('expense_requests').select('id').eq('id',data as string).maybeSingle();
+  return { queued: false,pending:!!request };
 }
-
-export async function deleteExpense(id: string) {
-  const { error } = await supabase.from('expenses').delete().eq('id', id);
-  if (error) throw new Error(error.message);
-}
+export const EXPENSE_PAGE_SIZE=100;

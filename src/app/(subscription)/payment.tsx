@@ -58,7 +58,7 @@ export default function PaymentScreen() {
 
       <SegmentedButtons value={method} onValueChange={(value) => setMethod(value as typeof method)} buttons={[{ value: 'orange_money', label: 'Orange Money', icon: 'cellphone' }, { value: 'stripe', label: 'Carte / Stripe', icon: 'credit-card-outline' }]} />
 
-      {method === 'orange_money' ? <Card mode="outlined"><Card.Title title="Paiement Orange Money" subtitle="Validation manuelle et sécurisée" /><Card.Content style={styles.content}>
+      {method === 'orange_money' ? <Card mode="outlined"><Card.Title title="Paiement Orange Money" subtitle="Validation manuelle après vérification" /><Card.Content style={styles.content}>
         <Text>Envoyez exactement <Text style={styles.bold}>{money(quote.data?.finalAmount ?? 0)}</Text> au :</Text>
         <Text selectable variant="headlineSmall" style={styles.bold}>{settings.data?.orangeMoneyNumber || 'Numéro non configuré'}</Text>
         <Text>Nom du compte : {settings.data?.orangeMoneyAccountName || 'Non configuré'}</Text>
@@ -68,8 +68,8 @@ export default function PaymentScreen() {
         {!!proof.error && <HelperText type="error" visible>{proof.error.message}</HelperText>}
         {!!manual.error && <HelperText type="error" visible>{manual.error.message}</HelperText>}
         <AppButton icon="check" loading={manual.isPending} disabled={manual.isPending || reference.trim().length < 4 || !settings.data?.orangeMoneyNumber || !quote.data} onPress={() => manual.mutate()}>J’ai effectué le paiement</AppButton>
-      </Card.Content></Card> : <Card mode="outlined"><Card.Title title="Paiement sécurisé par Stripe" subtitle="Activation automatique après confirmation bancaire" /><Card.Content style={styles.content}>
-        <Text>Vous serez redirigé vers la page sécurisée Stripe. StockMaster n’enregistre jamais les données de votre carte.</Text>
+      </Card.Content></Card> : <Card mode="outlined"><Card.Title title="Paiement par carte via Stripe" subtitle="Activation après confirmation du prestataire et du serveur" /><Card.Content style={styles.content}>
+        <Text>Vous serez redirigé vers la page de paiement hébergée par Stripe. StockMaster ne reçoit pas le numéro complet de votre carte ; Stripe traite les données de paiement selon ses propres conditions.</Text>
         {!!stripe.error && <HelperText type="error" visible>{stripe.error.message}</HelperText>}
         <AppButton icon="credit-card-check-outline" loading={stripe.isPending} disabled={!quote.data || !!appliedPromo} onPress={() => stripe.mutate()}>Payer par carte</AppButton>
         {!!appliedPromo && <HelperText type="info" visible>Le paiement Stripe avec promotion sera disponible après configuration des coupons Stripe. Retirez le code pour continuer.</HelperText>}

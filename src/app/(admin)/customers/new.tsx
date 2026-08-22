@@ -11,7 +11,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { saveCustomer } from '@/features/customers/api';
 import { customerSchema, type CustomerInput } from '@/schemas/customers';
 
-const defaults: CustomerInput = { name: '', phone: '', email: '', address: '', note: '', isActive: true };
+const defaults: CustomerInput = { name: '', phone: '', email: '', address: '', note: '', creditLimit: '', isActive: true };
 
 export default function NewCustomer() {
   const { membership } = useAuth();
@@ -34,6 +34,7 @@ export default function NewCustomer() {
       <FormField control={control} name="email" label="Email" autoCapitalize="none" keyboardType="email-address" />
       <FormField control={control} name="address" label="Adresse" />
       <FormField control={control} name="note" label="Note" multiline />
+      <FormField control={control} name="creditLimit" label="Limite de crédit (vide = illimitée)" keyboardType="decimal-pad" />
       <Controller
         control={control}
         name="isActive"

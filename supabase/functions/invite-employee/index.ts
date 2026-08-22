@@ -25,6 +25,7 @@ function corsHeaders(request: Request) {
 
 Deno.serve(async (request) => {
   const cors = corsHeaders(request);
+  let cleanupCreatedUser: (() => Promise<void>) | null = null;
   if (request.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (request.method !== 'POST') {
     return Response.json({ error: 'Method not allowed' }, { status: 405, headers: cors });
@@ -62,9 +63,6 @@ Deno.serve(async (request) => {
       if ((stores?.length ?? 0) !== storeIds.length) throw new Error('Boutique invalide');
     }
 
-    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
-    const random = crypto.getRandomValues(new Uint32Array(14));
-    const temporaryPassword = `Sm!${Array.from(random, (value) => alphabet[value % alphabet.length]).join('')}`;
     const { data: directoryEntry, error: directoryError } = await admin
       .from('user_email_directory')
       .select('user_id')
@@ -89,11 +87,10 @@ Deno.serve(async (request) => {
       }
       throw new Error('Cet employé existe déjà. Réactivez son accès sans réinitialiser son mot de passe.');
     }
-    const { data: created, error: createError } = await admin.auth.admin.createUser({
-      email,
-      password: temporaryPassword,
-      email_confirm: true,
-      user_metadata: { full_name: fullName, invited_company_id: current.company_id },
+    const redirectTo = Deno.env.get('EMPLOYEE_INVITE_REDIRECT_URL') ?? Deno.env.get('SITE_URL');
+    const { data: created, error: createError } = await admin.auth.admin.inviteUserByEmail(email, {
+      data: { full_name: fullName, invited_company_id: current.company_id },
+      ...(redirectTo ? { redirectTo } : {}),
     });
     if (createError) {
       if (createError.status === 422 || /already.*registered|already.*exists/i.test(createError.message)) {
@@ -102,6 +99,7 @@ Deno.serve(async (request) => {
       throw createError;
     }
     employee = created.user;
+    cleanupCreatedUser = async () => { await admin.auth.admin.deleteUser(employee!.id); };
     await admin.from('profiles').upsert({ id: employee.id, full_name: fullName });
     const { data: membership, error: membershipError } = await admin.from('memberships').upsert({
       company_id: current.company_id, user_id: employee.id, role_id: body.roleId,
@@ -115,8 +113,10 @@ Deno.serve(async (request) => {
       })));
       if (storesError) throw storesError;
     }
-    return Response.json({ userId: employee.id, temporaryPassword }, { headers: cors });
+    cleanupCreatedUser = null;
+    return Response.json({ userId: employee.id, invitationSent: true }, { headers: cors });
   } catch (error) {
+    if (cleanupCreatedUser) await cleanupCreatedUser().catch(() => undefined);
     return Response.json({ error: error instanceof Error ? error.message : 'Erreur inconnue' }, { status: 400, headers: cors });
   }
 });

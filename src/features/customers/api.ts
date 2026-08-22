@@ -15,6 +15,7 @@ export type Customer = {
   address: string | null;
   note: string | null;
   is_active: boolean;
+  credit_limit: number | null;
   created_at: string;
   balance?: number;
 };
@@ -23,7 +24,8 @@ export type CustomerLedgerEntry = {
   id: string;
   customer_id: string;
   store_id: string | null;
-  entry_type: 'credit' | 'payment';
+  entry_type: 'credit' | 'payment' | 'discount';
+  payment_method: 'cash'|'mobile_money'|null;
   amount: number;
   sale_id: string | null;
   note: string | null;
@@ -62,7 +64,7 @@ export async function getCustomers(companyId: string, search = ''): Promise<Cust
   return withOfflineCache(`customers:${companyId}:${search.trim().toLowerCase()}`, async () => {
   let query = supabase
     .from('customers')
-    .select('id,company_id,store_id,name,phone,email,address,note,is_active,created_at')
+    .select('id,company_id,store_id,name,phone,email,address,note,is_active,credit_limit,created_at')
     .eq('company_id', companyId)
     .order('name')
     .limit(300);
@@ -79,7 +81,7 @@ export async function getCustomers(companyId: string, search = ''): Promise<Cust
 export async function getCustomer(id: string): Promise<Customer> {
   const { data, error } = await supabase
     .from('customers')
-    .select('id,company_id,store_id,name,phone,email,address,note,is_active,created_at')
+    .select('id,company_id,store_id,name,phone,email,address,note,is_active,credit_limit,created_at')
     .eq('id', id)
     .single();
   fail(error);
@@ -99,6 +101,7 @@ export async function saveCustomer(companyId: string, storeId: string | null, va
     email: empty(value.email),
     address: empty(value.address),
     note: empty(value.note),
+    credit_limit: value.creditLimit?.trim() ? parseDecimal(value.creditLimit) : null,
     is_active: value.isActive,
   };
   if (id) {
@@ -114,7 +117,7 @@ export async function saveCustomer(companyId: string, storeId: string | null, va
 export async function getCustomerLedger(customerId: string): Promise<CustomerLedgerEntry[]> {
   const { data, error } = await supabase
     .from('customer_ledger')
-    .select('id,customer_id,store_id,entry_type,amount,sale_id,note,balance_before,balance_after,created_at')
+    .select('id,customer_id,store_id,entry_type,amount,sale_id,note,payment_method,balance_before,balance_after,created_at')
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false })
     .limit(200);
@@ -129,19 +132,24 @@ export async function getCustomerSales(companyId: string, customerId: string): P
 }
 
 export async function recordCustomerEntry(
-  input: { customerId: string; storeId: string | null; type: 'credit' | 'payment'; amount: string; note?: string },
+  input: { customerId: string; storeId: string | null; type: 'credit' | 'payment'|'discount'; amount: string; paymentMethod?:'cash'|'mobile_money';note?: string },
   operationId = createOperationId(),
 ) {
   const amount = parseDecimal(input.amount);
   if (!Number.isFinite(amount) || amount <= 0) throw new Error('Le montant doit être supérieur à zéro.');
-  const { error } = await supabase.rpc('record_customer_entry', {
+  const { error } = await supabase.rpc('record_customer_entry_v2', {
     p_customer_id: input.customerId,
     p_store_id: input.storeId,
     p_entry_type: input.type,
     p_amount: amount,
+    p_payment_method: input.type==='payment'?(input.paymentMethod??'cash'):null,
     p_note: input.note ?? null,
     p_sale_id: null,
     p_operation_id: operationId,
   });
   if (error) throw new Error(userErrorMessage(error));
 }
+
+export type DebtInstallment={id:string;due_date:string;amount:number;paid_amount:number;status:'pending'|'partial'|'paid'};
+export async function getCustomerDebtSchedule(customerId:string){const{data,error}=await supabase.from('customer_debt_schedules').select('id,total,status,created_at,customer_debt_installments(id,due_date,amount,paid_amount,status)').eq('customer_id',customerId).eq('status','active').maybeSingle();fail(error);return data as null|{id:string;total:number;status:string;created_at:string;customer_debt_installments:DebtInstallment[]}}
+export async function setCustomerDebtSchedule(customerId:string,items:{dueDate:string;amount:number}[]){const{data,error}=await supabase.rpc('set_customer_debt_schedule',{p_customer_id:customerId,p_items:items});fail(error);return data as string}

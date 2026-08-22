@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { portalAccessDeniedMessage } from '../src/features/auth/portalMessages';
+import { portalAllowsRoles } from '../src/features/auth/portalRules';
 
 describe('messages de refus des portails', () => {
   it('indique uniquement l’absence d’accès employé', () => {
@@ -14,5 +15,18 @@ describe('messages de refus des portails', () => {
       portalAccessDeniedMessage('admin'),
     ];
     expect(messages.join(' ')).not.toMatch(/appartient|est un compte/i);
+  });
+});
+
+describe('portal role separation', () => {
+  it('never accepts a Super Admin in the main Admin portal', () => {
+    expect(portalAllowsRoles(['super_admin'], 'admin')).toBe(false);
+  });
+
+  it('keeps Admin and Employee portals mutually exclusive', () => {
+    expect(portalAllowsRoles(['company_admin'], 'admin')).toBe(true);
+    expect(portalAllowsRoles(['company_admin'], 'employee')).toBe(false);
+    expect(portalAllowsRoles(['employee'], 'employee')).toBe(true);
+    expect(portalAllowsRoles(['employee'], 'admin')).toBe(false);
   });
 });

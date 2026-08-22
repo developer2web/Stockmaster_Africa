@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { fromStripeMinorUnits } from '../_shared/currency.ts';
 
 type WebhookPayload = {
   provider?: string;
@@ -40,10 +41,11 @@ Deno.serve(async (request) => {
       if (!safeEqual(stripeExpected,signature.toLowerCase())) return Response.json({ error: 'Invalid Stripe signature' }, { status: 401 });
       const event = JSON.parse(rawBody) as {id:string;type:string;data:{object:Record<string,unknown>}};
       const object = event.data.object;
-      const mapped = event.type==='checkout.session.completed'&&object.payment_status==='paid'?'succeeded':event.type==='checkout.session.expired'?'expired':event.type==='checkout.session.async_payment_failed'?'failed':null;
+      const mapped = event.type==='checkout.session.completed'&&object.payment_status==='paid'?'succeeded':event.type==='checkout.session.async_payment_succeeded'?'succeeded':event.type==='checkout.session.expired'?'expired':event.type==='checkout.session.async_payment_failed'?'failed':null;
       if (!mapped) return Response.json({ received:true,ignored:true });
       const admin = createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
-      const {data,error}=await admin.rpc('process_payment_webhook',{p_provider:'stripe',p_provider_reference:String(object.id),p_provider_event_id:event.id,p_status:mapped,p_amount:Number(object.amount_total??0)/100,p_currency:String(object.currency??'').toUpperCase(),p_payload:event});
+      const stripeCurrency = String(object.currency ?? '').toUpperCase();
+      const {data,error}=await admin.rpc('process_payment_webhook',{p_provider:'stripe',p_provider_reference:String(object.id),p_provider_event_id:event.id,p_status:mapped,p_amount:fromStripeMinorUnits(Number(object.amount_total ?? 0), stripeCurrency),p_currency:stripeCurrency,p_payload:event});
       if(error)throw error;
       return Response.json({received:true,result:data});
     }

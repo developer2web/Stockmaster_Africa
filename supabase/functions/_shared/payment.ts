@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, json } from './http.ts';
+import { toStripeMinorUnits } from './currency.ts';
 
 type PaymentRequest = {
   companyId?: string;
@@ -8,6 +9,16 @@ type PaymentRequest = {
   phoneNumber?: string;
   provider?: string;
   operationId?: string;
+  promoCode?: string | null;
+};
+
+type SubscriptionQuote = {
+  base_amount: number;
+  discount_amount: number;
+  final_amount: number;
+  bonus_days: number;
+  promotion_id: string | null;
+  currency: string;
 };
 
 export async function handleCreatePayment(request: Request, renewalOnly = false) {
@@ -53,7 +64,17 @@ export async function handleCreatePayment(request: Request, renewalOnly = false)
       .eq('is_active', true)
       .single();
     if (planError || !plan) throw new Error('Forfait indisponible');
-    const amount = Number(body.billingCycle === 'annual' ? plan.annual_price : plan.monthly_price);
+    const { data: quoteResult, error: quoteError } = await caller.rpc('subscription_quote', {
+      p_company_id: body.companyId,
+      p_plan_id: plan.id,
+      p_billing_cycle: body.billingCycle,
+      p_promo_code: body.promoCode?.trim() || null,
+    });
+    if (quoteError) throw quoteError;
+    const quote = (Array.isArray(quoteResult) ? quoteResult[0] : quoteResult) as SubscriptionQuote | null;
+    if (!quote) throw new Error('Calcul du montant indisponible');
+    const amount = Number(quote.final_amount);
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error('Ce paiement ne peut pas avoir un montant nul');
 
     const { data: transaction, error: transactionError } = await admin.from('payment_transactions')
       .upsert({
@@ -64,7 +85,11 @@ export async function handleCreatePayment(request: Request, renewalOnly = false)
         operation_id: body.operationId,
         billing_cycle: body.billingCycle,
         amount,
-        currency: plan.currency,
+        base_amount: Number(quote.base_amount),
+        discount_amount: Number(quote.discount_amount),
+        promotion_id: quote.promotion_id,
+        bonus_days: Number(quote.bonus_days ?? 0),
+        currency: quote.currency || plan.currency,
         phone_number: body.phoneNumber?.trim(),
         status: 'pending',
       }, { onConflict: 'client_id,operation_id', ignoreDuplicates: false })
@@ -84,7 +109,8 @@ export async function handleCreatePayment(request: Request, renewalOnly = false)
       const successUrl = Deno.env.get('STRIPE_SUCCESS_URL');
       const cancelUrl = Deno.env.get('STRIPE_CANCEL_URL');
       if (!stripeKey || !successUrl || !cancelUrl) throw new Error('Stripe n’est pas encore configuré');
-      const smallestUnit = Math.round(amount * 100);
+      const paymentCurrency = quote.currency || plan.currency;
+      const smallestUnit = toStripeMinorUnits(amount, paymentCurrency);
       const form = new URLSearchParams({
         mode: 'payment',
         success_url: `${successUrl}${successUrl.includes('?') ? '&' : '?'}transactionId=${transaction.id}`,
@@ -92,7 +118,7 @@ export async function handleCreatePayment(request: Request, renewalOnly = false)
         client_reference_id: transaction.id,
         'metadata[transaction_id]': transaction.id,
         'line_items[0][quantity]': '1',
-        'line_items[0][price_data][currency]': plan.currency.toLowerCase(),
+        'line_items[0][price_data][currency]': paymentCurrency.toLowerCase(),
         'line_items[0][price_data][unit_amount]': String(smallestUnit),
         'line_items[0][price_data][product_data][name]': `StockMaster ${plan.name}`,
       });

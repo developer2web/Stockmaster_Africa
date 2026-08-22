@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Card, Dialog, HelperText, Icon, Portal, Text, TextInput } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
-import { changePasswordWithVerification, requestAccountDeletion } from '@/features/account/api';
+import { AccountDeletionCard } from '@/components/legal/AccountDeletionCard';
+import { changePasswordWithVerification } from '@/features/account/api';
 import { useAuth } from '@/features/auth/AuthProvider';
 
 export default function SettingsScreen() {
@@ -16,9 +17,6 @@ export default function SettingsScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordValidation, setPasswordValidation] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const [deletionOpen, setDeletionOpen] = useState(false);
-  const [reason, setReason] = useState('');
-  const [confirmation, setConfirmation] = useState('');
 
   const passwordMutation = useMutation({
     mutationFn: () => changePasswordWithVerification(currentPassword, newPassword),
@@ -30,7 +28,6 @@ export default function SettingsScreen() {
       setPasswordSuccess(true);
     },
   });
-  const deletion = useMutation({ mutationFn: () => requestAccountDeletion(reason), onSuccess: () => { setDeletionOpen(false); setConfirmation(''); } });
 
   const submitPassword = () => {
     setPasswordValidation('');
@@ -68,13 +65,8 @@ export default function SettingsScreen() {
 
     {admin && <>
       <Text variant="titleMedium" style={{ color: '#C92A2A' }}>Zone sensible</Text>
-      <Card mode="outlined">
-        <Card.Title title="Suppression du compte" subtitle="Demande examinée avant fermeture définitive" left={() => <Icon source="account-remove-outline" size={28} color="#C92A2A" />} />
-        <Card.Content><Text>Les écritures financières légalement nécessaires peuvent être conservées avec un accès restreint.</Text></Card.Content>
-        <Card.Actions><AppButton mode="text" textColor="#C92A2A" onPress={() => setDeletionOpen(true)}>Demander la suppression</AppButton></Card.Actions>
-      </Card>
+      <AccountDeletionCard />
     </>}
-    {deletion.isSuccess && <HelperText type="info" visible>Votre demande de suppression a été enregistrée.</HelperText>}
 
     <Portal>
       <Dialog visible={passwordOpen} onDismiss={() => !passwordMutation.isPending && setPasswordOpen(false)}>
@@ -90,16 +82,6 @@ export default function SettingsScreen() {
         <Dialog.Actions><AppButton mode="text" disabled={passwordMutation.isPending} onPress={() => setPasswordOpen(false)}>Annuler</AppButton><AppButton icon="shield-check" loading={passwordMutation.isPending} disabled={passwordMutation.isPending} onPress={submitPassword}>Confirmer</AppButton></Dialog.Actions>
       </Dialog>
 
-      <Dialog visible={deletionOpen} onDismiss={() => !deletion.isPending && setDeletionOpen(false)}>
-        <Dialog.Title>Demande de suppression</Dialog.Title>
-        <Dialog.Content style={{ gap: 10 }}>
-          <Text>Pour éviter une action accidentelle, écrivez SUPPRIMER ci-dessous.</Text>
-          <TextInput mode="outlined" label="Raison (facultatif)" value={reason} onChangeText={setReason} multiline />
-          <TextInput mode="outlined" label="Confirmation" value={confirmation} onChangeText={setConfirmation} autoCapitalize="characters" />
-          {!!deletion.error && <HelperText type="error" visible>{deletion.error.message}</HelperText>}
-        </Dialog.Content>
-        <Dialog.Actions><AppButton mode="text" disabled={deletion.isPending} onPress={() => setDeletionOpen(false)}>Annuler</AppButton><AppButton buttonColor="#C92A2A" loading={deletion.isPending} disabled={deletion.isPending || confirmation.trim().toUpperCase() !== 'SUPPRIMER'} onPress={() => deletion.mutate()}>Confirmer la demande</AppButton></Dialog.Actions>
-      </Dialog>
     </Portal>
   </AdminPage>;
 }

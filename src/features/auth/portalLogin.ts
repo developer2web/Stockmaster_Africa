@@ -1,8 +1,9 @@
 import { supabase } from '@/services/supabase/client';
 import type { AppRole } from '@/types/database';
 import { portalAccessDeniedMessage } from './portalMessages';
+import { portalAllowsRoles, type LoginPortal } from './portalRules';
 
-export type LoginPortal = 'admin' | 'employee';
+export type { LoginPortal } from './portalRules';
 
 type PortalLoginResult = {
   ok: boolean;
@@ -50,15 +51,11 @@ export async function signInForPortal(
   const contextRole = (contextRow as { role?: AppRole } | null)?.role;
   if (contextRole && !roles.includes(contextRole)) roles.push(contextRole);
 
-  const isEmployee = roles.includes('employee');
-  const isAdministrator = roles.includes('company_admin') || roles.includes('super_admin');
   const pendingAdministrator =
     roles.length === 0 &&
     typeof data.user.user_metadata?.company_name === 'string' &&
     data.user.user_metadata.company_name.trim().length > 0;
-  const allowed = portal === 'employee'
-    ? isEmployee
-    : isAdministrator || pendingAdministrator;
+  const allowed = portalAllowsRoles(roles, portal, pendingAdministrator);
 
   if (!allowed) {
     await supabase.auth.signOut({ scope: 'local' });

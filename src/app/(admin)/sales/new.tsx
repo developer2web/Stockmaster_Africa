@@ -51,27 +51,33 @@ export default function NewSale() {
     if (scannedAdded.current || !productId || !stock.data) return;
     const found = stock.data.find((item) =>
       item.productId === productId && (!variantId || item.variantId === variantId));
-    if (found?.available) {
-      add(found);
+    if (found && (found.available > 0 || companySettings.data?.allow_negative_stock)) {
+      add(found,!!companySettings.data?.allow_negative_stock);
       scannedAdded.current = true;
     }
-  }, [productId, variantId, stock.data, add]);
+  }, [productId, variantId, stock.data, companySettings.data?.allow_negative_stock, add]);
 
   const categories = Array.from(new Map((stock.data ?? []).filter(item=>item.categoryId).map(item=>[item.categoryId!,item.categoryName??'Catégorie'])).entries());
   const shown = (stock.data ?? [])
     .filter((item) => (!categoryId || item.categoryId===categoryId) && `${item.name} ${item.sku}`.toLowerCase().includes(search.trim().toLowerCase()))
     .slice(0, 30);
-  const totals = useMemo(() => ({
-    subtotal: items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0),
-    discount: items.reduce((sum,item)=>sum+item.discount,0),
-    total: items.reduce((sum, item) => sum + item.salePrice * item.quantity-item.discount, 0),
+  const totals = useMemo(() => {
+    const subtotal=items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
+    const discount=items.reduce((sum,item)=>sum+item.discount,0);
+    const tax=Math.round((subtotal-discount)*Number(companySettings.data?.tax_rate??0))/100;
+    return ({
+    subtotal,
+    discount,
+    tax,
+    total: subtotal-discount+tax,
     grossProfit: items.reduce(
       (sum, item) => sum + (item.salePrice - item.purchasePrice) * item.quantity-item.discount,
       0,
     ),
-  }), [items]);
+  })}, [items,companySettings.data?.tax_rate]);
+  const discountTooHigh=items.some(item=>item.discount>item.salePrice*item.quantity*Number(companySettings.data?.max_discount_percent??100)/100);
   const save = useMutation({
-    mutationFn: () => createSale(company, storeId, payment, items, customerId, payment==='credit'?0:payment==='partial'?parseDecimal(amountPaid):totals.total),
+    mutationFn: () => createSale(company, storeId, payment, items, customerId, payment==='credit'?0:payment==='partial'?parseDecimal(amountPaid):totals.total,undefined,!!companySettings.data?.allow_negative_stock),
     onSuccess: async (result) => {
       useSaleCart.getState().clear();
       scannedAdded.current = true;
@@ -113,15 +119,15 @@ export default function NewSale() {
       {!!stock.error && <HelperText type="error" visible>{stock.error.message}</HelperText>}
       <View style={styles.list}>
         {shown.map((item) => {
-          const available = item.available > 0;
+          const available = item.available > 0 || !!companySettings.data?.allow_negative_stock;
           return (
-            <Card key={cartKey(item)} mode="contained" style={[{ backgroundColor: theme.colors.surface }, !available && styles.unavailable]} onPress={available ? () => add(item) : undefined}>
+            <Card key={cartKey(item)} mode="contained" style={[{ backgroundColor: theme.colors.surface }, !available && styles.unavailable]} onPress={available ? () => add(item,!!companySettings.data?.allow_negative_stock) : undefined}>
               <Card.Title
                 left={() => <ProductThumbnail url={item.imageUrl} />}
                 title={item.name}
                 subtitle={`${item.sku} • Prix catalogue ${formatMoney(item.salePrice)}`}
                 right={() => available
-                  ? <Chip style={styles.chip} icon="package-variant">Stock {formatQuantity(item.available)}</Chip>
+                  ? <Chip style={styles.chip} icon={item.available>0?'package-variant':'alert'}>Stock {formatQuantity(item.available)}</Chip>
                   : <Chip style={styles.chip} icon="alert-circle-outline">Stock épuisé</Chip>}
               />
               {!available && <Card.Content><Text style={{ color: theme.colors.error }}>Ajoutez le stock depuis la fiche Produit ou le module Stock.</Text></Card.Content>}
@@ -148,7 +154,7 @@ export default function NewSale() {
           <Card key={id} mode="contained" style={{ backgroundColor: theme.colors.surface }}>
             <Card.Title left={()=><ProductThumbnail url={item.imageUrl}/>} title={item.name} subtitle={`${formatMoney(item.salePrice)} • disponible ${formatQuantity(item.available)} ${item.unit}`} right={() => <IconButton icon="delete" onPress={() => remove(id)} />} />
             <Card.Content style={styles.list}>
-              <View style={styles.quantityRow}><IconButton mode="outlined" icon="minus" accessibilityLabel="Diminuer la quantité" disabled={item.quantity<=1} onPress={()=>setQuantity(id,item.quantity-1)}/><TextInput style={styles.quantityInput} mode="outlined" label="Quantité" keyboardType="decimal-pad" value={String(item.quantity)} onChangeText={(value) => setQuantity(id, parseDecimal(value) || 0)} /><IconButton mode="contained" icon="plus" accessibilityLabel="Augmenter la quantité" disabled={item.quantity>=item.available} onPress={()=>setQuantity(id,item.quantity+1)}/></View>
+              <View style={styles.quantityRow}><IconButton mode="outlined" icon="minus" accessibilityLabel="Diminuer la quantité" disabled={item.quantity<=1} onPress={()=>setQuantity(id,item.quantity-1,!!companySettings.data?.allow_negative_stock)}/><TextInput style={styles.quantityInput} mode="outlined" label="Quantité" keyboardType="decimal-pad" value={String(item.quantity)} onChangeText={(value) => setQuantity(id, parseDecimal(value) || 0,!!companySettings.data?.allow_negative_stock)} /><IconButton mode="contained" icon="plus" accessibilityLabel="Augmenter la quantité" disabled={!companySettings.data?.allow_negative_stock&&item.quantity>=item.available} onPress={()=>setQuantity(id,item.quantity+1,!!companySettings.data?.allow_negative_stock)}/></View>
               {companySettings.data?.allow_discounts&&<TextInput style={styles.field} mode="outlined" label="Remise sur cette ligne" keyboardType="decimal-pad" value={String(item.discount)} onChangeText={value=>setDiscount(id,parseDecimal(value)||0)}/>}<Text>Total ligne : {formatMoney(item.salePrice * item.quantity-item.discount)}{!employee ? ` • Bénéfice : ${formatMoney((item.salePrice - item.purchasePrice) * item.quantity-item.discount)}` : ''}</Text>
             </Card.Content>
           </Card>
@@ -172,12 +178,14 @@ export default function NewSale() {
           <View style={styles.checkoutCopy}>
           <Text variant="headlineSmall">Total : {formatMoney(totals.total)}</Text>
           {totals.discount>0&&<Text>Remises : −{formatMoney(totals.discount)}</Text>}
+          {totals.tax>0&&<Text>Taxes ({Number(companySettings.data?.tax_rate??0)} %) : {formatMoney(totals.tax)}</Text>}
           {!employee && <Text style={{ color: theme.colors.primary }}>Bénéfice brut : {formatMoney(totals.grossProfit)}</Text>}
           </View>
         </Card.Content>
       </Card>
       {!!save.error && <HelperText type="error" visible>{save.error.message}</HelperText>}
-      <AppButton icon="check" loading={save.isPending} disabled={!items.length || !storeId || save.isPending || ((payment==='credit'||payment==='partial')&&!customerId) || (payment==='partial'&&(!(parseDecimal(amountPaid)>0)||parseDecimal(amountPaid)>=totals.total))} onPress={() => save.mutate()}>
+      {discountTooHigh&&<HelperText type="error" visible>Une remise dépasse la limite de {Number(companySettings.data?.max_discount_percent??100)} % définie par l’administrateur.</HelperText>}
+      <AppButton icon="check" loading={save.isPending} disabled={!items.length || !storeId || save.isPending || discountTooHigh || ((payment==='credit'||payment==='partial')&&!customerId) || (payment==='partial'&&(!(parseDecimal(amountPaid)>0)||parseDecimal(amountPaid)>=totals.total))} onPress={() => save.mutate()}>
         ENCAISSER
       </AppButton>
       </View>

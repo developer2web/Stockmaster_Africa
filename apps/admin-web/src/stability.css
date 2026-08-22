@@ -1,0 +1,1 @@
+.emptyCell{text-align:center!important;color:var(--muted);height:120px!important}.primary:disabled,.approve:disabled,.reject:disabled,.iconBtn:disabled{opacity:.55;cursor:not-allowed}.alert{position:relative}.alert.success{animation:noticeIn .18s ease-out}@keyframes noticeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}

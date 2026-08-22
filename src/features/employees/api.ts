@@ -19,15 +19,15 @@ type EmployeeRow = {
 };
 
 export async function getCompany(companyId: string) {
-  const { data, error } = await supabase.from('companies').select('id,name,slug,phone,email,address,logo_url,language,tax_rate,allow_discounts,allow_credit_sales,low_stock_alerts,receipt_footer,country_code,country_name,default_currency_code,secondary_currency_code,currency_locked_at,created_at').eq('id', companyId).single(); fail(error); return data as {
+  const { data, error } = await supabase.from('companies').select('id,name,slug,phone,email,address,logo_url,language,tax_rate,allow_discounts,allow_credit_sales,allow_negative_stock,max_discount_percent,require_refund_reason,cash_opening_required,cash_variance_reason_threshold,expense_approval_threshold,low_stock_alerts,receipt_footer,country_code,country_name,default_currency_code,secondary_currency_code,currency_locked_at,created_at').eq('id', companyId).single(); fail(error); return data as {
     id: string; name: string; slug: string | null; country_code: string;
-    phone:string|null;email:string|null;address:string|null;logo_url:string|null;language:'fr'|'en';tax_rate:number;allow_discounts:boolean;allow_credit_sales:boolean;low_stock_alerts:boolean;receipt_footer:string|null;
+    phone:string|null;email:string|null;address:string|null;logo_url:string|null;language:'fr'|'en';tax_rate:number;allow_discounts:boolean;allow_credit_sales:boolean;allow_negative_stock:boolean;max_discount_percent:number;require_refund_reason:boolean;cash_opening_required:boolean;cash_variance_reason_threshold:number;expense_approval_threshold:number|null;low_stock_alerts:boolean;receipt_footer:string|null;
     country_name: string; default_currency_code: string;
     secondary_currency_code: string | null; currency_locked_at: string | null; created_at: string;
   };
 }
 export async function updateCompany(companyId: string, name: string) { const { error } = await supabase.from('companies').update({ name }).eq('id', companyId); fail(error); }
-export async function updateBusinessSettings(companyId:string,value:{phone:string;email:string;address:string;language:'fr'|'en';taxRate:number;allowDiscounts:boolean;allowCreditSales:boolean;lowStockAlerts:boolean;receiptFooter:string}){const{error}=await supabase.from('companies').update({phone:value.phone.trim()||null,email:value.email.trim()||null,address:value.address.trim()||null,language:value.language,tax_rate:value.taxRate,allow_discounts:value.allowDiscounts,allow_credit_sales:value.allowCreditSales,low_stock_alerts:value.lowStockAlerts,receipt_footer:value.receiptFooter.trim()||null}).eq('id',companyId);fail(error)}
+export async function updateBusinessSettings(companyId:string,value:{phone:string;email:string;address:string;language:'fr'|'en';taxRate:number;allowDiscounts:boolean;allowCreditSales:boolean;allowNegativeStock:boolean;maxDiscountPercent:number;requireRefundReason:boolean;cashOpeningRequired:boolean;cashVarianceReasonThreshold:number;expenseApprovalThreshold:number|null;lowStockAlerts:boolean;receiptFooter:string}){const{error}=await supabase.from('companies').update({phone:value.phone.trim()||null,email:value.email.trim()||null,address:value.address.trim()||null,language:value.language,tax_rate:value.taxRate,allow_discounts:value.allowDiscounts,allow_credit_sales:value.allowCreditSales,allow_negative_stock:value.allowNegativeStock,max_discount_percent:value.maxDiscountPercent,require_refund_reason:value.requireRefundReason,cash_opening_required:value.cashOpeningRequired,cash_variance_reason_threshold:value.cashVarianceReasonThreshold,expense_approval_threshold:value.expenseApprovalThreshold,low_stock_alerts:value.lowStockAlerts,receipt_footer:value.receiptFooter.trim()||null}).eq('id',companyId);fail(error)}
 
 export async function getCountryCurrencyMap() {
   const { data, error } = await supabase.from('country_currency_map')
@@ -98,7 +98,7 @@ export async function getEmployees(companyId: string): Promise<Employee[]> {
       createdAt: membership.created_at,
     }));
 }
-export async function inviteEmployee(values: EmployeeInput, companyId: string): Promise<{ userId: string; temporaryPassword: string }> {
+export async function inviteEmployee(values: EmployeeInput, companyId: string): Promise<{ userId: string; invitationSent: boolean }> {
   const { data, error } = await supabase.functions.invoke('invite-employee',{ body:{...values,companyId} });
   if (error) {
     const response=(error as {context?:Response}).context;
@@ -106,8 +106,8 @@ export async function inviteEmployee(values: EmployeeInput, companyId: string): 
     throw new Error(error.message);
   }
   if(data?.error)throw new Error(data.error);
-  if(!data?.userId||!data?.temporaryPassword)throw new Error('Les identifiants temporaires sont absents de la réponse.');
-  return data as { userId: string; temporaryPassword: string };
+  if(!data?.userId||!data?.invitationSent)throw new Error('La confirmation d’envoi de l’invitation est absente.');
+  return data as { userId: string; invitationSent: boolean };
 }
 export async function updateEmployee(id:string, roleId:string, storeIds:string[], allStores:boolean, isActive:boolean) { const { error }=await supabase.rpc('update_employee_access',{p_membership_id:id,p_role_id:roleId,p_store_ids:storeIds,p_all_stores:allStores,p_is_active:isActive}); fail(error); }
 export async function deleteEmployee(id:string) { const { error }=await supabase.rpc('delete_employee',{p_membership_id:id}); fail(error); }

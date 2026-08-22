@@ -2,8 +2,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as Linking from 'expo-linking';
 import { Link, router } from 'expo-router';
 import { useRef, useState } from 'react';
+import { View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
-import { Card, HelperText, Icon, Text } from 'react-native-paper';
+import { Card, Checkbox, HelperText, Icon, Text } from 'react-native-paper';
 
 import { SelectField } from '@/components/forms/SelectField';
 import { FormField } from '@/components/forms/FormField';
@@ -19,6 +20,7 @@ export default function RegisterScreen() {
   const [createdEmail, setCreatedEmail] = useState('');
   const [resending,setResending]=useState(false);
   const [resendMessage,setResendMessage]=useState('');
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
   const submissionLocked = useRef(false);
   const {
     control,
@@ -38,6 +40,10 @@ export default function RegisterScreen() {
   });
 
   const submit = handleSubmit(async ({ confirmPassword: _, ...values }) => {
+    if (!acceptedLegal) {
+      setError('Vous devez accepter les conditions d’utilisation et confirmer avoir lu la politique de confidentialité.');
+      return;
+    }
     if (submissionLocked.current) return;
     submissionLocked.current = true;
     setError('');
@@ -173,15 +179,15 @@ export default function RegisterScreen() {
         label="Confirmer le mot de passe"
         passwordToggle
       />
-      <AppButton onPress={submit} loading={isSubmitting} disabled={isSubmitting}>
+      <View style={{flexDirection:'row',alignItems:'flex-start',gap:4}}>
+        <Checkbox status={acceptedLegal?'checked':'unchecked'} onPress={()=>setAcceptedLegal(value=>!value)} />
+        <Text variant="bodySmall" style={{flex:1,paddingTop:8}}>
+          J’accepte les <Link href="/legal/terms">conditions d’utilisation</Link> et je confirme avoir lu la <Link href="/legal/privacy">politique de confidentialité</Link>.
+        </Text>
+      </View>
+      <AppButton onPress={submit} loading={isSubmitting} disabled={isSubmitting||!acceptedLegal}>
         S’inscrire
       </AppButton>
-      <Text variant="bodySmall" style={{ textAlign: 'center' }}>
-        En vous inscrivant, vous acceptez nos{' '}
-        <Link href="/legal/terms">conditions d’utilisation</Link>
-        {' '}et notre{' '}
-        <Link href="/legal/privacy">politique de confidentialité</Link>.
-      </Text>
       <Link href="/(auth)/login" asChild>
         <Text style={{ textAlign: 'center' }}>J’ai déjà un compte</Text>
       </Link>

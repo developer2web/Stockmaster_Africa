@@ -13,7 +13,9 @@ export type SupplierPurchase = {
   total: number;
   amount_paid: number;
   amount_due: number;
-  payment_status: 'paid' | 'partial' | 'due';
+  payment_status: 'paid' | 'partial' | 'due'|'cancelled';
+  cancelled_at:string|null;
+  cancellation_reason:string|null;
   created_at: string;
 };
 
@@ -32,7 +34,7 @@ export async function getSupplierAccount(companyId: string, storeId: string, sup
   const [purchases, payments,summary] = await Promise.all([
     supabase
       .from('purchases')
-      .select('id,total,amount_paid,amount_due,payment_status,created_at')
+      .select('id,total,amount_paid,amount_due,payment_status,cancelled_at,cancellation_reason,created_at')
       .eq('company_id', companyId)
       .eq('store_id', storeId)
       .eq('supplier_id', supplierId)
@@ -97,6 +99,12 @@ export async function recordPurchase(storeId: string, supplierId: string, items:
   });
   fail(error);
   return data as string;
+}
+
+export async function cancelPurchase(purchaseId:string,reason:string,refundMethod:'cash'|'mobile_money'){
+  if(reason.trim().length<3)throw new Error('Le motif d’annulation est obligatoire.');
+  const{data,error}=await supabase.rpc('cancel_purchase',{p_purchase_id:purchaseId,p_reason:reason.trim(),p_refund_method:refundMethod,p_operation_id:createOperationId()});
+  fail(error);return data as string;
 }
 
 export async function transferStock(fromStoreId: string, toStoreId: string, productId: string, quantity: number) {

@@ -5,6 +5,7 @@ import { createOperationId } from '@/utils/operationId';
 import { isDeviceOffline } from '@/features/offline/connectivity';
 import { enqueueOfflineOperation } from '@/features/offline/queue';
 import { withOfflineCache } from '@/features/offline/storage';
+import { createOfflineMetadata } from '@/features/offline/device';
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -107,13 +108,14 @@ export async function createSale(
   customerId: string | null = null,
   amountPaid: number | null = null,
   operationId = createOperationId(),
+  allowNegativeStock = false,
 ): Promise<{ saleId: string; reference: string; total: number; grossProfit: number; amountPaid:number; amountDue:number; paymentStatus:string; queued?: boolean }> {
   if (!storeId) throw new Error('Sélectionnez une boutique avant de valider la vente.');
   if (!items.length) throw new Error('Ajoutez au moins un produit au panier.');
   if (items.some((item) => !Number.isFinite(item.quantity) || item.quantity <= 0)) {
     throw new Error('Toutes les quantités doivent être supérieures à zéro.');
   }
-  if (items.some((item) => item.quantity > item.available)) {
+  if (!allowNegativeStock && items.some((item) => item.quantity > item.available)) {
     throw new Error('Le stock disponible est insuffisant pour un ou plusieurs produits.');
   }
   const payload = {
@@ -125,12 +127,13 @@ export async function createSale(
     p_operation_id: operationId,
   };
   if (await isDeviceOffline()) {
-    await enqueueOfflineOperation({ id: operationId, type: 'sale', payload });
+    const metadata=await createOfflineMetadata();
+    await enqueueOfflineOperation({ id: operationId, type: 'sale', createdAt:metadata.createdAt,deviceId:metadata.deviceId,payload:{...payload,p_offline_created_at:metadata.createdAt,p_offline_device_id:metadata.deviceId} });
     const total = items.reduce((sum, item) => sum + item.salePrice * item.quantity - item.discount, 0);
     const paid = amountPaid ?? total;
-    return { saleId: operationId, reference: `HORS-LIGNE-${operationId.slice(-8).toUpperCase()}`, total, grossProfit: 0, amountPaid: paid, amountDue: Math.max(0, total - paid), paymentStatus: paid >= total ? 'paid' : paid > 0 ? 'partial' : 'due', queued: true };
+    return { saleId: operationId, reference: `HORS-LIGNE-${operationId.slice(-8).toUpperCase()}`, total, grossProfit: 0, amountPaid: paid, amountDue: Math.max(0, total - paid), paymentStatus: paid >= total ? 'paid' : paid > 0 ? 'partial' : 'credit', queued: true };
   }
-  const { data, error } = await supabase.rpc('create_sale_v2', payload);
+  const { data, error } = await supabase.rpc('create_sale_v3', {...payload,p_offline_created_at:null,p_offline_device_id:null});
   fail(error);
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) throw new Error('La vente n’a pas été créée.');

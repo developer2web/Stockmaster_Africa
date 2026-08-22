@@ -2,13 +2,22 @@ import type { Session } from '@supabase/supabase-js';
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
-import { AppState, Platform } from 'react-native';
+import { Alert, AppState, Platform } from 'react-native';
 import { supabase } from '@/services/supabase/client';
 import { createRealtimeTopic } from '@/services/supabase/realtime';
 import { getAccessibleBusinesses, getAccessibleStores, getWorkspaceContext } from '@/features/workspace/api';
 import { useWorkspaceStore } from '@/stores/workspace';
 import type { BusinessAccess, MembershipContext, StoreAccess } from '@/types/database';
 import { logger } from '@/services/observability/logger';
+import { getCurrentUserOfflineQueue } from '@/features/offline/queue';
+
+async function confirmSignOutWithPendingOperations(){
+  const count=(await getCurrentUserOfflineQueue()).length;
+  if(!count)return true;
+  const message=`${count} opération(s) ne sont pas encore sauvegardée(s) sur le serveur. Elles resteront sur cet appareil, mais vous devez les synchroniser avec ce même compte.`;
+  if(Platform.OS==='web')return typeof window!=='undefined'&&window.confirm(`${message}\n\nSe déconnecter quand même ?`);
+  return new Promise<boolean>((resolve)=>Alert.alert('Opérations non synchronisées',message,[{text:'Rester connecté',style:'cancel',onPress:()=>resolve(false)},{text:'Se déconnecter',style:'destructive',onPress:()=>resolve(true)}],{cancelable:true,onDismiss:()=>resolve(false)}));
+}
 
 type AuthValue = {
   session: Session | null;
@@ -259,6 +268,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setSession(null);
       }
       setLoading(false);
+    }).catch((error: unknown) => {
+      setSession(null);
+      setMembership(null);
+      setMembershipError('Impossible de lire la session locale. Rechargez la page puis reconnectez-vous.');
+      setAccessBlocked(false);
+      setNeedsOnboarding(false);
+      setLoading(false);
+      void logger.warning('auth_session_boot_failed', error);
     });
 
     const { data } = supabase.auth.onAuthStateChange((event, next) => {
@@ -308,7 +325,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
         schema: 'public',
         table: 'memberships',
         filter: `user_id=eq.${session.user.id}`,
-      }, () => { void refreshMembership(); })
+      }, (payload) => {
+        if ((payload.new as { is_active?: boolean }).is_active === false) {
+          void supabase.auth.signOut({ scope: 'local' });
+          return;
+        }
+        void refreshMembership();
+      })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [session?.user.id, refreshMembership]);
@@ -321,7 +344,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
         schema: 'public',
         table: 'companies',
         filter: `id=eq.${membership.companyId}`,
-      }, () => { void refreshMembership(); })
+      }, (payload) => {
+        if ((payload.new as { is_active?: boolean }).is_active === false) {
+          void supabase.auth.signOut({ scope: 'local' });
+          return;
+        }
+        void refreshMembership();
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [session?.user.id, membership?.companyId, membership?.role, refreshMembership]);
+
+  useEffect(() => {
+    if (!session?.user.id || !membership?.companyId || membership.role !== 'employee') return;
+    const channel = supabase.channel(createRealtimeTopic(`access-permissions-${session.user.id}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'role_permissions' }, () => { void refreshMembership(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'membership_stores' }, () => { void refreshMembership(); })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [session?.user.id, membership?.companyId, membership?.role, refreshMembership]);
@@ -341,6 +379,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     selectBusiness,
     selectStore,
     signOut: async () => {
+      if(!await confirmSignOutWithPendingOperations())return;
       setLoading(true);
       try {
         await supabase.auth.signOut();

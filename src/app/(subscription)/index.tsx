@@ -56,7 +56,7 @@ export default function SubscriptionScreen() {
                   : 'non définie'}
               </Text>
               {subscription.expiresAt&&<Text>{Math.max(0,Math.ceil((new Date(subscription.expiresAt).getTime()-Date.now())/86400000))} jour(s) restant(s)</Text>}
-              {subscription.status==='trialing'&&<Text style={styles.bold}>14 jours gratuits · aucune carte bancaire requise</Text>}
+              {subscription.status==='trialing'&&<Text style={styles.bold}>Essai gratuit en cours · aucune carte bancaire requise pour cet essai</Text>}
               {subscription.status==='past_due'&&<Text style={{color:'#C92A2A'}}>Paiement en retard. Renouvelez avant la fin de la période de grâce.</Text>}
             </Card.Content>
           </Card>

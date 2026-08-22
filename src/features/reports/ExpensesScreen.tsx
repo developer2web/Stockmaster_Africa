@@ -7,29 +7,29 @@ import { Card, Dialog, FAB, HelperText, Portal, Snackbar, Text } from 'react-nat
 import { FormField } from '@/components/forms/FormField';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { PermissionGuard } from '@/features/auth/PermissionGuard';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { expenseSchema, type ExpenseInput } from '@/schemas/reports';
-import type { Expense } from '@/types/database';
-import { createExpense, deleteExpense, getExpenses } from './expensesApi';
+import { createExpense, getExpenseRequests, getExpenses, reviewExpenseRequest, type ExpenseRequest } from './expensesApi';
 import { useOffline } from '@/features/offline/OfflineProvider';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default function ExpensesScreen() {
   const { membership } = useAuth();
-  const { formatForCurrency } = useCurrency();
+  const { formatForCurrency,formatMoney } = useCurrency();
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? '';
   const queryClient = useQueryClient();
   const { refreshQueue } = useOffline();
   const [open, setOpen] = useState(false);
-  const [removing, setRemoving] = useState<Expense | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [reviewing,setReviewing]=useState<{request:ExpenseRequest;approve:boolean}|null>(null);
   const list = useQuery({ queryKey: ['expenses', company, store], queryFn: () => getExpenses(company, store), enabled: !!company && !!store });
+  const requests=useQuery({queryKey:['expense-requests',company,store],queryFn:()=>getExpenseRequests(company,store),enabled:!!company&&!!store});
   const { control, handleSubmit, reset } = useForm<ExpenseInput>({ resolver: zodResolver(expenseSchema), defaultValues: { label: '', amount: '', expenseDate: today(), storeId: store || null } });
   const refresh = async () => {
     await Promise.all([
@@ -45,16 +45,18 @@ export default function ExpensesScreen() {
       if (result.queued) await refreshQueue(); else await refresh();
       setOpen(false);
       reset({ label: '', amount: '', expenseDate: today(), storeId: store });
-      setSuccessMessage(result.queued ? 'Dépense enregistrée hors ligne. Elle sera synchronisée automatiquement.' : 'Dépense enregistrée avec succès.');
+      setSuccessMessage(result.queued ? 'Dépense enregistrée hors ligne. Elle sera synchronisée automatiquement.' : result.pending?'Dépense envoyée à l’administrateur pour validation.':'Dépense enregistrée avec succès.');
     },
   });
-  const remove = useMutation({ mutationFn: deleteExpense, onSuccess: async () => { await refresh(); setRemoving(null); } });
+  const review=useMutation({mutationFn:()=>reviewExpenseRequest(reviewing!.request.id,reviewing!.approve,reviewing!.approve?'Approuvée par l’administrateur':'Refusée par l’administrateur'),onSuccess:async()=>{await Promise.all([requests.refetch(),refresh()]);setReviewing(null)}});
   const canWrite = membership?.role === 'company_admin' || membership?.permissions.includes('expenses.write');
 
   return (
     <PermissionGuard permission="expenses.read">
       <AdminPage title="Dépenses" action={canWrite ? <FAB size="small" icon="plus" onPress={() => setOpen(true)} /> : undefined}>
-        {list.data?.map((expense) => <Card key={expense.id} mode="outlined" onLongPress={() => canWrite && setRemoving(expense)}><Card.Title title={expense.label} subtitle={`${expense.store?.name ?? 'Boutique'} • ${expense.expense_date}`} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{formatForCurrency(Number(expense.amount), expense.currency_code)}</Text>} /></Card>)}
+        <HelperText type="info" visible>Une dépense validée est immuable. Toute correction doit être tracée par une nouvelle opération autorisée.</HelperText>
+        {(requests.data??[]).filter(item=>item.status==='pending').map(item=><Card key={item.id} mode="contained"><Card.Title title={`En attente • ${item.label}`} subtitle={`${item.expense_date} • ${formatMoney(Number(item.amount))}`}/>{membership?.role==='company_admin'&&<Card.Actions><AppButton mode="text" textColor="#C92A2A" onPress={()=>setReviewing({request:item,approve:false})}>Refuser</AppButton><AppButton onPress={()=>setReviewing({request:item,approve:true})}>Approuver</AppButton></Card.Actions>}</Card>)}
+        {list.data?.map((expense) => <Card key={expense.id} mode="outlined"><Card.Title title={expense.label} subtitle={`${expense.store?.name ?? 'Boutique'} • ${expense.expense_date}`} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{formatForCurrency(Number(expense.amount), expense.currency_code)}</Text>} /></Card>)}
         {!list.isLoading && !list.data?.length && <EmptyState icon="cash-minus" title="Aucune dépense" message="Ajoutez les charges pour obtenir un bénéfice net exact." />}
         {!!list.error && <HelperText type="error" visible>{list.error.message}</HelperText>}
         <Portal>
@@ -64,8 +66,8 @@ export default function ExpensesScreen() {
             <Dialog.Actions><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={add.isPending} disabled={add.isPending} onPress={handleSubmit((value) => add.mutate(value))}>Enregistrer</AppButton></Dialog.Actions>
           </Dialog>
         </Portal>
-        <ConfirmDialog visible={!!removing} title="Supprimer la dépense ?" message="Le bénéfice net du rapport sera recalculé." destructive loading={remove.isPending} onCancel={() => setRemoving(null)} onConfirm={() => { if (removing) remove.mutate(removing.id); }} />
         <Snackbar visible={!!successMessage} onDismiss={() => setSuccessMessage('')} duration={3000}>{successMessage}</Snackbar>
+        <ConfirmDialog visible={!!reviewing} title={reviewing?.approve?'Approuver cette dépense ?':'Refuser cette dépense ?'} message={`${reviewing?.request.label??''} • ${reviewing?formatMoney(Number(reviewing.request.amount)):''}`} destructive={!reviewing?.approve} loading={review.isPending} onCancel={()=>setReviewing(null)} onConfirm={()=>review.mutate()}/>
       </AdminPage>
     </PermissionGuard>
   );

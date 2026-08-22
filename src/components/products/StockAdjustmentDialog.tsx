@@ -134,7 +134,7 @@ export function StockAdjustmentDialog({
             />
           )}
           <FormField control={control} name="quantity" label="Quantité à déplacer" keyboardType="decimal-pad" />
-          <FormField control={control} name="note" label="Motif ou note facultative" multiline />
+          <FormField control={control} name="note" label="Motif obligatoire" multiline />
           {!!save.error && <HelperText type="error" visible>{save.error.message}</HelperText>}
           </ScrollView>
         </Dialog.ScrollArea>

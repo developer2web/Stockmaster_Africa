@@ -87,8 +87,8 @@ export async function getPlatformCompanies(): Promise<PlatformCompany[]> {
   return (data ?? []) as PlatformCompany[];
 }
 
-export async function setCompanyActive(id: string, active: boolean) {
-  const { error } = await supabase.rpc('set_company_active', { p_company_id: id, p_active: active });
+export async function setCompanyActive(id: string, active: boolean, reason: string | null = null) {
+  const { error } = await supabase.rpc('set_company_active', { p_company_id: id, p_active: active, p_reason: reason });
   fail(error);
 }
 

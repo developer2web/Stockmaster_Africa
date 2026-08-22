@@ -21,8 +21,18 @@ port = 54323
 
 [auth]
 enabled = true
-site_url = "http://localhost:8081"
-additional_redirect_urls = ["stockmaster://**", "http://localhost:8081/**"]
+site_url = "http://localhost:4173"
+additional_redirect_urls = [
+  "stockmaster://**",
+  "http://localhost:8081/**",
+  "http://localhost:4173/**",
+  "http://localhost:4174/**",
+  "http://localhost:4175/**",
+  "https://stockmaster.com/**",
+  "https://app.stockmaster.com/**",
+  "https://account.stockmaster.com/**",
+  "https://admin.stockmaster.com/**"
+]
 
 [functions.invite-employee]
 verify_jwt = true

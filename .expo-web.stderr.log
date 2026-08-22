@@ -1,0 +1,13 @@
+Skipping dependency validation in offline mode
+"shadow*" style props are deprecated. Use "boxShadow".
+λ  WARN  props.pointerEvents is deprecated. Use style.pointerEvents 
+  console.warn (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\@expo\cli\src\start\server\serverLogLikeMetro.ts:161:21)
+  warnOnce (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-native-web\dist\modules\warnOnce\index.js:24:13)
+  createDOMProps (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-native-web\dist\modules\createDOMProps\index.js:805:13)
+  createElement (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-native-web\dist\exports\createElement\index.js:23:32)
+  Component (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-native-web\dist\exports\View\index.js:111:23)
+  Object.callComponentInDEV [as react-stack-bottom-frame] (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:8970:18)
+  renderWithHooks (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:4699:19)
+  run (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5539:39)
+  retryNode (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5899:31)
+  renderNodeDestructive (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5849:11)

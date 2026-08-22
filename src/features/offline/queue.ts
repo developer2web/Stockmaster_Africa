@@ -9,6 +9,7 @@ export type OfflineOperation = {
   userId: string;
   payload: Record<string, unknown>;
   createdAt: string;
+  deviceId: string;
   attempts: number;
   lastError?: string;
 };
@@ -29,13 +30,13 @@ async function saveQueue(queue: OfflineOperation[]) {
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
 }
 
-export async function enqueueOfflineOperation(operation: Omit<OfflineOperation, 'createdAt' | 'attempts' | 'userId'>) {
+export async function enqueueOfflineOperation(operation: Omit<OfflineOperation, 'attempts' | 'userId'>) {
   const queue = await getOfflineQueue();
   if (queue.some((item) => item.id === operation.id)) return;
   const { data } = await supabase.auth.getSession();
   const userId = data.session?.user.id;
   if (!userId) throw new Error('Une première connexion avec Internet est nécessaire avant le mode hors ligne.');
-  await saveQueue([...queue, { ...operation, userId, createdAt: new Date().toISOString(), attempts: 0 }]);
+  await saveQueue([...queue, { ...operation, userId, attempts: 0 }]);
 }
 
 export async function removeOfflineOperation(id: string) {
@@ -58,7 +59,7 @@ export function offlineErrorMessage(operation: OfflineOperation) {
 
 async function send(operation: OfflineOperation) {
   if (operation.type === 'sale') {
-    const { error } = await supabase.rpc('create_sale_v2', operation.payload as never);
+    const { error } = await supabase.rpc('create_sale_v3', operation.payload as never);
     if (error) throw new Error(error.message);
     return;
   }

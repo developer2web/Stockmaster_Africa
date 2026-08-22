@@ -6,12 +6,13 @@ import { Controller, useForm } from 'react-hook-form';
 import { ScrollView } from 'react-native';
 import { Card, Chip, Dialog, FAB, HelperText, Portal, Searchbar, Snackbar, Switch, Text, TextInput } from 'react-native-paper';
 import { FormField } from '@/components/forms/FormField';
+import { SelectField } from '@/components/forms/SelectField';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
-import { getSupplierAccount, recordSupplierPayment, type SupplierPayment } from '@/features/operations/api';
+import { cancelPurchase, getSupplierAccount, recordSupplierPayment, type SupplierPayment } from '@/features/operations/api';
 import { getSuppliers, getSupplierStats, saveSupplier } from '@/features/products/api';
 import { supplierSchema, type SupplierInput } from '@/schemas/catalog';
 import type { Supplier } from '@/types/database';
@@ -40,6 +41,9 @@ export default function Suppliers() {
   const [note, setNote] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<SupplierPayment['payment_method']>('cash');
   const [paymentMode,setPaymentMode]=useState<'total'|'custom'>('total');
+  const [purchaseToCancel,setPurchaseToCancel]=useState<string|null>(null);
+  const [cancellationReason,setCancellationReason]=useState('');
+  const [cancellationMethod,setCancellationMethod]=useState<'cash'|'mobile_money'>('cash');
   const receiptAction=useReceiptAction();
 
   const query = useQuery({ queryKey: ['suppliers', company, store], queryFn: () => getSuppliers(company, store), enabled: !!company && !!store });
@@ -84,6 +88,7 @@ export default function Suppliers() {
       setSelected(null);
     },
   });
+  const cancellationMutation=useMutation({mutationFn:()=>cancelPurchase(purchaseToCancel!,cancellationReason,cancellationMethod),onSuccess:async()=>{await Promise.all([cache.invalidateQueries({queryKey:['supplier-account',company,store,selected?.id]}),cache.invalidateQueries({queryKey:['supplier-stats',company,store]}),cache.invalidateQueries({queryKey:['stock-levels',company]}),cache.invalidateQueries({queryKey:['cash-summary',company,store]})]);setPurchaseToCancel(null);setCancellationReason('')}});
 
   const show = (item?: Supplier) => {
     mutation.reset();
@@ -151,13 +156,19 @@ export default function Suppliers() {
           <TextInput mode="outlined" label="Note (facultative)" value={note} onChangeText={setNote} multiline />
           {!!paymentMutation.error && <HelperText type="error" visible>{paymentMutation.error.message}</HelperText>}
           <Text variant="titleMedium">Achats non soldés</Text>
-          {(account.data?.purchases ?? []).filter((row) => Number(row.amount_due) > 0).map((row) => <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.amount_due))} subtitle={`${row.payment_status === 'partial' ? 'Paiement partiel' : 'À payer'} • ${new Date(row.created_at).toLocaleDateString('fr-CA')}`} /></Card>)}
+          {(account.data?.purchases ?? []).map((row) => <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.total))} subtitle={`${row.payment_status==='cancelled'?'Annulé':row.payment_status === 'partial' ? 'Paiement partiel' : row.payment_status==='paid'?'Payé':'À payer'} • ${new Date(row.created_at).toLocaleDateString('fr-CA')}`} />{row.cancellation_reason&&<Card.Content><Text>Motif : {row.cancellation_reason}</Text></Card.Content>}{row.payment_status!=='cancelled'&&membership?.role==='company_admin'&&<Card.Actions><AppButton mode="text" textColor="#C92A2A" icon="cancel" onPress={()=>setPurchaseToCancel(row.id)}>Annuler l’achat</AppButton></Card.Actions>}</Card>)}
           {!(account.data?.purchases ?? []).some((row) => Number(row.amount_due) > 0) && !account.isLoading && <Text>Aucune dette fournisseur.</Text>}
           <Text variant="titleMedium">Historique des règlements</Text>
           {(account.data?.payments ?? []).map((row) => {const receipt={title:'Reçu de paiement fournisseur',party:selected?.name??'Fournisseur',amount:Number(row.amount),balanceBefore:Number(row.balance_before??0),balanceAfter:Number(row.balance_after??0),date:row.created_at,reference:`FOURN-${row.id.slice(0,8).toUpperCase()}`,note:row.note,company:membership?.companyName,store:membership?.storeName,issuedBy:row.creator?.full_name||(membership?.role==='company_admin'?'Administrateur':'Employé')};const printKey=`print-${row.id}`,shareKey=`share-${row.id}`;return <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.amount))} subtitle={`${paymentLabels[row.payment_method]} • ${new Date(row.created_at).toLocaleString('fr-CA')}`} />{!!row.note && <Card.Content><Text>{row.note}</Text></Card.Content>}<Card.Actions><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(receipt,formatMoney))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(receipt,formatMoney))}>Partager</AppButton></Card.Actions></Card>})}
           {!account.data?.payments.length && !account.isLoading && <Text>Aucun règlement enregistré.</Text>}
         </ScrollView></Dialog.ScrollArea>
         <Dialog.Actions><AppButton mode="text" onPress={() => setSelected(null)}>Fermer</AppButton><AppButton icon="cash-check" loading={paymentMutation.isPending} disabled={paymentMutation.isPending || account.isLoading || !((paymentMode==='total'?(account.data?.due??0):parsedAmount)>0) || (paymentMode==='custom'&&parsedAmount > (account.data?.due ?? 0))} onPress={() => paymentMutation.mutate()}>Enregistrer</AppButton></Dialog.Actions>
+      </Dialog>
+
+      <Dialog visible={!!purchaseToCancel} onDismiss={()=>!cancellationMutation.isPending&&setPurchaseToCancel(null)}>
+        <Dialog.Title>Annuler cet achat fournisseur ?</Dialog.Title>
+        <Dialog.Content style={{gap:12}}><Text>Le stock reçu sera retiré. Si des unités ont déjà été vendues ou transférées, l’annulation sera refusée.</Text><TextInput mode="outlined" label="Motif obligatoire" value={cancellationReason} onChangeText={setCancellationReason} multiline/><SelectField label="Remboursement du montant payé" value={cancellationMethod} onChange={value=>setCancellationMethod((value??'cash') as 'cash'|'mobile_money')} options={[{label:'Espèces',value:'cash'},{label:'Mobile Money',value:'mobile_money'}]}/>{!!cancellationMutation.error&&<HelperText type="error" visible>{cancellationMutation.error.message}</HelperText>}</Dialog.Content>
+        <Dialog.Actions><AppButton mode="text" onPress={()=>setPurchaseToCancel(null)}>Fermer</AppButton><AppButton buttonColor="#C92A2A" loading={cancellationMutation.isPending} disabled={cancellationReason.trim().length<3||cancellationMutation.isPending} onPress={()=>cancellationMutation.mutate()}>Confirmer l’annulation</AppButton></Dialog.Actions>
       </Dialog>
     </Portal>
     <Snackbar visible={!!receiptAction.error} onDismiss={receiptAction.clearError}>{receiptAction.error}</Snackbar>

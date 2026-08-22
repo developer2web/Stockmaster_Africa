@@ -39,10 +39,10 @@ Pilotez toutes vos boutiques depuis une seule application sécurisée.
 
 ## Éléments obligatoires avant soumission
 
-- URL publique de la politique de confidentialité : **À PUBLIER**
+- URL publique de la politique de confidentialité : page préparée sous `/privacy/`, **HTTPS À PUBLIER**
 - URL publique d’assistance : **À PUBLIER**
 - Email d’assistance : **À CONFIRMER**
-- URL de demande de suppression de compte : **À PUBLIER**
+- URL de demande de suppression de compte : page préparée sous `/account-deletion/`, **HTTPS À PUBLIER**
 - Classification du contenu : aucun contenu sensible prévu
 - Déclaration de collecte des données à compléter selon les prestataires finaux
 - Déclaration de chiffrement iOS à confirmer lors de la soumission

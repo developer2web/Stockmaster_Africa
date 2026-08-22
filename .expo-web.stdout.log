@@ -1,0 +1,29 @@
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_APP_ENV
+Starting project at C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa
+Using src/app as the root directory for Expo Router.
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+Web .\index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web .\index.js ▓░░░░░░░░░░░░░░░  9.0% (3/4)
+λ node_modules\expo-router\node\render.js ▓░░░░░░░░░░░░░░░  9.6% ( 17/110)
+Web .\index.js ▓▓▓▓░░░░░░░░░░░░ 25.0% (16/92)
+λ node_modules\expo-router\node\render.js ▓▓▓▓▓░░░░░░░░░░░ 32.2% (321/566)
+Web .\index.js ▓▓▓▓░░░░░░░░░░░░ 25.0% (176/375)
+λ node_modules\expo-router\node\render.js ▓▓▓▓▓▓▓▓░░░░░░░░ 51.7% (689/997)
+Web .\index.js ▓▓▓▓▓░░░░░░░░░░░ 33.9% (339/582)
+λ node_modules\expo-router\node\render.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 70.6% ( 994/1261)
+Web .\index.js ▓▓▓▓▓▓▓▓░░░░░░░░ 54.4% (723/980)
+λ node_modules\expo-router\node\render.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 89.0% (1331/1411)
+Web .\index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 93.2% (1306/1362)
+λ node_modules\expo-router\node\render.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 98.2% (1464/1477)
+λ Bundled 23297ms node_modules\expo-router\node\render.js (1493 modules)
+Web .\index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1411/1412)
+Web .\index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1412/1412)
+Web Bundled 30254ms index.js (1412 modules)
+Web .\index.js ▓▓▓▓▓░░░░░░░░░░░ 36.2% (383/637)
+Web .\index.js ▓▓▓▓▓▓▓▓▓▓▓▓░░░░ 78.2% ( 956/1081)
+Web .\index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.4% (1407/1414)
+Web Bundled 10030ms index.js (1414 modules)

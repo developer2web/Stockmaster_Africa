@@ -8,6 +8,7 @@ export const customerSchema = z.object({
   email: z.union([z.string().email('Email invalide'), z.literal('')]).optional(),
   address: optional,
   note: optional,
+  creditLimit: z.union([z.string().trim().regex(/^\d*(?:[.,]\d+)?$/, 'Limite invalide'), z.literal('')]).optional(),
   isActive: z.boolean(),
 });
 

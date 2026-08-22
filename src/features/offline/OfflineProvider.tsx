@@ -7,6 +7,7 @@ type OfflineContextValue = {
   isOnline: boolean;
   isSynchronizing: boolean;
   pendingCount: number;
+  lastSyncedCount: number;
   refreshQueue: () => Promise<void>;
   synchronize: () => Promise<void>;
 };
@@ -19,6 +20,7 @@ export function OfflineProvider({ children }: PropsWithChildren) {
   const [isSynchronizing, setSynchronizing] = useState(false);
   const synchronizingRef = useRef(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [lastSyncedCount,setLastSyncedCount]=useState(0);
   const refreshQueue = useCallback(async () => setPendingCount((await getCurrentUserOfflineQueue()).length), []);
   const synchronize = useCallback(async () => {
     if (synchronizingRef.current) return;
@@ -27,6 +29,8 @@ export function OfflineProvider({ children }: PropsWithChildren) {
     try {
       const result = await synchronizeOfflineQueue();
       if (result.synced) {
+        setLastSyncedCount(result.synced);
+        setTimeout(()=>setLastSyncedCount(0),5000);
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['sales'] }),
           queryClient.invalidateQueries({ queryKey: ['sale-stock'] }),
@@ -48,7 +52,7 @@ export function OfflineProvider({ children }: PropsWithChildren) {
     });
   }, [refreshQueue, synchronize]);
 
-  const value = useMemo(() => ({ isOnline, isSynchronizing, pendingCount, refreshQueue, synchronize }), [isOnline, isSynchronizing, pendingCount, refreshQueue, synchronize]);
+  const value = useMemo(() => ({ isOnline, isSynchronizing, pendingCount,lastSyncedCount, refreshQueue, synchronize }), [isOnline, isSynchronizing, pendingCount,lastSyncedCount, refreshQueue, synchronize]);
   return <OfflineContext.Provider value={value}>{children}</OfflineContext.Provider>;
 }
 

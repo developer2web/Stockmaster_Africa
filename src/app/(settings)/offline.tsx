@@ -29,7 +29,7 @@ export default function OfflineOperationsScreen() {
     {operations.map((operation) => {
       const failed = operation.attempts > 0;
       return <Card key={operation.id} mode="outlined">
-        <Card.Title title={operation.type === 'sale' ? 'Vente en attente' : 'Dépense en attente'} subtitle={new Date(operation.createdAt).toLocaleString('fr-FR')} left={() => <Icon source={operation.type === 'sale' ? 'cart-clock' : 'cash-clock'} size={28} />} right={() => <Chip style={{ marginRight: 12 }} icon={failed ? 'alert-circle-outline' : 'clock-outline'}>{failed ? 'Intervention requise' : 'En attente'}</Chip>} />
+        <Card.Title title={operation.type === 'sale' ? 'Vente en attente' : 'Dépense en attente'} subtitle={`${new Date(operation.createdAt).toLocaleString('fr-FR')} • appareil ${operation.deviceId?.slice(0,8)??'ancien'}`} left={() => <Icon source={operation.type === 'sale' ? 'cart-clock' : 'cash-clock'} size={28} />} right={() => <Chip style={{ marginRight: 12 }} icon={failed ? 'alert-circle-outline' : 'clock-outline'}>{failed ? 'Conflit à résoudre' : 'Non synchronisée'}</Chip>} />
         <Card.Content>
           <Text>{offlineErrorMessage(operation)}</Text>
           {failed && <HelperText type="error" visible>Échec après {operation.attempts} tentative(s). L’opération n’a pas été perdue.</HelperText>}

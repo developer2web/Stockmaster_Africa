@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useMemo } from 'react';
-import { useColorScheme, View } from 'react-native';
+import { Platform, useColorScheme, View } from 'react-native';
 import { MD3DarkTheme, MD3LightTheme, PaperProvider } from 'react-native-paper';
 
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
@@ -16,8 +16,10 @@ import { SubscriptionProvider } from '@/features/subscriptions/SubscriptionProvi
 import { OfflineProvider } from '@/features/offline/OfflineProvider';
 import { OfflineStatus } from '@/features/offline/OfflineStatus';
 
-SplashScreen.preventAutoHideAsync();
-SplashScreen.setOptions({ duration: 400, fade: true });
+if (Platform.OS !== 'web') {
+  void SplashScreen.preventAutoHideAsync();
+  SplashScreen.setOptions({ duration: 400, fade: true });
+}
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -27,7 +29,8 @@ function RootNavigator() {
   const { isLoading } = useAuth();
 
   useEffect(() => {
-    if (!isLoading) SplashScreen.hide();
+    if (typeof document !== 'undefined') document.getElementById('web-boot-status')?.remove();
+    if (!isLoading && Platform.OS !== 'web') void SplashScreen.hideAsync();
   }, [isLoading]);
 
   if (isLoading) return <LoadingScreen label="Ouverture de StockMaster…" />;
@@ -42,7 +45,6 @@ function RootNavigator() {
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(admin)" />
       <Stack.Screen name="employee" />
-      <Stack.Screen name="(super-admin)" />
       <Stack.Screen name="(subscription)" />
       <Stack.Screen name="(settings)" />
       <Stack.Screen name="legal" />

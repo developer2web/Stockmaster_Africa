@@ -1,6 +1,6 @@
 {
   "name": "stockmaster",
-  "main": "expo-router/entry",
+  "main": "./index.js",
   "version": "1.0.0",
   "engines": {
     "node": ">=20.19.0 <21"
@@ -67,6 +67,13 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "web:lan": "expo start --web --lan",
+    "web:admin": "vite --config apps/admin-web/vite.config.ts",
+    "web:account": "vite --config apps/account-web/vite.config.ts",
+    "web:public": "vite --config apps/public-web/vite.config.ts",
+    "build:web:admin": "vite build --config apps/admin-web/vite.config.ts",
+    "build:web:account": "vite build --config apps/account-web/vite.config.ts",
+    "build:web:public": "vite build --config apps/public-web/vite.config.ts",
+    "build:web:all": "npm run build:web:admin && npm run build:web:account && npm run build:web:public",
     "lint": "expo lint",
     "test": "vitest run",
     "test:supabase": "npx supabase test db",

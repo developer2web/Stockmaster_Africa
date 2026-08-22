@@ -43,7 +43,9 @@ export default function Index() {
   if (!membership) {
     return <ErrorState title="Entreprise indisponible" message="Impossible de confirmer votre entreprise pour le moment." onRetry={() => void refreshMembership()} onCancel={() => void signOut()} />;
   }
-  if (membership.role === 'super_admin') return <Redirect href="/(super-admin)" />;
+  if (membership.role === 'super_admin') {
+    return <ErrorState title="Portail Super Admin séparé" message="Le Super Administrateur ne peut pas utiliser l’application principale. Connectez-vous depuis le portail web Super Administration." retryLabel="Se déconnecter" onRetry={() => void signOut()} />;
+  }
   if(membership.role==='company_admin'&&billingOnboarding.isLoading)return <LoadingScreen label="Préparation de votre abonnement…"/>;
   if(membership.role==='company_admin'&&billingOnboarding.data)return <Redirect href="/(subscription)/welcome"/>;
   if (['pending', 'expired', 'canceled', 'cancelled', 'suspended'].includes(membership.subscriptionStatus ?? '')) {
