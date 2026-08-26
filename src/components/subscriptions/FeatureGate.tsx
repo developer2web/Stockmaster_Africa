@@ -16,7 +16,7 @@ export function FeatureGate({
   label: string;
   fallback?: ReactNode;
 }>) {
-  const { canUseFeature, isLoading } = useSubscription();
+  const { canUseFeature, isLoading, subscription } = useSubscription();
   if (isLoading) return null;
   if (canUseFeature(feature)) return children;
   if (fallback !== undefined) return fallback;
@@ -26,7 +26,7 @@ export function FeatureGate({
         <Icon source="lock-outline" size={34} />
         <Text variant="titleMedium">{label} — Verrouillé</Text>
         <Text style={{ textAlign: 'center' }}>
-          Cette fonctionnalité n’est pas incluse dans votre forfait actuel.
+          Cette fonctionnalité n’est pas incluse dans votre forfait {subscription?.planName ?? 'actuel'}. Vos données existantes restent conservées.
         </Text>
         <AppButton onPress={() => router.push('/(subscription)' as never)}>Mettre à niveau</AppButton>
       </Card.Content>

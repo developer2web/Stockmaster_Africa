@@ -2,6 +2,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { getCurrentUserOfflineQueue, synchronizeOfflineQueue } from './queue';
 import { useQueryClient } from '@tanstack/react-query';
+import { logger } from '@/services/observability/logger';
 
 type OfflineContextValue = {
   isOnline: boolean;
@@ -21,7 +22,9 @@ export function OfflineProvider({ children }: PropsWithChildren) {
   const synchronizingRef = useRef(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [lastSyncedCount,setLastSyncedCount]=useState(0);
-  const refreshQueue = useCallback(async () => setPendingCount((await getCurrentUserOfflineQueue()).length), []);
+  const refreshQueue = useCallback(async () => {
+    setPendingCount((await getCurrentUserOfflineQueue()).length);
+  }, []);
   const synchronize = useCallback(async () => {
     if (synchronizingRef.current) return;
     synchronizingRef.current = true;
@@ -38,13 +41,27 @@ export function OfflineProvider({ children }: PropsWithChildren) {
           queryClient.invalidateQueries({ queryKey: ['expenses'] }),
           queryClient.invalidateQueries({ queryKey: ['cash-transactions'] }),
           queryClient.invalidateQueries({ queryKey: ['cash-summary'] }),
+          queryClient.invalidateQueries({ queryKey: ['admin-overview'] }),
+          queryClient.invalidateQueries({ queryKey: ['dashboard-trends'] }),
+          queryClient.invalidateQueries({ queryKey: ['dashboard-report'] }),
+          queryClient.invalidateQueries({ queryKey: ['business-report'] }),
         ]);
       }
-    } finally { synchronizingRef.current = false; setSynchronizing(false); await refreshQueue(); }
+    } catch (error) {
+      await logger.warning('offline_sync_failed', error);
+    } finally {
+      synchronizingRef.current = false;
+      setSynchronizing(false);
+      try {
+        await refreshQueue();
+      } catch (error) {
+        await logger.warning('offline_queue_refresh_failed', error);
+      }
+    }
   }, [queryClient, refreshQueue]);
 
   useEffect(() => {
-    void refreshQueue();
+    void refreshQueue().catch((error) => logger.warning('offline_queue_boot_failed', error));
     return NetInfo.addEventListener((state) => {
       const online = state.isConnected !== false && state.isInternetReachable !== false;
       setOnline(online);

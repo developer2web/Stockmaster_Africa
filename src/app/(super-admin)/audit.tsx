@@ -1,13 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Button, Card, Chip, Searchbar, Text, useTheme } from 'react-native-paper';
+import { Card, Chip, Text, useTheme } from 'react-native-paper';
 import { PlatformPage } from '@/components/superAdmin/PlatformPage';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { getPlatformAudit } from '@/features/superAdmin/api';
 import { FilterMenu } from '@/components/superAdmin/FilterMenu';
+import { AppSearchBar } from '@/components/ui/AppSearchBar';
+import { AppButton } from '@/components/ui/AppButton';
 
 const labels: Record<string, string> = { insert: 'Création', update: 'Modification', delete: 'Suppression' };
 export default function AuditScreen() {
@@ -30,11 +32,11 @@ export default function AuditScreen() {
   if (query.isLoading) return <LoadingScreen label="Chargement du journal…" />;
   return (
     <PlatformPage title="Journal d’activité">
-      <Searchbar placeholder="Entreprise, utilisateur ou type d’objet" value={search} onChangeText={setSearch} />
+      <AppSearchBar placeholder="Entreprise, utilisateur ou type d’objet" value={search} onChangeText={setSearch} />
       <View style={styles.filters}>
         <FilterMenu label="Action" value={action} onChange={setAction} options={[{label:'Toutes les actions',value:'all'},{label:'Créations',value:'insert'},{label:'Modifications',value:'update'},{label:'Suppressions',value:'delete'}]} />
         <FilterMenu label="Entreprise" value={company} onChange={setCompany} options={[{label:'Toutes les entreprises',value:'all'},...companies.map((value)=>({label:value,value}))]} />
-        {(action !== 'all' || company !== 'all') && <Button compact onPress={() => { setAction('all'); setCompany('all'); }}>Réinitialiser</Button>}
+        {(search||action !== 'all' || company !== 'all') && <AppButton mode="outlined" icon="filter-remove-outline" onPress={() => {setSearch('');setAction('all');setCompany('all');}}>Réinitialiser</AppButton>}
       </View>
       {query.error && <ErrorState message={query.error.message} onRetry={() => query.refetch()} />}
       {!query.isLoading && !query.error && items.length === 0 && <EmptyState title="Aucune activité" message="Le journal ne contient aucun événement correspondant." />}

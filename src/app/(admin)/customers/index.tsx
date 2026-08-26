@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Card, FAB, HelperText, Searchbar, Text, useTheme } from 'react-native-paper';
+import { Card, HelperText, Text, useTheme } from 'react-native-paper';
 
 import { AdminPage } from '@/components/ui/AdminPage';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -9,6 +9,8 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { getCustomers } from '@/features/customers/api';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { AppSearchBar } from '@/components/ui/AppSearchBar';
+import { AppButton } from '@/components/ui/AppButton';
 
 export default function CustomersScreen() {
   const { membership } = useAuth();
@@ -23,9 +25,9 @@ export default function CustomersScreen() {
   return (
     <AdminPage
       title="Clients"
-      action={<FAB size="small" icon="plus" testID="customer-add-fab" onPress={() => router.push('/customers/new' as never)} />}
+      action={<AppButton icon="plus" testID="customer-add-fab" onPress={() => router.push('/customers/new' as never)}>Ajouter</AppButton>}
     >
-      <Searchbar testID="customer-search-input" placeholder="Nom, téléphone ou email" value={search} onChangeText={setSearch} loading={search !== debounced} />
+      <AppSearchBar testID="customer-search-input" placeholder="Nom, téléphone ou email" value={search} onChangeText={setSearch} loading={search !== debounced} />
       {!!query.error && <HelperText type="error" visible>{query.error.message}</HelperText>}
       {rows.map((customer) => {
         const owes = (customer.balance ?? 0) > 0;
@@ -48,6 +50,7 @@ export default function CustomersScreen() {
           icon="account-group"
           title={search ? 'Aucun résultat' : 'Aucun client'}
           message={search ? 'Essayez un autre nom, téléphone ou email.' : 'Ajoutez votre premier client pour suivre son ardoise et ses achats.'}
+          action={!search?<AppButton icon="plus" onPress={()=>router.push('/customers/new' as never)}>Ajouter un client</AppButton>:undefined}
         />
       )}
     </AdminPage>

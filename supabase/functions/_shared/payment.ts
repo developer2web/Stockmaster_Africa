@@ -163,7 +163,7 @@ export async function handleCreatePayment(request: Request, renewalOnly = false)
       },
       body: JSON.stringify({
         amount,
-        currency: plan.currency,
+        currency: quote.currency || plan.currency,
         phone: body.phoneNumber?.trim(),
         merchant_reference: transaction.id,
         callback_url: Deno.env.get('PAYMENT_WEBHOOK_URL'),

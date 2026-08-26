@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getCurrentUserOfflineQueue, synchronizeOfflineQueue } from './queue';
+import { logger } from '@/services/observability/logger';
 
 type OfflineContextValue = {
   isOnline: boolean;
@@ -37,21 +38,32 @@ export function OfflineProvider({ children }: PropsWithChildren) {
         window.setTimeout(() => setLastSyncedCount(0), 5000);
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['sales'] }),
+          queryClient.invalidateQueries({ queryKey: ['sale-stock'] }),
           queryClient.invalidateQueries({ queryKey: ['stock-levels'] }),
           queryClient.invalidateQueries({ queryKey: ['expenses'] }),
           queryClient.invalidateQueries({ queryKey: ['cash-transactions'] }),
           queryClient.invalidateQueries({ queryKey: ['cash-summary'] }),
+          queryClient.invalidateQueries({ queryKey: ['admin-overview'] }),
+          queryClient.invalidateQueries({ queryKey: ['dashboard-trends'] }),
+          queryClient.invalidateQueries({ queryKey: ['dashboard-report'] }),
+          queryClient.invalidateQueries({ queryKey: ['business-report'] }),
         ]);
       }
+    } catch (error) {
+      await logger.warning('offline_sync_failed', error);
     } finally {
       synchronizingRef.current = false;
       setSynchronizing(false);
-      await refreshQueue();
+      try {
+        await refreshQueue();
+      } catch (error) {
+        await logger.warning('offline_queue_refresh_failed', error);
+      }
     }
   }, [queryClient, refreshQueue]);
 
   useEffect(() => {
-    void refreshQueue();
+    void refreshQueue().catch((error) => logger.warning('offline_queue_boot_failed', error));
     const online = () => { setOnline(true); void synchronize(); };
     const offline = () => setOnline(false);
     window.addEventListener('online', online);
@@ -71,4 +83,3 @@ export function useOffline() {
   if (!value) throw new Error('useOffline doit être utilisé dans OfflineProvider');
   return value;
 }
-

@@ -43,13 +43,16 @@ export default function Layout() {
           options={{ title: 'Caisse', tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="wallet-outline" color={color} size={size} /> }}
         />
         <Tabs.Screen
+          name="customers"
+          options={{ title: 'Clients', tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="account-group-outline" color={color} size={size} /> }}
+        />
+        <Tabs.Screen
           name="reports"
           options={{ title: 'Rapports', tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="chart-box-outline" color={color} size={size} /> }}
         />
 
         {/* Modules de gestion : accessibles via le menu, masqués de la barre d'onglets. */}
         <Tabs.Screen name="products" options={{ href: null }} />
-        <Tabs.Screen name="customers" options={{ href: null }} />
         <Tabs.Screen name="categories" options={{ href: null }} />
         <Tabs.Screen name="suppliers" options={{ href: null }} />
         <Tabs.Screen name="stores" options={{ href: null }} />

@@ -28,9 +28,9 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
   const { session, membership } = useAuth();
   const companyId = membership?.companyId ?? '';
   const plansQuery = useQuery({
-    queryKey: ['plans'],
-    queryFn: getPlans,
-    enabled: !!session,
+    queryKey: ['plans', companyId],
+    queryFn: () => getPlans(companyId),
+    enabled: !!session && !!companyId && membership?.role !== 'super_admin',
   });
   const subscriptionQuery = useQuery({
     queryKey: ['subscription-context', companyId],

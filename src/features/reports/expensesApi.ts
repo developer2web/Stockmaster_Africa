@@ -22,7 +22,7 @@ export async function getExpenses(companyId: string, storeId: string): Promise<E
     .limit(100);
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as Expense[];
-  });
+  }, Array.isArray);
 }
 export async function createExpense(_companyId: string, input: ExpenseInput, operationId = createOperationId()) {
   if (!input.storeId) throw new Error('Sélectionnez une boutique avant cette dépense.');

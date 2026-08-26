@@ -10,6 +10,7 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import type { BusinessAccess, MembershipContext, StoreAccess } from '@/types/database';
 import { logger } from '@/services/observability/logger';
 import { getCurrentUserOfflineQueue } from '@/features/offline/queue';
+import { useSaleCart } from '@/stores/saleCart';
 
 async function confirmSignOutWithPendingOperations(){
   const count=(await getCurrentUserOfflineQueue()).length;
@@ -237,13 +238,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
   };
 
   useEffect(() => {
-    void Linking.getInitialURL().then(handleAuthUrl);
+    void Linking.getInitialURL()
+      .then(handleAuthUrl)
+      .catch((error) => logger.warning('initial_auth_url_failed', error));
     const linkSubscription = Linking.addEventListener('url', ({ url }) => { void handleAuthUrl(url); });
     const appStateSubscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        void supabase.auth.getSession().then(({ data }) => {
-          if (data.session) void refreshMembership();
-        });
+        void supabase.auth.getSession()
+          .then(({ data }) => {
+            if (data.session) void refreshMembership();
+          })
+          .catch((error) => logger.warning('active_session_refresh_failed', error));
       }
     });
 
@@ -288,12 +293,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setMembershipError(null);
         setAccessBlocked(false);
         setNeedsOnboarding(false);
+        useSaleCart.getState().clear();
         setLoading(false);
       } else {
         if (event === 'SIGNED_IN') {
           setMembership(null);
           setLoading(true);
-          void supabase.rpc('record_security_event',{p_event_type:'login',p_device_label:`StockMaster • ${Platform.OS}`});
+          void (async () => {
+            try {
+              const { error } = await supabase.rpc('record_security_event', {
+                p_event_type: 'login',
+                p_device_label: `StockMaster • ${Platform.OS}`,
+              });
+              if (error) await logger.warning('login_security_event_failed', error);
+            } catch (error) {
+              await logger.warning('login_security_event_failed', error);
+            }
+          })();
         }
         setTimeout(async () => {
           await refreshMembership();
@@ -304,9 +320,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     });
 
     const accessCheck = setInterval(() => {
-      void supabase.auth.getSession().then(({ data: current }) => {
-        if (current.session) void refreshMembership();
-      });
+      void supabase.auth.getSession()
+        .then(({ data: current }) => {
+          if (current.session) void refreshMembership();
+        })
+        .catch((error) => logger.warning('periodic_session_check_failed', error));
     }, 60_000);
 
     return () => {

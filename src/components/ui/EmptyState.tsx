@@ -1,2 +1,5 @@
-import { View } from 'react-native'; import { Icon, Text } from 'react-native-paper';
-export function EmptyState({ icon='inbox-outline', title, message }:{icon?:string;title:string;message:string}) { return <View style={{alignItems:'center',padding:36,gap:8}}><Icon source={icon} size={42}/><Text variant="titleMedium">{title}</Text><Text style={{textAlign:'center'}}>{message}</Text></View>; }
+import { ReactNode } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Icon, Text, useTheme } from 'react-native-paper';
+export function EmptyState({ icon='inbox-outline', title, message, action }:{icon?:string;title:string;message:string;action?:ReactNode}) {const theme=useTheme();return <View style={styles.container}><View style={[styles.icon,{backgroundColor:theme.colors.primaryContainer}]}><Icon source={icon} size={30} color={theme.colors.primary}/></View><Text variant="titleMedium" style={styles.title}>{title}</Text><Text style={[styles.message,{color:theme.colors.onSurfaceVariant}]}>{message}</Text>{action}</View>;}
+const styles=StyleSheet.create({container:{alignItems:'center',alignSelf:'center',width:'100%',maxWidth:420,paddingVertical:32,paddingHorizontal:20,gap:8},icon:{width:56,height:56,borderRadius:16,alignItems:'center',justifyContent:'center',marginBottom:4},title:{fontWeight:'800',textAlign:'center'},message:{textAlign:'center',lineHeight:20,marginBottom:6}});

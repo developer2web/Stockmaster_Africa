@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Button, Card, Chip, Searchbar, Switch, Text, useTheme } from 'react-native-paper';
+import { Card, Chip, Switch, Text, useTheme } from 'react-native-paper';
 
 import { PlatformPage } from '@/components/superAdmin/PlatformPage';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -9,6 +9,10 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { FilterMenu } from '@/components/superAdmin/FilterMenu';
+import { AppSearchBar } from '@/components/ui/AppSearchBar';
+import { AppButton } from '@/components/ui/AppButton';
+import { StatusChip } from '@/components/ui/StatusChip';
+import { formatCurrency,formatDate } from '@/utils/format';
 import {
   getPlatformCompanies,
   setCompanyActive,
@@ -63,15 +67,15 @@ export default function CompaniesScreen() {
 
   return (
     <PlatformPage title="Entreprises et abonnements">
-      <Searchbar
+      <AppSearchBar
         placeholder="Rechercher une entreprise"
         value={search}
         onChangeText={setSearch}
       />
       <View style={styles.filterBar}>
         <FilterMenu label="Statut" value={status} onChange={(value) => setStatus(value as typeof status)} options={[{label:'Tous les statuts',value:'all'},{label:'Actives',value:'active'},{label:'Suspendues',value:'suspended'}]} />
-        <FilterMenu label="Forfait" value={plan} onChange={(value) => setPlan(value as typeof plan)} options={[{label:'Tous les forfaits',value:'all'},{label:'Basic',value:'basic'},{label:'Pro',value:'pro'},{label:'Premium',value:'premium'}]} />
-        {(status !== 'all' || plan !== 'all') && <Button compact onPress={() => { setStatus('all'); setPlan('all'); }}>Réinitialiser</Button>}
+        <FilterMenu label="Forfait" value={plan} onChange={(value) => setPlan(value as typeof plan)} options={[{label:'Tous les forfaits',value:'all'},{label:'Basic',value:'basic'},{label:'Pro',value:'pro'},{label:'Business',value:'premium'}]} />
+        {(search||status !== 'all' || plan !== 'all') && <AppButton mode="outlined" icon="filter-remove-outline" onPress={() => {setSearch('');setStatus('all');setPlan('all');}}>Réinitialiser</AppButton>}
       </View>
       {!!activeMutation.error && <Text style={{ color: theme.colors.error }}>{activeMutation.error.message}</Text>}
       {!!planMutation.error && <Text style={{ color: theme.colors.error }}>{planMutation.error.message}</Text>}
@@ -90,26 +94,23 @@ export default function CompaniesScreen() {
             style={[styles.card, mobile && styles.cardMobile, { backgroundColor: theme.colors.surface }]}
           >
             <Card.Content style={styles.content}>
-              <View style={styles.cardHeading}><View style={styles.grow}><Text variant="titleLarge" numberOfLines={2} style={styles.bold}>{company.name}</Text><Text variant="bodySmall" style={{color:theme.colors.onSurfaceVariant}}>{company.slug||'Identifiant non défini'}</Text></View><View style={styles.status}><Text variant="labelSmall">{company.is_active?'Active':'Suspendue'}</Text><Switch value={company.is_active} disabled={activeMutation.isPending} onValueChange={(active)=>setPendingAction({kind:'active',id:company.id,name:company.name,active})}/></View></View>
+              <View style={styles.cardHeading}><View style={styles.grow}><Text variant="titleLarge" numberOfLines={2} style={styles.bold}>{company.name}</Text><Text variant="bodySmall" style={{color:theme.colors.onSurfaceVariant}}>{company.slug||'Identifiant non défini'}</Text></View><View style={styles.status}><StatusChip status={company.is_active?'active':'suspended'}/><Switch value={company.is_active} disabled={activeMutation.isPending} onValueChange={(active)=>setPendingAction({kind:'active',id:company.id,name:company.name,active})}/></View></View>
               <View style={styles.chips}>
                 <Chip icon="store-outline">{company.store_count} boutiques</Chip>
                 <Chip icon="account-group-outline">{company.user_count} utilisateurs</Chip>
               </View>
               <Text variant={mobile?'headlineSmall':'titleLarge'} style={styles.bold}>
-                {new Intl.NumberFormat('fr-CA', {
-                  style: 'currency',
-                  currency: company.currency_code,
-                  currencyDisplay: 'code',
-                }).format(Number(company.revenue))}
+                {formatCurrency(company.revenue,company.currency_code)}
               </Text>
               <Text style={{ color: theme.colors.onSurfaceVariant }}>
                 {company.sale_count} ventes · créée le{' '}
-                {new Date(company.created_at).toLocaleDateString('fr-CA')}
+                {formatDate(company.created_at)}
               </Text>
               <Chip compact icon="credit-card-outline">
-                {(company.plan_code ?? 'Aucun forfait').toUpperCase()} ·{' '}
+                {company.plan_code === 'premium' ? 'BUSINESS' : (company.plan_code ?? 'Aucun forfait').toUpperCase()} ·{' '}
                 {company.subscription_status ?? 'inactif'}
               </Chip>
+              <StatusChip status={company.subscription_status}/>
               <Text variant="labelLarge">Forfait pour les 30 prochains jours</Text>
               <View style={styles.chips}>
                 {(['basic', 'pro', 'premium'] as const).map((planCode) => (
@@ -120,7 +121,7 @@ export default function CompaniesScreen() {
                     onPress={() =>
                       setPendingAction({ kind: 'plan', id: company.id, name: company.name, plan: planCode })}
                   >
-                    {planCode.toUpperCase()}
+                    {planCode === 'premium' ? 'BUSINESS' : planCode.toUpperCase()}
                   </Chip>
                 ))}
               </View>

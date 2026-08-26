@@ -42,20 +42,25 @@ export async function captureAppError(
   companyId: string | null = null,
 ): Promise<void> {
   const normalized = writeStructuredLog(severity, code, error, context);
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session) return;
+  try {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session) return;
 
-  const { error: reportError } = await supabase.rpc('log_app_error', {
-    p_severity: severity,
-    p_code: code,
-    p_message: normalized.message,
-    p_context: { ...context, stack: normalized.stack },
-    p_company_id: companyId,
-    p_platform: Platform.OS,
-    p_app_version: Constants.expoConfig?.version ?? 'unknown',
-  });
-  if (reportError) {
-    writeStructuredLog('warning', 'telemetry_delivery_failed', reportError, { sourceCode: code });
+    const { error: reportError } = await supabase.rpc('log_app_error', {
+      p_severity: severity,
+      p_code: code,
+      p_message: normalized.message,
+      p_context: { ...context, stack: normalized.stack },
+      p_company_id: companyId,
+      p_platform: Platform.OS,
+      p_app_version: Constants.expoConfig?.version ?? 'unknown',
+    });
+    if (reportError) {
+      writeStructuredLog('warning', 'telemetry_delivery_failed', reportError, { sourceCode: code });
+    }
+  } catch (deliveryError) {
+    // Observability must never become a second application error, especially offline.
+    writeStructuredLog('warning', 'telemetry_delivery_failed', deliveryError, { sourceCode: code });
   }
 }
 

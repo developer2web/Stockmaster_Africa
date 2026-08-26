@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Card, Icon, Searchbar, Text, useTheme } from 'react-native-paper';
+import { Card, Icon, Text, useTheme } from 'react-native-paper';
 import { useState } from 'react';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -10,6 +10,7 @@ import { getCategories, getProducts, getSuppliers } from '@/features/products/ap
 import { ProductThumbnail } from '@/components/products/ProductThumbnail';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { hasPermission } from '@/features/auth/permissions';
+import { AppSearchBar } from '@/components/ui/AppSearchBar';
 
 export default function EmployeeCatalog() {
   const { formatMoney } = useCurrency();
@@ -50,7 +51,7 @@ export default function EmployeeCatalog() {
           })}
         </View>
         {can('products.read') && (
-          <Searchbar placeholder="Rechercher un nom, SKU ou code-barres" value={search} onChangeText={setSearch} />
+          <AppSearchBar placeholder="Rechercher un nom, SKU ou code-barres" value={search} onChangeText={setSearch} />
         )}
         {error && <ErrorState message={error.message} onRetry={() => { void products.refetch(); void categories.refetch(); void suppliers.refetch(); }} />}
         {can('products.read') && visibleProducts.length === 0 && !products.isLoading && (

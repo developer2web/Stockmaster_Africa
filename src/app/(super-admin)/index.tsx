@@ -10,17 +10,10 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { getPlatformStats } from '@/features/superAdmin/api';
 
 const platformSections = [
-  {title:'Gestion',description:'Entreprises, magasins et accès',links:[
+  {title:'Gestion essentielle',description:'Les actions les plus fréquentes',links:[
     ['Entreprises', 'Comptes clients et abonnements', 'office-building-cog-outline', '/(super-admin)/companies'],
-    ['Magasins', 'Tous les points de vente', 'store-cog-outline', '/(super-admin)/stores'],
     ['Utilisateurs', 'Comptes, rôles et accès', 'account-cog-outline', '/(super-admin)/users'],
-  ]},
-  {title:'Finance',description:'Encaissements et offres commerciales',links:[
     ['Paiements', 'Orange Money et Stripe', 'credit-card-check-outline', '/(super-admin)/payments'],
-    ['Promotions', 'Codes promo et périodes d’essai', 'ticket-percent-outline', '/(super-admin)/promotions'],
-  ]},
-  {title:'Surveillance',description:'Activité, support et incidents',links:[
-    ['Journal d’activité', 'Historique des opérations sensibles', 'history', '/(super-admin)/audit'],
     ['Centre opérationnel', 'Santé, support et erreurs', 'heart-pulse', '/(super-admin)/operations'],
   ]},
 ] as const;
@@ -148,6 +141,7 @@ export default function SuperAdminDashboard() {
           </Card>
         ))}
       </View></View>)}
+      <Card mode="outlined" onPress={() => router.push('/(super-admin)/more' as never)}><Card.Content style={styles.linkContent}><View style={[styles.linkIcon,{ backgroundColor: theme.colors.primaryContainer }]}><Icon source="dots-grid" size={25} color={theme.colors.primary}/></View><View style={styles.linkCopy}><Text variant="titleMedium" style={styles.linkTitle}>Tous les outils</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>Magasins, promotions et journal d’activité</Text></View><Icon source="chevron-right" size={24}/></Card.Content></Card>
     </PlatformPage>
   );
 }

@@ -2,10 +2,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation,useQuery,useQueryClient } from '@tanstack/react-query';
 import { useEffect,useMemo,useState } from 'react';
 import { Controller,useForm } from 'react-hook-form';
-import { Card,Dialog,FAB,HelperText,Portal,Searchbar,Switch,Text } from 'react-native-paper';
+import { Card,Dialog,FAB,HelperText,Portal,Switch,Text } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { AppSearchBar } from '@/components/ui/AppSearchBar';
 import { FormField } from '@/components/forms/FormField';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { getCategories,saveCategory } from '@/features/products/api';
@@ -22,7 +23,7 @@ export default function Categories(){
   const mutation=useMutation({mutationFn:(value:CategoryInput)=>saveCategory(company,store,value,editing?.id),onSuccess:async()=>{await qc.invalidateQueries({queryKey:['categories',company,store]});setOpen(false);setEditing(null)}});
   const show=(item?:Category)=>{mutation.reset();setEditing(item??null);setOpen(true)};
   return <AdminPage title="Catégories" action={<FAB size="small" icon="plus" accessibilityLabel="Ajouter une catégorie" onPress={()=>show()}/>}>
-    <Searchbar placeholder="Rechercher une catégorie" value={search} onChangeText={setSearch}/>
+    <AppSearchBar placeholder="Rechercher une catégorie" value={search} onChangeText={setSearch}/>
     {!!query.error&&<HelperText type="error" visible>{query.error.message}</HelperText>}
     {shown.map(item=><Card key={item.id} mode="outlined" onPress={()=>show(item)}><Card.Title title={item.name} subtitle={item.description||'Sans description'} right={()=><Text style={{marginRight:16}}>{item.is_active?'Active':'Archivée'}</Text>}/></Card>)}
     {!query.isLoading&&!shown.length&&<EmptyState icon={search?'magnify':'shape-plus'} title={search?'Aucun résultat':'Aucune catégorie'} message={search?'Modifiez votre recherche.':'Créez une catégorie pour organiser le catalogue.'}/>}
@@ -30,6 +31,6 @@ export default function Categories(){
       <FormField control={control} name="name" label="Nom"/><FormField control={control} name="description" label="Description" multiline/>
       <Controller control={control} name="isActive" render={({field})=><Card mode="outlined"><Card.Title title="Catégorie active" right={()=><Switch value={field.value} onValueChange={field.onChange} style={{marginRight:12}}/>}/></Card>}/>
       {!!mutation.error&&<HelperText type="error" visible>{mutation.error.message}</HelperText>}
-    </Dialog.Content><Dialog.Actions><AppButton mode="text" onPress={()=>setOpen(false)}>Annuler</AppButton><AppButton loading={mutation.isPending} disabled={mutation.isPending} onPress={handleSubmit(value=>mutation.mutate(value))}>Enregistrer</AppButton></Dialog.Actions></Dialog></Portal>
+    </Dialog.Content><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setOpen(false)}>Annuler</AppButton><AppButton loading={mutation.isPending} disabled={mutation.isPending} onPress={handleSubmit(value=>mutation.mutate(value))}>Enregistrer</AppButton></Dialog.Actions></Dialog></Portal>
   </AdminPage>;
 }

@@ -58,11 +58,35 @@ export async function updateBusinessCurrency(
 }
 
 export async function getStores(companyId: string): Promise<Store[]> {
-  const { data, error } = await supabase.from('stores').select('id,company_id,name,address,is_active,created_at').eq('company_id', companyId).order('created_at').limit(100); fail(error); return (data ?? []) as Store[];
+  const { data, error } = await supabase.from('stores').select('id,company_id,name,address,is_active,receipt_display_name,receipt_address,receipt_phone,receipt_email,receipt_logo_url,receipt_footer,receipt_accent_color,created_at').eq('company_id', companyId).order('created_at').limit(100); fail(error); return (data ?? []) as Store[];
 }
 export async function saveStore(companyId: string, values: StoreInput, id?: string) {
-  const payload = { company_id: companyId, name: values.name, address: values.address || null, is_active: values.isActive };
+  const clean = (value?: string) => value?.trim() || null;
+  const payload = {
+    company_id: companyId,
+    name: values.name.trim(),
+    address: clean(values.address),
+    is_active: values.isActive,
+    receipt_display_name: clean(values.receiptDisplayName),
+    receipt_address: clean(values.receiptAddress),
+    receipt_phone: clean(values.receiptPhone),
+    receipt_email: clean(values.receiptEmail),
+    receipt_logo_url: clean(values.receiptLogoUrl),
+    receipt_footer: clean(values.receiptFooter),
+    receipt_accent_color: values.receiptAccentColor.toUpperCase(),
+  };
   const query = id ? supabase.from('stores').update(payload).eq('id', id) : supabase.from('stores').insert(payload); const { error } = await query; fail(error);
+}
+
+export async function getStoreReceiptBranding(companyId: string, storeId: string) {
+  const { data, error } = await supabase
+    .from('stores')
+    .select('id,name,address,receipt_display_name,receipt_address,receipt_phone,receipt_email,receipt_logo_url,receipt_footer,receipt_accent_color')
+    .eq('company_id', companyId)
+    .eq('id', storeId)
+    .maybeSingle();
+  fail(error);
+  return data as Pick<Store, 'id' | 'name' | 'address' | 'receipt_display_name' | 'receipt_address' | 'receipt_phone' | 'receipt_email' | 'receipt_logo_url' | 'receipt_footer' | 'receipt_accent_color'> | null;
 }
 
 export async function getPermissions(): Promise<Permission[]> { const { data, error } = await supabase.from('permissions').select('id,code,description').order('code'); fail(error); return (data ?? []) as Permission[]; }

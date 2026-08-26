@@ -44,7 +44,7 @@ export function AccountDeletionCard() {
           <TextInput mode="outlined" label="Confirmation" value={confirmation} onChangeText={setConfirmation} autoCapitalize="characters" />
           {!!deletion.error && <HelperText type="error" visible>{deletion.error.message}</HelperText>}
         </Dialog.Content>
-        <Dialog.Actions>
+        <Dialog.Actions style={{ flexWrap: 'wrap' }}>
           <AppButton mode="text" disabled={deletion.isPending} onPress={() => setOpen(false)}>Annuler</AppButton>
           <AppButton buttonColor="#C92A2A" loading={deletion.isPending} disabled={deletion.isPending || confirmation.trim().toUpperCase() !== 'SUPPRIMER'} onPress={() => deletion.mutate()}>Envoyer la demande</AppButton>
         </Dialog.Actions>

@@ -2,12 +2,15 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Card, Chip, FAB, HelperText, Menu, Searchbar, Snackbar, Text, useTheme } from 'react-native-paper';
+import { Card, Chip, HelperText, Menu, Text, useTheme } from 'react-native-paper';
 
 import { ProductThumbnail } from '@/components/products/ProductThumbnail';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { AppSearchBar } from '@/components/ui/AppSearchBar';
+import { AppFeedback } from '@/components/ui/AppFeedback';
+import { StatusChip } from '@/components/ui/StatusChip';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { getProducts, PRODUCT_PAGE_SIZE } from '@/features/products/api';
@@ -38,9 +41,9 @@ export default function ProductsScreen() {
   return (
     <AdminPage
       title="Produits"
-      action={<View style={{flexDirection:'row',gap:6}}><Menu visible={actionsOpen} onDismiss={()=>setActionsOpen(false)} anchor={<FAB size="small" icon="dots-vertical" accessibilityLabel="Actions produits" onPress={()=>setActionsOpen(true)}/>}><Menu.Item leadingIcon="whatsapp" title="Partager le catalogue" onPress={()=>void runAction(()=>shareProductCatalog(membership?.companyName??'StockMaster',rows,formatMoney))}/><Menu.Item leadingIcon="download" title="Exporter Excel" onPress={()=>void runAction(()=>shareProductsExport(company,store))}/><Menu.Item leadingIcon="file-excel" title="Importer Excel" onPress={()=>{setActionsOpen(false);router.push('/products/import' as never)}}/></Menu><FAB size="small" icon="plus" accessibilityLabel="Nouveau produit" onPress={() => router.push('/products/new' as never)} /></View>}
+      action={<View style={styles.actions}><Menu visible={actionsOpen} onDismiss={()=>setActionsOpen(false)} anchor={<AppButton mode="outlined" icon="dots-horizontal" accessibilityLabel="Actions produits" onPress={()=>setActionsOpen(true)}>Actions</AppButton>}><Menu.Item leadingIcon="shape-outline" title="Gérer les catégories" onPress={()=>{setActionsOpen(false);router.push('/categories' as never)}}/><Menu.Item leadingIcon="whatsapp" title="Partager le catalogue" onPress={()=>void runAction(()=>shareProductCatalog(membership?.companyName??'StockMaster',rows,formatMoney))}/><Menu.Item leadingIcon="download" title="Exporter Excel" onPress={()=>void runAction(()=>shareProductsExport(company,store))}/><Menu.Item leadingIcon="file-excel" title="Importer Excel" onPress={()=>{setActionsOpen(false);router.push('/products/import' as never)}}/></Menu><AppButton icon="plus" onPress={() => router.push('/products/new' as never)}>Ajouter</AppButton></View>}
     >
-      <Searchbar
+      <AppSearchBar
         placeholder="Nom, SKU ou code-barres"
         value={search}
         onChangeText={setSearch}
@@ -57,7 +60,7 @@ export default function ProductsScreen() {
             left={() => <ProductThumbnail url={product.image_urls?.[0]} />}
             title={product.name}
             subtitle={`${product.sku} • ${product.category?.name ?? 'Sans catégorie'}`}
-            right={() => <View style={styles.price}><Text variant="titleMedium" style={styles.bold}>{formatMoney(Number(product.sale_price))}</Text><Chip compact icon={product.is_active ? 'check-circle' : 'pause-circle'}>{product.is_active ? 'Actif' : 'Inactif'}</Chip></View>}
+            right={() => <View style={styles.price}><Text variant="titleMedium" style={styles.bold}>{formatMoney(Number(product.sale_price))}</Text><StatusChip status={product.is_active?'active':'inactive'}/></View>}
           />
         </Card>
       ))}
@@ -76,9 +79,10 @@ export default function ProductsScreen() {
           icon="package-variant"
           title={search ? 'Aucun résultat' : 'Aucun produit'}
           message={search ? 'Essayez un autre nom, SKU ou code-barres.' : 'Créez votre premier produit pour constituer le catalogue.'}
+          action={!search?<AppButton icon="plus" onPress={()=>router.push('/products/new' as never)}>Ajouter un produit</AppButton>:undefined}
         />
       )}
-      <Snackbar visible={!!actionError} onDismiss={()=>setActionError('')} duration={4000}>{actionError}</Snackbar>
+      <AppFeedback message={actionError} type="error" onDismiss={()=>setActionError('')}/>
     </AdminPage>
   );
 }
@@ -87,4 +91,5 @@ const styles = StyleSheet.create({
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   price: { alignItems: 'flex-end', gap: 4, marginRight: 14 },
   bold: { fontWeight: '800' },
+  actions:{flexDirection:'row',flexWrap:'wrap',gap:8},
 });

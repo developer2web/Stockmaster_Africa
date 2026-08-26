@@ -13,6 +13,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { createBusiness } from '@/features/workspace/api';
 import { SelectField } from '@/components/forms/SelectField';
 import { supportedCountries } from '@/constants/countries';
+import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 
 const schema = z.object({
   companyName: z.string().trim().min(2, 'Nom de l’entreprise requis').max(100),
@@ -23,6 +24,7 @@ type Values = z.infer<typeof schema>;
 
 export default function ChooseBusinessScreen() {
   const { businesses, selectBusiness, refreshMembership, signOut } = useAuth();
+  const { canUseFeature } = useSubscription();
   const [open, setOpen] = useState(false);
   const { control, handleSubmit, reset } = useForm<Values>({
     resolver: zodResolver(schema),
@@ -42,14 +44,16 @@ export default function ChooseBusinessScreen() {
     router.replace('/choose-store');
   };
   const employeeOnly = businesses.length > 0 && businesses.every((business) => business.role === 'employee');
+  const canCreateBusiness = businesses.length === 0 || canUseFeature('multi_business');
   if (employeeOnly) return <Redirect href="/" />;
 
-  return <AdminPage title="Choisir une entreprise" action={<FAB size="small" icon="plus" onPress={() => { reset(); setOpen(true); }} />}>
+  return <AdminPage title="Choisir une entreprise" action={<FAB size="small" icon={canCreateBusiness?'plus':'lock-outline'} onPress={() => { if (canCreateBusiness) { reset(); setOpen(true); } else router.push('/(subscription)' as never); }} />}>
     <Text variant="bodyLarge">Chaque entreprise possède ses propres boutiques et ses données restent entièrement séparées.</Text>
     {businesses.map((business) => <Card key={business.companyId} mode="contained" onPress={() => void choose(business.companyId)}>
       <Card.Title title={business.companyName} subtitle={`${business.roleName} • ${business.subscriptionStatus ?? 'sans abonnement'}`} left={() => <Icon source="office-building" size={30} />} />
     </Card>)}
     {!businesses.length && <EmptyState icon="office-building-plus" title="Aucune entreprise" message="Créez votre première entreprise pour commencer." />}
+    {!canCreateBusiness && <Card mode="outlined"><Card.Content><Text variant="titleMedium">Multi-entreprises — Business</Text><Text>Votre forfait actuel permet une seule entreprise. Passez au forfait Business pour en ajouter d’autres.</Text></Card.Content><Card.Actions><AppButton onPress={()=>router.push('/(subscription)' as never)}>Voir le forfait</AppButton></Card.Actions></Card>}
     <AppButton mode="text" icon="logout" onPress={() => void signOut()}>Se déconnecter</AppButton>
     <Portal><Dialog visible={open} onDismiss={() => setOpen(false)}>
       <Dialog.Title>Nouvelle entreprise</Dialog.Title>
@@ -59,7 +63,7 @@ export default function ChooseBusinessScreen() {
         <Controller control={control} name="countryCode" render={({field})=><SelectField label="Pays d’activité" value={field.value} onChange={(value)=>field.onChange(value??'GN')} options={supportedCountries.map((country)=>({label:`${country.name} — ${country.currency}`,value:country.code}))}/>} />
         {!!create.error && <HelperText type="error" visible>{create.error.message}</HelperText>}
       </Dialog.Content>
-      <Dialog.Actions><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={create.isPending} onPress={handleSubmit((values) => create.mutate(values))}>Créer</AppButton></Dialog.Actions>
+      <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={create.isPending} onPress={handleSubmit((values) => create.mutate(values))}>Créer</AppButton></Dialog.Actions>
     </Dialog></Portal>
   </AdminPage>;
 }

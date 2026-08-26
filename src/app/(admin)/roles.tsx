@@ -13,6 +13,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { deleteRole, getPermissions, getRoles, saveRole } from '@/features/employees/api';
 import { roleSchema, RoleInput } from '@/schemas/organization';
 import type { EmployeeRole } from '@/types/database';
+import { FeatureGate } from '@/components/subscriptions/FeatureGate';
 
 export default function RolesScreen() {
   const { membership } = useAuth();
@@ -37,14 +38,14 @@ export default function RolesScreen() {
     { label: 'Comptable', codes: ['stores.read','sales.read','purchases.read','payments.read','expenses.read','expenses.write','cash_transactions.read','daily_reports.read','monthly_reports.read'] },
   ];
 
-  return <AdminPage title="Rôles et permissions" action={<FAB size="small" icon="plus" onPress={()=>show()}/> }>
+  return <FeatureGate feature="advanced_permissions" label="Rôles et permissions avancés"><AdminPage title="Rôles et permissions" action={<FAB size="small" icon="plus" onPress={()=>show()}/> }>
     {!!roles.error&&<HelperText type="error" visible>Impossible de charger les rôles : {roles.error.message}</HelperText>}
     {employeeRoles.length?employeeRoles.map(role=><Card key={role.id} onPress={()=>show(role)}><Card.Title title={role.name} subtitle={`${role.permissions.length} permission(s)`}/><Card.Actions><AppButton mode="text" onPress={()=>show(role)}>Modifier</AppButton><AppButton mode="text" textColor="#C92A2A" onPress={()=>setDeleting(role)}>Supprimer</AppButton></Card.Actions></Card>):!roles.isLoading&&<EmptyState icon="shield-plus" title="Aucun rôle employé" message="Créez un rôle avant d’inviter votre premier employé."/>}
 
     <Portal><Dialog visible={open} onDismiss={()=>setOpen(false)} style={[styles.dialog,{width:Math.min(width-24,680)}]}>
       <Dialog.Title>{editing?'Modifier le rôle':'Nouveau rôle'}</Dialog.Title>
       <Dialog.ScrollArea style={{paddingHorizontal:0}}>
-        <ScrollView contentContainerStyle={{paddingHorizontal:24,paddingBottom:12}} keyboardShouldPersistTaps="handled">
+        <ScrollView nestedScrollEnabled contentContainerStyle={{paddingHorizontal:24,paddingBottom:12}} keyboardShouldPersistTaps="handled">
           <FormField control={control} name="name" label="Nom du rôle"/>
           <Controller control={control} name="permissions" render={({field,fieldState})=><View>
             <Text variant="labelLarge">Modèles rapides</Text>
@@ -61,11 +62,11 @@ export default function RolesScreen() {
           {!!save.error&&<HelperText type="error" visible>{save.error.message}</HelperText>}
         </ScrollView>
       </Dialog.ScrollArea>
-      <Dialog.Actions><AppButton mode="text" onPress={()=>setOpen(false)}>Annuler</AppButton><AppButton disabled={permissions.isLoading} onPress={handleSubmit(values=>save.mutate(values))} loading={save.isPending}>Enregistrer</AppButton></Dialog.Actions>
+      <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setOpen(false)}>Annuler</AppButton><AppButton disabled={permissions.isLoading} onPress={handleSubmit(values=>save.mutate(values))} loading={save.isPending}>Enregistrer</AppButton></Dialog.Actions>
     </Dialog></Portal>
 
     <ConfirmDialog visible={!!deleting} title="Supprimer ce rôle ?" message="La suppression est refusée s’il est encore attribué à un employé." destructive loading={remove.isPending} onCancel={()=>setDeleting(null)} onConfirm={()=>deleting&&remove.mutate(deleting.id)}/>
-  </AdminPage>;
+  </AdminPage></FeatureGate>;
 }
 
 const styles=StyleSheet.create({

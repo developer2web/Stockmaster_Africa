@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Button, Card, Chip, Searchbar, Switch, Text, useTheme } from 'react-native-paper';
+import { Card, Chip, Switch, Text, useTheme } from 'react-native-paper';
 import { PlatformPage } from '@/components/superAdmin/PlatformPage';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -9,6 +9,10 @@ import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { FilterMenu } from '@/components/superAdmin/FilterMenu';
 import { getPlatformUsers, setMembershipActive } from '@/features/superAdmin/api';
+import { AppSearchBar } from '@/components/ui/AppSearchBar';
+import { AppButton } from '@/components/ui/AppButton';
+import { StatusChip } from '@/components/ui/StatusChip';
+import { formatDate } from '@/utils/format';
 
 export default function UsersScreen() {
   const theme = useTheme();
@@ -31,19 +35,19 @@ export default function UsersScreen() {
   if (query.isLoading) return <LoadingScreen label="Chargement des utilisateurs…" />;
   return (
     <PlatformPage title="Utilisateurs">
-      <Searchbar placeholder="Nom, email ou entreprise" value={search} onChangeText={setSearch} />
+      <AppSearchBar placeholder="Nom, email ou entreprise" value={search} onChangeText={setSearch} />
       <View style={styles.filters}>
         <FilterMenu label="Statut" value={status} onChange={(value) => setStatus(value as typeof status)} options={[{label:'Tous les statuts',value:'all'},{label:'Actifs',value:'active'},{label:'Suspendus',value:'suspended'}]} />
         <FilterMenu label="Entreprise" value={company} onChange={setCompany} options={[{label:'Toutes les entreprises',value:'all'},...companies.map((value)=>({label:value,value}))]} />
         <FilterMenu label="Rôle" value={role} onChange={setRole} options={[{label:'Tous les rôles',value:'all'},...roles.map((value)=>({label:value,value}))]} />
-        {(status !== 'all' || company !== 'all' || role !== 'all') && <Button compact onPress={() => { setStatus('all'); setCompany('all'); setRole('all'); }}>Réinitialiser</Button>}
+        {(search||status !== 'all' || company !== 'all' || role !== 'all') && <AppButton mode="outlined" icon="filter-remove-outline" onPress={() => {setSearch('');setStatus('all');setCompany('all');setRole('all');}}>Réinitialiser</AppButton>}
       </View>
       {query.error && <ErrorState message={query.error.message} onRetry={() => query.refetch()} />}
       {!!mutation.error && <Text style={{ color: theme.colors.error }}>{mutation.error.message}</Text>}
       {!query.isLoading && !query.error && items.length === 0 && <EmptyState title="Aucun utilisateur" message="Aucun résultat trouvé." />}
       {items.map((user) => (
         <Card key={user.membership_id} mode="contained" style={{ backgroundColor: theme.colors.surface }}>
-          <Card.Content style={styles.content}><View style={styles.heading}><View style={styles.copy}><Text variant="titleMedium" style={styles.bold}>{user.full_name||'Utilisateur'}</Text><Text selectable variant="bodySmall" style={{color:theme.colors.onSurfaceVariant}}>{user.email}</Text></View><View style={styles.status}><Text variant="labelSmall">{user.is_active?'Actif':'Suspendu'}</Text><Switch value={user.is_active} disabled={mutation.isPending} onValueChange={(active)=>setPending({id:user.membership_id,name:user.full_name||user.email,active})}/></View></View><View style={styles.row}><Chip icon="office-building-outline">{user.company_name}</Chip><Chip icon="badge-account-outline">{user.role_name}</Chip>{user.store_name&&<Chip icon="store-outline">{user.store_name}</Chip>}</View><Text variant="bodySmall" style={{color:theme.colors.onSurfaceVariant}}>Ajouté le {new Date(user.created_at).toLocaleDateString('fr-CA')}</Text></Card.Content>
+          <Card.Content style={styles.content}><View style={styles.heading}><View style={styles.copy}><Text variant="titleMedium" style={styles.bold}>{user.full_name||'Utilisateur'}</Text><Text selectable variant="bodySmall" style={{color:theme.colors.onSurfaceVariant}}>{user.email}</Text></View><View style={styles.status}><StatusChip status={user.is_active?'active':'suspended'}/><Switch value={user.is_active} disabled={mutation.isPending} onValueChange={(active)=>setPending({id:user.membership_id,name:user.full_name||user.email,active})}/></View></View><View style={styles.row}><Chip icon="office-building-outline">{user.company_name}</Chip><Chip icon="badge-account-outline">{user.role_name}</Chip>{user.store_name&&<Chip icon="store-outline">{user.store_name}</Chip>}</View><Text variant="bodySmall" style={{color:theme.colors.onSurfaceVariant}}>Ajouté le {formatDate(user.created_at)}</Text></Card.Content>
         </Card>
       ))}
       <ConfirmDialog visible={pending !== null} title={pending?.active ? 'Réactiver l’utilisateur' : 'Suspendre l’utilisateur'} message={pending?.active ? `Réactiver l’accès de ${pending?.name} ?` : `Suspendre ${pending?.name} ? La session sera refusée au prochain contrôle d’accès.`} destructive={!pending?.active} loading={mutation.isPending} onCancel={() => setPending(null)} onConfirm={() => pending && mutation.mutate({ id: pending.id, active: pending.active }, { onSuccess: () => setPending(null) })} />

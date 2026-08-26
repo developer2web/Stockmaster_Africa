@@ -1,3 +1,6 @@
 import { supabase } from '@/services/supabase/client';
 export type InternalNotification={id:string;type:string;severity:string;title:string;body:string};
 export async function getInternalNotifications(storeId:string):Promise<InternalNotification[]>{const{data,error}=await supabase.rpc('get_internal_notifications',{p_store_id:storeId});if(error)throw new Error(error.message);return(data??[]) as InternalNotification[]}
+export type PersistentNotification={id:string;company_id:string;user_id:string|null;type:string;title:string;body:string;read_at:string|null;created_at:string};
+export async function getPersistentNotifications(companyId?:string,userId?:string):Promise<PersistentNotification[]>{let query=supabase.from('notifications').select('id,company_id,user_id,type,title,body,read_at,created_at').order('created_at',{ascending:false}).limit(100);if(companyId)query=query.eq('company_id',companyId);if(userId)query=query.eq('user_id',userId);const{data,error}=await query;if(error)throw new Error(error.message);return(data??[]) as PersistentNotification[]}
+export async function markNotificationsRead(ids:string[]){if(!ids.length)return;const{error}=await supabase.from('notifications').update({read_at:new Date().toISOString()}).in('id',ids);if(error)throw new Error(error.message)}

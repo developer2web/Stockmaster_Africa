@@ -15,11 +15,31 @@ const featureLabels: Record<string, string> = {
   inventory: 'Produits et stock',
   sales: 'Ventes',
   expenses: 'Dépenses',
+  basic_reports: 'Rapports simples',
+  receipts: 'Reçus personnalisés',
+  customers_suppliers: 'Clients et fournisseurs',
   advanced_reports: 'Rapports avancés',
   pdf_export: 'Export PDF',
   excel_export: 'Export Excel',
   multi_business: 'Multi-entreprises',
   multi_store: 'Multi-boutiques',
+  offline_mode: 'Mode hors ligne',
+  inventory_count: 'Inventaires physiques',
+  transfers: 'Transferts entre boutiques',
+  advanced_permissions: 'Permissions avancées',
+  notifications: 'Notifications avancées',
+  expense_approval: 'Approbation des dépenses',
+  consolidated_reports: 'Rapports multi-entreprises',
+  audit_log: 'Journal d’audit avancé',
+  priority_support: 'Support prioritaire',
+  trial_14_days: '14 jours d’essai gratuit',
+  orange_money_payments: 'Paiement Orange Money',
+  stripe_payments: 'Paiement par carte avec Stripe',
+  desktop_web: 'Accès Web optimisé pour ordinateur',
+  low_stock_alerts: 'Alertes de stock faible',
+  customer_debt: 'Dettes clients',
+  supplier_debt: 'Dettes fournisseurs',
+  advanced_cash_closure: 'Clôture de caisse avancée',
 };
 
 export default function SubscriptionScreen() {
@@ -116,6 +136,15 @@ export default function SubscriptionScreen() {
             );
           })}
         </View>
+        {!plans.length && (
+          <Card mode="outlined">
+            <Card.Content style={styles.emptyPlans}>
+              <Text variant="titleMedium" style={styles.bold}>Aucun forfait disponible</Text>
+              <Text>Vérifiez votre connexion puis rechargez le catalogue.</Text>
+              <AppButton mode="outlined" icon="refresh" onPress={() => void refreshSubscription()}>Réessayer</AppButton>
+            </Card.Content>
+          </Card>
+        )}
         {membership?.role === 'employee' && (
           <Text style={styles.center}>
             Seul le propriétaire peut acheter ou modifier le forfait. Contactez votre administrateur.
@@ -135,4 +164,5 @@ const styles = StyleSheet.create({
   bold: { fontWeight: '800' },
   chip: { marginRight: 12 },
   center: { textAlign: 'center' },
+  emptyPlans: { gap: 10, alignItems: 'flex-start' },
 });

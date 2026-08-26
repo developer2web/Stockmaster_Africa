@@ -15,9 +15,16 @@ export type OfflineOperation = {
 };
 
 export async function getOfflineQueue(): Promise<OfflineOperation[]> {
-  const raw = await AsyncStorage.getItem(QUEUE_KEY);
-  if (!raw) return [];
-  try { return JSON.parse(raw) as OfflineOperation[]; } catch { return []; }
+  try {
+    const raw = await AsyncStorage.getItem(QUEUE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as OfflineOperation[];
+    await AsyncStorage.removeItem(QUEUE_KEY).catch(() => undefined);
+    return [];
+  } catch {
+    return [];
+  }
 }
 
 export async function getCurrentUserOfflineQueue(): Promise<OfflineOperation[]> {

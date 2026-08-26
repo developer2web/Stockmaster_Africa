@@ -1,0 +1,50 @@
+.businessPickerPage {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(circle at 15% 15%, #dff5ee, transparent 35%), #f6faf8;
+}
+
+.businessPicker {
+  width: min(720px, 100%);
+  padding: 38px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(7, 62, 57, .14);
+}
+
+.businessPicker > h1 { margin: 22px 0 8px; font-size: 30px; }
+.businessPicker > p { margin: 0; color: #62746f; line-height: 1.7; }
+.businessChoices { display: grid; gap: 12px; margin: 26px 0; }
+.businessChoices > button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fff;
+  text-align: left;
+}
+.businessChoices > button:hover { border-color: var(--green); background: #f2faf6; }
+.businessChoices i { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 12px; background: var(--dark); color: #fff; font-style: normal; font-weight: 900; }
+.businessChoices span { min-width: 0; display: grid; gap: 4px; }
+.businessChoices b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.businessChoices small { color: #748680; }
+.businessChoices strong { color: var(--green); font-size: 11px; }
+.activeBusiness { min-width: 0; }
+.activeBusiness b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activeBusiness button { width: max-content; padding: 0; border: 0; background: transparent; color: var(--green); font-size: 8px; font-weight: 800; text-align: left; }
+
+@media (max-width: 560px) {
+  .businessPicker { padding: 24px 18px; }
+  .businessPicker > h1 { font-size: 25px; }
+  .businessChoices > button { grid-template-columns: 44px minmax(0, 1fr); }
+  .businessChoices i { width: 42px; height: 42px; }
+  .businessChoices strong { grid-column: 2; }
+  .activeBusiness { max-width: 150px; }
+}

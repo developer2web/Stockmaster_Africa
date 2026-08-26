@@ -46,19 +46,15 @@ export default function EmployeeEntry() {
   const canCash = hasAny(['cash_transactions.read', 'cash_transactions.write', 'expenses.read', 'expenses.write']);
   const canCreateSale = hasPermission(membership, 'sales.write');
   const modules = [
-    canProducts && { title: 'Produits', description: hasPermission(membership, 'products.write') ? 'Consulter, ajouter et modifier' : 'Consulter les produits', icon: 'package-variant-closed', accent: '#6C5CE7', route: '/employee/products' },
-    canSuppliers && { title: 'Fournisseurs', description: hasPermission(membership, 'suppliers.write') ? 'Consulter et ajouter' : 'Consulter les fournisseurs', icon: 'truck-outline', accent: '#00A8A8', route: '/employee/suppliers' },
-    canCash && { title: 'Caisse', description: hasAny(['cash_transactions.write', 'expenses.write']) ? 'Solde, entrées et sorties' : 'Consulter la caisse', icon: 'wallet-outline', accent: '#F08C46', route: '/employee/cash' },
-    canCatalog && !canProducts && !canSuppliers && { title: 'Catalogue', description: 'Consulter le catalogue autorisé', icon: 'book-open-page-variant-outline', accent: '#6C5CE7', route: '/employee/catalog' },
-    canSales && { title: 'Ventes', description: 'Panier, encaissement et historique', icon: 'cart-outline', accent: '#3D7EFF', route: '/employee/sales' },
-    canAccounting && { title: 'Comptabilité', description: 'Ventes, achats, dépenses et paiements', icon: 'calculator-variant-outline', accent: '#F08C46', route: '/employee/accounting' },
-    canReports && { title: 'Rapports', description: 'Ventes et performances', icon: 'chart-box-outline', accent: '#9B51E0', route: '/employee/reports' },
-    { title: 'Paramètres', description: 'Compte, sécurité et confidentialité', icon: 'cog-outline', accent: '#667085', route: '/employee/settings' },
+    canProducts && { title: 'Produits', description: hasPermission(membership, 'products.write') ? 'Consulter, ajouter et modifier' : 'Consulter les produits', icon: 'package-variant-closed', accent: '#084B50', route: '/employee/products' },
+    canCash && { title: 'Caisse', description: hasAny(['cash_transactions.write', 'expenses.write']) ? 'Solde, entrées et sorties' : 'Consulter la caisse', icon: 'wallet-outline', accent: '#084B50', route: '/employee/cash' },
+    canSales && { title: 'Ventes', description: 'Panier, encaissement et historique', icon: 'cart-outline', accent: '#084B50', route: '/employee/sales' },
   ].filter(Boolean) as { title: string; description: string; icon: string; accent: string; route: string }[];
+  const advancedCount = [canSuppliers, canCatalog && !canProducts && !canSuppliers, canAccounting, canReports, true].filter(Boolean).length;
 
   return (
-    <View style={[styles.screen, { backgroundColor: theme.dark ? '#0E0B20' : '#F5F3FF' }]}>
-      <Appbar.Header elevated style={{ backgroundColor: theme.dark ? '#201A4D' : '#352B78' }}>
+    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+      <Appbar.Header elevated style={{ backgroundColor: '#084B50' }}>
         <Appbar.Content title={employeeName} titleStyle={{color:'#FFFFFF',fontWeight:'800'}} subtitle={`${membership.companyName} • ${membership.storeName ?? 'Boutique'}`} subtitleStyle={{color:'#D9D4FF'}} />
         {stores.length > 1 && <Appbar.Action color="#FFFFFF" icon="swap-horizontal" accessibilityLabel="Changer de boutique" onPress={() => router.push('/choose-store')} />}
         <Appbar.Action color="#FFFFFF" icon="logout" accessibilityLabel="Se déconnecter" onPress={signOut} />
@@ -67,15 +63,15 @@ export default function EmployeeEntry() {
         contentContainerStyle={[styles.page, compact && styles.pageCompact]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.hero, { backgroundColor: theme.dark ? '#2A225A' : '#E7E2FF' }, compact && styles.heroCompact]}>
-          <View style={[styles.heroIcon, { backgroundColor: '#6C5CE7' }]}>
+        <View style={[styles.hero, { backgroundColor: theme.colors.primaryContainer }, compact && styles.heroCompact]}>
+          <View style={[styles.heroIcon, { backgroundColor: '#084B50' }]}>
             <Icon source="account-hard-hat-outline" size={compact ? 28 : 34} color="#FFFFFF" />
           </View>
           <View style={styles.heroCopy}>
-            <Text variant={compact ? 'headlineSmall' : 'headlineMedium'} style={{ color: theme.dark ? '#F2EFFF' : '#2A225A', fontWeight: '800' }}>
+            <Text variant={compact ? 'headlineSmall' : 'headlineMedium'} style={{ color: theme.colors.onPrimaryContainer, fontWeight: '800' }}>
               Bonjour {employeeName} 👋
             </Text>
-            <Text variant="bodyLarge" style={{ color: theme.dark ? '#D9D4FF' : '#514A7A' }}>
+            <Text variant="bodyLarge" style={{ color: theme.colors.onPrimaryContainer }}>
               Retrouvez rapidement les outils utiles à votre travail.
             </Text>
           </View>
@@ -84,7 +80,7 @@ export default function EmployeeEntry() {
 
         <View style={styles.sectionHeading}>
           <View style={styles.sectionCopy}>
-            <Text variant="titleLarge" style={styles.sectionTitle}>Mes outils</Text>
+            <Text variant="titleLarge" style={styles.sectionTitle}>Outils quotidiens</Text>
             <Text style={{ color: theme.colors.onSurfaceVariant }}>
               Seuls les modules autorisés par votre administrateur sont affichés.
             </Text>
@@ -115,6 +111,8 @@ export default function EmployeeEntry() {
             />
           ))}
         </View>
+
+        <Card mode="outlined" onPress={() => router.push('/employee/more' as never)}><Card.Content style={styles.notice}><Icon source="dots-grid" size={30} color={theme.colors.primary}/><View style={styles.noticeCopy}><Text variant="titleMedium" style={styles.sectionTitle}>Autres outils</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>Fournisseurs, comptabilité, rapports et paramètres · {advancedCount} module(s)</Text></View><Icon source="chevron-right" size={24} color={theme.colors.onSurfaceVariant}/></Card.Content></Card>
 
         {!canCatalog && !canSales && !canAccounting && !canReports && !canCash && (
           <Card mode="outlined" style={{ backgroundColor: theme.colors.surface }}>

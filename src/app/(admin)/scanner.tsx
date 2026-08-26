@@ -78,7 +78,7 @@ export default function ScannerScreen() {
         onBarcodeScanned={cameraActive ? scanned : undefined}
         barcodeScannerSettings={{ barcodeTypes: ['qr', 'ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39'] }}
       />
-      <View pointerEvents="none" style={[styles.frame, locked && styles.frameLocked]} />
+      <View style={[styles.frame, styles.noPointerEvents, locked && styles.frameLocked]} />
       <IconButton
         accessibilityLabel={torch ? 'Éteindre la lampe' : 'Allumer la lampe'}
         icon={torch ? 'flashlight-off' : 'flashlight'}
@@ -108,6 +108,7 @@ const styles = StyleSheet.create({
   cameraWrap: { borderRadius: 24, overflow: 'hidden', backgroundColor: '#000' },
   camera: { flex: 1 },
   frame: { position: 'absolute', left: '12%', right: '12%', top: '22%', bottom: '22%', borderWidth: 3, borderColor: '#79CED1', borderRadius: 22 },
+  noPointerEvents: { pointerEvents: 'none' },
   frameLocked: { borderColor: '#FFD43B' },
   torch: { position: 'absolute', right: 12, top: 12 },
   status: { position: 'absolute', bottom: 14, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.62)', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8 },

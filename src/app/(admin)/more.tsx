@@ -1,7 +1,64 @@
 import { router } from 'expo-router';
-import { StyleSheet,View } from 'react-native';
-import { Card,Icon,Text,useTheme } from 'react-native-paper';
+import { StyleSheet, View } from 'react-native';
+import { Card, Icon, Text, useTheme } from 'react-native-paper';
+import type { MD3Theme } from 'react-native-paper';
+import { useState } from 'react';
 import { AdminPage } from '@/components/ui/AdminPage';
-const modules=[['Produits','package-variant-closed','/products'],['Clients','account-group-outline','/customers'],['Commandes clients','clipboard-list-outline','/orders'],['Fournisseurs','truck-outline','/suppliers'],['Approvisionnement','truck-check-outline','/purchases'],['Transferts','swap-horizontal-bold','/transfers'],['Rapports','chart-box-outline','/reports'],['Employés','account-hard-hat-outline','/employees'],['Entreprise','office-building-cog-outline','/company'],['Boutiques','store-cog-outline','/stores'],['Assistance','lifebuoy','/support'],['Paramètres','cog-outline','/(settings)']] as const;
-export default function MoreScreen(){const theme=useTheme();return <AdminPage title="Plus" backToHome><View style={styles.grid}>{modules.map(([label,icon,path])=><Card key={label} mode="contained" onPress={()=>router.push(path as never)} style={[styles.card,{backgroundColor:theme.colors.surface}]}><Card.Content style={styles.content}><Icon source={icon} size={30} color={theme.colors.primary}/><Text variant="titleMedium" style={styles.label}>{label}</Text></Card.Content></Card>)}</View></AdminPage>}
-const styles=StyleSheet.create({grid:{flexDirection:'row',flexWrap:'wrap',gap:12},card:{flexGrow:1,flexBasis:'44%',minWidth:145,borderRadius:16},content:{minHeight:100,alignItems:'center',justifyContent:'center',gap:8},label:{fontWeight:'800',textAlign:'center'}});
+import { AppButton } from '@/components/ui/AppButton';
+import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
+import type { FeatureKey } from '@/features/subscriptions/types';
+import { useAuth } from '@/features/auth/AuthProvider';
+
+const gatedModules:Record<string,{feature:FeatureKey;tier:string}>={
+  'Inventaire':{feature:'inventory_count',tier:'Pro'},
+  'Transferts':{feature:'transfers',tier:'Pro'},
+  'Rôles':{feature:'advanced_permissions',tier:'Pro'},
+};
+
+const sections = [
+  { title: 'Gestion', subtitle: 'Outils complémentaires', items: [
+    ['Abonnement', 'Forfait, renouvellement et paiements', 'credit-card-cog-outline', '/(subscription)'],
+    ['Clients', 'Fiches clients et crédits', 'account-group-outline', '/customers'],
+    ['Rapports', 'Ventes et performance', 'chart-box-outline', '/reports'],
+    ['Fournisseurs', 'Comptes, dettes et règlements', 'truck-outline', '/suppliers'],
+    ['Dépenses', 'Charges de la boutique', 'cash-minus', '/expenses'],
+    ['Employés', 'Comptes et accès', 'account-hard-hat-outline', '/employees'],
+    ['Paramètres', 'Compte, sécurité et mode hors ligne', 'cog-outline', '/(settings)'],
+  ]},
+  { title: 'Plus d’informations', subtitle: 'Fonctions utilisées moins souvent', items: [
+    ['Produits', 'Catalogue et prix', 'package-variant-closed', '/products'],
+    ['Catégories', 'Organiser et classer les produits', 'shape-outline', '/categories'],
+    ['Scanner', 'Codes-barres et QR codes', 'barcode-scan', '/scanner'],
+    ['Inventaire', 'Comptage physique', 'clipboard-check-outline', '/inventory-count'],
+    ['Approvisionnement', 'Achats et réceptions', 'truck-check-outline', '/purchases'],
+    ['Transferts', 'Déplacer le stock', 'swap-horizontal-bold', '/transfers'],
+    ['Commandes clients', 'Réservations et acomptes', 'clipboard-list-outline', '/orders'],
+    ['Rôles', 'Permissions personnalisées', 'shield-account-outline', '/roles'],
+    ['Boutiques', 'Points de vente et reçus', 'store-cog-outline', '/stores'],
+    ['Entreprise', 'Coordonnées et règles', 'office-building-cog-outline', '/company'],
+    ['Assistance', 'Contacter le support', 'lifebuoy', '/support'],
+  ]},
+] as const;
+
+export default function MoreScreen() {
+  const theme = useTheme();
+  const { canUseFeature, isLoading } = useSubscription();
+  const { signOut } = useAuth();
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  return <AdminPage title="Tous les outils" backToHome>
+    <AppButton mode="outlined" destructive icon="logout" onPress={() => void signOut()}>Se déconnecter</AppButton>
+    {sections.slice(0, 1).map(section => <ModuleSection key={section.title} section={section} isLoading={isLoading} canUseFeature={canUseFeature} theme={theme}/>) }
+    <AppButton mode="outlined" icon={showAdvanced?'chevron-up':'chevron-down'} onPress={()=>setShowAdvanced(value=>!value)}>{showAdvanced?'Masquer les options':'Plus d’informations'}</AppButton>
+    {showAdvanced && sections.slice(1).map(section => <ModuleSection key={section.title} section={section} isLoading={isLoading} canUseFeature={canUseFeature} theme={theme}/>) }
+  </AdminPage>;
+}
+
+function ModuleSection({section,isLoading,canUseFeature,theme}:{section:(typeof sections)[number];isLoading:boolean;canUseFeature:(feature:FeatureKey)=>boolean;theme:MD3Theme}) {
+  return <View style={styles.section}><View><Text variant="titleLarge" style={styles.bold}>{section.title}</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>{section.subtitle}</Text></View><View style={styles.grid}>{section.items.map(([label, description, icon, path]) => {const gate=gatedModules[label];const locked=!isLoading&&!!gate&&!canUseFeature(gate.feature);return <Card key={label} mode="outlined" onPress={() => router.push((locked?'/(subscription)':path) as never)} style={styles.card}><Card.Content style={styles.content}><View style={[styles.icon, { backgroundColor: locked?theme.colors.surfaceVariant:theme.colors.secondaryContainer }]}><Icon source={locked?'lock-outline':icon} size={25} color={locked?theme.colors.onSurfaceVariant:theme.colors.secondary}/></View><View style={styles.grow}><Text variant="titleMedium" style={styles.bold}>{label}</Text><Text numberOfLines={2} style={{ color: theme.colors.onSurfaceVariant }}>{locked?`${description} · Forfait ${gate.tier}`:description}</Text></View><Icon source={locked?'lock-outline':'chevron-right'} size={22} color={theme.colors.onSurfaceVariant}/></Card.Content></Card>})}</View></View>;
+}
+
+const styles = StyleSheet.create({
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 14 }, bold: { fontWeight: '800' }, grow: { flex: 1, minWidth: 0 },
+  section: { gap: 10 }, grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, card: { flexGrow: 1, flexBasis: '46%', minWidth: 280 },
+  content: { flexDirection: 'row', alignItems: 'center', gap: 12 }, icon: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+});

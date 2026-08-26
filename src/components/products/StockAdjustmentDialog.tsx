@@ -87,6 +87,7 @@ export function StockAdjustmentDialog({
         <Dialog.Title>{initialDirection === 'in' ? 'Ajouter du stock' : 'Retirer du stock'}</Dialog.Title>
         <Dialog.ScrollArea style={{ paddingHorizontal: 0, maxHeight: 520 }}>
           <ScrollView
+            nestedScrollEnabled
             contentContainerStyle={{ gap: 12, paddingHorizontal: 24, paddingBottom: 20 }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator
@@ -138,7 +139,7 @@ export function StockAdjustmentDialog({
           {!!save.error && <HelperText type="error" visible>{save.error.message}</HelperText>}
           </ScrollView>
         </Dialog.ScrollArea>
-        <Dialog.Actions>
+        <Dialog.Actions style={{ flexWrap: 'wrap' }}>
           <AppButton mode="text" onPress={onDismiss}>Annuler</AppButton>
           <AppButton
             icon={direction === 'in' ? 'plus' : 'minus'}

@@ -32,6 +32,8 @@ export type CustomerLedgerEntry = {
   balance_before: number | null;
   balance_after: number | null;
   created_at: string;
+  created_by: string | null;
+  creator: { full_name: string } | null;
 };
 
 export type CustomerSale = {
@@ -75,7 +77,7 @@ export async function getCustomers(companyId: string, search = ''): Promise<Cust
   const { data, error } = await query;
   fail(error);
   return attachBalances((data ?? []) as Customer[]);
-  });
+  }, Array.isArray);
 }
 
 export async function getCustomer(id: string): Promise<Customer> {
@@ -117,12 +119,18 @@ export async function saveCustomer(companyId: string, storeId: string | null, va
 export async function getCustomerLedger(customerId: string): Promise<CustomerLedgerEntry[]> {
   const { data, error } = await supabase
     .from('customer_ledger')
-    .select('id,customer_id,store_id,entry_type,amount,sale_id,note,payment_method,balance_before,balance_after,created_at')
+    .select('id,customer_id,store_id,entry_type,amount,sale_id,note,payment_method,balance_before,balance_after,created_by,created_at')
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false })
     .limit(200);
   fail(error);
-  return (data ?? []) as CustomerLedgerEntry[];
+  const rows = (data ?? []) as Omit<CustomerLedgerEntry, 'creator'>[];
+  const creatorIds = [...new Set(rows.map((row) => row.created_by).filter((id): id is string => !!id))];
+  const profiles = creatorIds.length
+    ? await supabase.from('profiles').select('id,full_name').in('id', creatorIds)
+    : { data: [], error: null };
+  const names = new Map((profiles.data ?? []).map((profile) => [profile.id, profile.full_name]));
+  return rows.map((row) => ({ ...row, creator: row.created_by ? { full_name: names.get(row.created_by) ?? '' } : null }));
 }
 
 export async function getCustomerSales(companyId: string, customerId: string): Promise<CustomerSale[]> {

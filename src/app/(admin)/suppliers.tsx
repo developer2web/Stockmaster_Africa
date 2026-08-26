@@ -4,12 +4,15 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { ScrollView } from 'react-native';
-import { Card, Chip, Dialog, FAB, HelperText, Portal, Searchbar, Snackbar, Switch, Text, TextInput } from 'react-native-paper';
+import { Card, Chip, Dialog, FAB, HelperText, Portal, Switch, Text, TextInput } from 'react-native-paper';
 import { FormField } from '@/components/forms/FormField';
 import { SelectField } from '@/components/forms/SelectField';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
+import { AppFeedback } from '@/components/ui/AppFeedback';
+import { readableError } from '@/utils/errors';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { AppSearchBar } from '@/components/ui/AppSearchBar';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { cancelPurchase, getSupplierAccount, recordSupplierPayment, type SupplierPayment } from '@/features/operations/api';
@@ -19,6 +22,8 @@ import type { Supplier } from '@/types/database';
 import { parseDecimal } from '@/utils/number';
 import { printPaymentReceipt, sharePaymentReceipt } from '@/features/payments/receipt';
 import { useReceiptAction } from '@/features/payments/useReceiptAction';
+import { useReceiptBranding } from '@/features/payments/branding';
+import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
 
 const paymentLabels: Record<SupplierPayment['payment_method'], string> = {
   cash: 'Espèces',
@@ -45,6 +50,7 @@ export default function Suppliers() {
   const [cancellationReason,setCancellationReason]=useState('');
   const [cancellationMethod,setCancellationMethod]=useState<'cash'|'mobile_money'>('cash');
   const receiptAction=useReceiptAction();
+  const receiptBranding=useReceiptBranding();
 
   const query = useQuery({ queryKey: ['suppliers', company, store], queryFn: () => getSuppliers(company, store), enabled: !!company && !!store });
   const stats = useQuery({ queryKey: ['supplier-stats', company, store], queryFn: () => getSupplierStats(company, store), enabled: !!company && !!store });
@@ -82,6 +88,7 @@ export default function Suppliers() {
         cache.invalidateQueries({ queryKey: ['supplier-stats', company, store] }),
         cache.invalidateQueries({ queryKey: ['cash-transactions', company, store] }),
         cache.invalidateQueries({ queryKey: ['cash-summary', company, store] }),
+        invalidateOperationalSummaries(cache, company, store),
       ]);
       setAmount('');
       setNote('');
@@ -106,7 +113,7 @@ export default function Suppliers() {
   const parsedAmount = parseDecimal(amount);
 
   return <AdminPage title="Fournisseurs" action={<FAB size="small" icon="plus" accessibilityLabel="Ajouter un fournisseur" onPress={() => show()} />}>
-    <Searchbar placeholder="Nom, email ou téléphone" value={search} onChangeText={setSearch} />
+    <AppSearchBar placeholder="Nom, email ou téléphone" value={search} onChangeText={setSearch} />
     {!!query.error && <HelperText type="error" visible>{query.error.message}</HelperText>}
     {!!stats.error && <HelperText type="error" visible>{stats.error.message}</HelperText>}
     {shown.map((item) => {
@@ -130,7 +137,7 @@ export default function Suppliers() {
     <Portal>
       <Dialog visible={open} onDismiss={() => setOpen(false)}>
         <Dialog.Title>{editing ? 'Modifier le fournisseur' : 'Nouveau fournisseur'}</Dialog.Title>
-        <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}><ScrollView contentContainerStyle={{ gap: 12, paddingHorizontal: 24, paddingBottom: 12 }} keyboardShouldPersistTaps="handled">
+        <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}><ScrollView nestedScrollEnabled contentContainerStyle={{ gap: 12, paddingHorizontal: 24, paddingBottom: 12 }} keyboardShouldPersistTaps="handled">
           <FormField control={control} name="name" label="Nom" />
           <FormField control={control} name="email" label="Email" keyboardType="email-address" autoCapitalize="none" />
           <FormField control={control} name="phone" label="Téléphone" keyboardType="phone-pad" />
@@ -138,12 +145,12 @@ export default function Suppliers() {
           <Controller control={control} name="isActive" render={({ field }) => <Card mode="outlined"><Card.Title title="Fournisseur actif" right={() => <Switch value={field.value} onValueChange={field.onChange} style={{ marginRight: 12 }} />} /></Card>} />
           {!!mutation.error && <HelperText type="error" visible>{mutation.error.message}</HelperText>}
         </ScrollView></Dialog.ScrollArea>
-        <Dialog.Actions><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={mutation.isPending} disabled={mutation.isPending} onPress={handleSubmit((value) => mutation.mutate(value))}>Enregistrer</AppButton></Dialog.Actions>
+        <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={mutation.isPending} disabled={mutation.isPending} onPress={handleSubmit((value) => mutation.mutate(value))}>Enregistrer</AppButton></Dialog.Actions>
       </Dialog>
 
       <Dialog visible={!!selected} onDismiss={() => setSelected(null)}>
         <Dialog.Title>Régler {selected?.name}</Dialog.Title>
-        <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}><ScrollView contentContainerStyle={{ gap: 12, paddingHorizontal: 24, paddingBottom: 16 }} keyboardShouldPersistTaps="handled">
+        <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}><ScrollView nestedScrollEnabled contentContainerStyle={{ gap: 12, paddingHorizontal: 24, paddingBottom: 16 }} keyboardShouldPersistTaps="handled">
           {!!account.error && <HelperText type="error" visible>{account.error.message}</HelperText>}
           <Card mode="contained"><Card.Title title={`Dette restante : ${formatMoney(account.data?.due ?? 0)}`} subtitle={`Déjà payé : ${formatMoney(account.data?.paid ?? 0)} • Achats : ${formatMoney(account.data?.total ?? 0)}`} /></Card>
           <Text variant="titleSmall">Type de règlement</Text>
@@ -159,18 +166,18 @@ export default function Suppliers() {
           {(account.data?.purchases ?? []).map((row) => <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.total))} subtitle={`${row.payment_status==='cancelled'?'Annulé':row.payment_status === 'partial' ? 'Paiement partiel' : row.payment_status==='paid'?'Payé':'À payer'} • ${new Date(row.created_at).toLocaleDateString('fr-CA')}`} />{row.cancellation_reason&&<Card.Content><Text>Motif : {row.cancellation_reason}</Text></Card.Content>}{row.payment_status!=='cancelled'&&membership?.role==='company_admin'&&<Card.Actions><AppButton mode="text" textColor="#C92A2A" icon="cancel" onPress={()=>setPurchaseToCancel(row.id)}>Annuler l’achat</AppButton></Card.Actions>}</Card>)}
           {!(account.data?.purchases ?? []).some((row) => Number(row.amount_due) > 0) && !account.isLoading && <Text>Aucune dette fournisseur.</Text>}
           <Text variant="titleMedium">Historique des règlements</Text>
-          {(account.data?.payments ?? []).map((row) => {const receipt={title:'Reçu de paiement fournisseur',party:selected?.name??'Fournisseur',amount:Number(row.amount),balanceBefore:Number(row.balance_before??0),balanceAfter:Number(row.balance_after??0),date:row.created_at,reference:`FOURN-${row.id.slice(0,8).toUpperCase()}`,note:row.note,company:membership?.companyName,store:membership?.storeName,issuedBy:row.creator?.full_name||(membership?.role==='company_admin'?'Administrateur':'Employé')};const printKey=`print-${row.id}`,shareKey=`share-${row.id}`;return <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.amount))} subtitle={`${paymentLabels[row.payment_method]} • ${new Date(row.created_at).toLocaleString('fr-CA')}`} />{!!row.note && <Card.Content><Text>{row.note}</Text></Card.Content>}<Card.Actions><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(receipt,formatMoney))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(receipt,formatMoney))}>Partager</AppButton></Card.Actions></Card>})}
+          {(account.data?.payments ?? []).map((row) => {const receipt={...receiptBranding,title:'Reçu de paiement fournisseur',party:selected?.name??'Fournisseur',amount:Number(row.amount),balanceBefore:Number(row.balance_before??0),balanceAfter:Number(row.balance_after??0),date:row.created_at,reference:`FOURN-${row.id.slice(0,8).toUpperCase()}`,note:row.note,issuedBy:row.creator?.full_name||receiptBranding.issuedBy};const printKey=`print-${row.id}`,shareKey=`share-${row.id}`;return <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.amount))} subtitle={`${paymentLabels[row.payment_method]} • ${new Date(row.created_at).toLocaleString('fr-CA')}`} />{!!row.note && <Card.Content><Text>{row.note}</Text></Card.Content>}<Card.Actions><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(receipt,formatMoney))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(receipt,formatMoney))}>Partager</AppButton></Card.Actions></Card>})}
           {!account.data?.payments.length && !account.isLoading && <Text>Aucun règlement enregistré.</Text>}
         </ScrollView></Dialog.ScrollArea>
-        <Dialog.Actions><AppButton mode="text" onPress={() => setSelected(null)}>Fermer</AppButton><AppButton icon="cash-check" loading={paymentMutation.isPending} disabled={paymentMutation.isPending || account.isLoading || !((paymentMode==='total'?(account.data?.due??0):parsedAmount)>0) || (paymentMode==='custom'&&parsedAmount > (account.data?.due ?? 0))} onPress={() => paymentMutation.mutate()}>Enregistrer</AppButton></Dialog.Actions>
+        <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setSelected(null)}>Fermer</AppButton><AppButton icon="cash-check" loading={paymentMutation.isPending} disabled={paymentMutation.isPending || account.isLoading || !((paymentMode==='total'?(account.data?.due??0):parsedAmount)>0) || (paymentMode==='custom'&&parsedAmount > (account.data?.due ?? 0))} onPress={() => paymentMutation.mutate()}>Enregistrer</AppButton></Dialog.Actions>
       </Dialog>
 
       <Dialog visible={!!purchaseToCancel} onDismiss={()=>!cancellationMutation.isPending&&setPurchaseToCancel(null)}>
         <Dialog.Title>Annuler cet achat fournisseur ?</Dialog.Title>
         <Dialog.Content style={{gap:12}}><Text>Le stock reçu sera retiré. Si des unités ont déjà été vendues ou transférées, l’annulation sera refusée.</Text><TextInput mode="outlined" label="Motif obligatoire" value={cancellationReason} onChangeText={setCancellationReason} multiline/><SelectField label="Remboursement du montant payé" value={cancellationMethod} onChange={value=>setCancellationMethod((value??'cash') as 'cash'|'mobile_money')} options={[{label:'Espèces',value:'cash'},{label:'Mobile Money',value:'mobile_money'}]}/>{!!cancellationMutation.error&&<HelperText type="error" visible>{cancellationMutation.error.message}</HelperText>}</Dialog.Content>
-        <Dialog.Actions><AppButton mode="text" onPress={()=>setPurchaseToCancel(null)}>Fermer</AppButton><AppButton buttonColor="#C92A2A" loading={cancellationMutation.isPending} disabled={cancellationReason.trim().length<3||cancellationMutation.isPending} onPress={()=>cancellationMutation.mutate()}>Confirmer l’annulation</AppButton></Dialog.Actions>
+        <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setPurchaseToCancel(null)}>Fermer</AppButton><AppButton buttonColor="#C92A2A" loading={cancellationMutation.isPending} disabled={cancellationReason.trim().length<3||cancellationMutation.isPending} onPress={()=>cancellationMutation.mutate()}>Confirmer l’annulation</AppButton></Dialog.Actions>
       </Dialog>
     </Portal>
-    <Snackbar visible={!!receiptAction.error} onDismiss={receiptAction.clearError}>{receiptAction.error}</Snackbar>
+    <AppFeedback message={receiptAction.error ? readableError(receiptAction.error) : ''} type="error" onDismiss={receiptAction.clearError} />
   </AdminPage>;
 }

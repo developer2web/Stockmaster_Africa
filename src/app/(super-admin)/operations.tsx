@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Card, Chip, HelperText, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 import { PlatformPage } from '@/components/superAdmin/PlatformPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { getAppErrors, getCompanyHealth, getSupportTickets, updateSupportTicket, type SupportTicket } from '@/features/superAdmin/api';
+import { supabase } from '@/services/supabase/client';
+import { createRealtimeTopic } from '@/services/supabase/realtime';
 
 export default function OperationsScreen() {
   const cache = useQueryClient();
@@ -19,6 +21,18 @@ export default function OperationsScreen() {
   const errors = useQuery({ queryKey: ['app-errors'], queryFn: getAppErrors, enabled: section === 'errors' });
   const update = useMutation({ mutationFn: (status: SupportTicket['status']) => updateSupportTicket(selected!.id, status, resolution), onSuccess: async () => { await cache.invalidateQueries({ queryKey: ['support-tickets'] }); setSelected(null); setResolution(''); } });
   const activeQuery = section === 'health' ? health : section === 'tickets' ? tickets : errors;
+
+  useEffect(() => {
+    const channel = supabase.channel(createRealtimeTopic('super-admin-support')).on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'support_tickets' },
+      () => {
+        void cache.invalidateQueries({ queryKey: ['support-tickets'] });
+        void cache.invalidateQueries({ queryKey: ['company-health'] });
+      },
+    ).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [cache]);
 
   return <PlatformPage title="Centre opérationnel">
     <SegmentedButtons value={section} onValueChange={setSection} buttons={[{ value: 'health', label: mobile ? 'Santé' : 'Santé des entreprises', icon: 'heart-pulse' }, { value: 'tickets', label: 'Support', icon: 'lifebuoy' }, { value: 'errors', label: 'Erreurs', icon: 'alert-octagon-outline' }]} />

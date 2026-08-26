@@ -2,11 +2,31 @@ export type FeatureKey =
   | 'inventory'
   | 'sales'
   | 'expenses'
+  | 'basic_reports'
+  | 'receipts'
+  | 'customers_suppliers'
   | 'advanced_reports'
   | 'pdf_export'
   | 'excel_export'
   | 'multi_business'
-  | 'multi_store';
+  | 'multi_store'
+  | 'offline_mode'
+  | 'inventory_count'
+  | 'transfers'
+  | 'advanced_permissions'
+  | 'notifications'
+  | 'expense_approval'
+  | 'consolidated_reports'
+  | 'audit_log'
+  | 'priority_support'
+  | 'trial_14_days'
+  | 'orange_money_payments'
+  | 'stripe_payments'
+  | 'desktop_web'
+  | 'low_stock_alerts'
+  | 'customer_debt'
+  | 'supplier_debt'
+  | 'advanced_cash_closure';
 
 export type BillingCycle = 'monthly' | 'annual';
 

@@ -97,7 +97,7 @@ export async function getSaleStock(companyId: string, storeId: string, includeCo
       };
     });
   });
-  });
+  }, Array.isArray);
 }
 
 export async function createSale(

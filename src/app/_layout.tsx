@@ -57,8 +57,8 @@ export default function RootLayout() {
   const scheme = useColorScheme();
   const paperTheme = useMemo(() =>
     scheme === 'dark'
-      ? { ...MD3DarkTheme, roundness: 4, colors: { ...MD3DarkTheme.colors, ...darkTheme.colors } }
-      : { ...MD3LightTheme, roundness: 4, colors: { ...MD3LightTheme.colors, ...lightTheme.colors } },
+      ? { ...MD3DarkTheme, roundness: 3, colors: { ...MD3DarkTheme.colors, ...darkTheme.colors } }
+      : { ...MD3LightTheme, roundness: 3, colors: { ...MD3LightTheme.colors, ...lightTheme.colors } },
     [scheme],
   );
 

@@ -1,13 +1,12 @@
-Skipping dependency validation in offline mode
-"shadow*" style props are deprecated. Use "boxShadow".
-λ  WARN  props.pointerEvents is deprecated. Use style.pointerEvents 
-  console.warn (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\@expo\cli\src\start\server\serverLogLikeMetro.ts:161:21)
-  warnOnce (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-native-web\dist\modules\warnOnce\index.js:24:13)
-  createDOMProps (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-native-web\dist\modules\createDOMProps\index.js:805:13)
-  createElement (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-native-web\dist\exports\createElement\index.js:23:32)
-  Component (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-native-web\dist\exports\View\index.js:111:23)
-  Object.callComponentInDEV [as react-stack-bottom-frame] (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:8970:18)
-  renderWithHooks (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:4699:19)
-  run (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5539:39)
-  retryNode (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5899:31)
-  renderNodeDestructive (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5849:11)
+Error: EPERM, Permission denied: \\?\C:\Users\Mamadou\AppData\Local\Temp\metro-cache\03 '\\?\C:\Users\Mamadou\AppData\Local\Temp\metro-cache\03'
+Error: EPERM, Permission denied: \\?\C:\Users\Mamadou\AppData\Local\Temp\metro-cache\03 '\\?\C:\Users\Mamadou\AppData\Local\Temp\metro-cache\03'
+    at Object.rmSync (node:fs:1222:18)
+    at FileStore.#removeDirs (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\metro-cache\src\stores\FileStore.js:69:19)
+    at FileStore.clear (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\metro-cache\src\stores\FileStore.js:58:21)
+    at C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\metro\src\Server.js:104:57
+    at Array.forEach (<anonymous>)
+    at new Server (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\metro\src\Server.js:104:32)
+    at runMetro (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\metro\src\index.flow.js:121:18)
+    at createConnectMiddleware (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\metro\src\index.flow.js:143:23)
+    at runServer (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\@expo\cli\src\start\server\metro\runServer-fork.ts:59:44)
+    at instantiateMetroAsync (C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\@expo\cli\src\start\server\metro\instantiateMetro.ts:290:40)

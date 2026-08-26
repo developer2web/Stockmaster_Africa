@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Card, HelperText, Icon, IconButton, Searchbar, Text, useTheme } from 'react-native-paper';
+import { Card, HelperText, Icon, IconButton, Text, useTheme } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -10,6 +10,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { getStockLevels, getStockMovements } from '@/features/inventory/api';
 import { useStockRealtime } from '@/hooks/useStockRealtime';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
+import { AppSearchBar } from '@/components/ui/AppSearchBar';
 
 export default function StockScreen() {
   const { formatMoney: money } = useCurrency();
@@ -51,7 +52,10 @@ export default function StockScreen() {
       </View>
 
       <View style={styles.tools}>
-        <Searchbar style={[styles.search, compact && styles.compactSearch]} placeholder="Produit, SKU ou boutique" value={search} onChangeText={setSearch} />
+        <AppSearchBar style={[styles.search, compact && styles.compactSearch]} placeholder="Produit, SKU ou boutique" value={search} onChangeText={setSearch} />
+        <AppButton style={compact ? styles.fullWidth : undefined} mode="outlined" icon="shape-outline" onPress={() => router.push('/categories' as never)}>
+          Catégories
+        </AppButton>
         <AppButton style={compact ? styles.fullWidth : undefined} icon="plus" onPress={() => router.push('/products/new' as never)}>
           Ajouter un produit
         </AppButton>

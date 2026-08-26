@@ -1,2 +1,26 @@
-[2m15 h 52 min 48 s[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31merror while updating dependencies:
-Error: EPERM: operation not permitted, rename 'C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\.vite\deps_temp_cea994e8' -> 'C:\Users\Mamadou\Desktop\Stock\Stockmaster_Africa\node_modules\.vite\deps'[39m
+21 h 31 min 06 s [vite] Internal server error: Failed to resolve import "./multi-business.css" from "apps/account-web/src/main.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: C:/Users/Mamadou/Desktop/Stock/Stockmaster_Africa/apps/account-web/src/main.tsx:6:7
+  4  |  import { employeeStoreIds, escapeHtml } from "./account-logic";
+  5  |  import "./account.css";
+  6  |  import "./multi-business.css";
+     |          ^
+  7  |  var _jsxFileName = "C:/Users/Mamadou/Desktop/Stock/Stockmaster_Africa/apps/account-web/src/main.tsx";
+  8  |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "react/jsx-dev-runtime";
+      at TransformPluginContext._formatLog (file:///C:/Users/Mamadou/Desktop/Stock/Stockmaster_Africa/node_modules/vite/dist/node/chunks/node.js:30416:39)
+      at TransformPluginContext.error (file:///C:/Users/Mamadou/Desktop/Stock/Stockmaster_Africa/node_modules/vite/dist/node/chunks/node.js:30413:14)
+      at normalizeUrl (file:///C:/Users/Mamadou/Desktop/Stock/Stockmaster_Africa/node_modules/vite/dist/node/chunks/node.js:27438:18)
+      at async file:///C:/Users/Mamadou/Desktop/Stock/Stockmaster_Africa/node_modules/vite/dist/node/chunks/node.js:27506:30
+      at async Promise.all (index 5)
+      at async TransformPluginContext.transform (file:///C:/Users/Mamadou/Desktop/Stock/Stockmaster_Africa/node_modules/vite/dist/node/chunks/node.js:27474:4)
+      at async EnvironmentPluginContainer.transform (file:///C:/Users/Mamadou/Desktop/Stock/Stockmaster_Africa/node_modules/vite/dist/node/chunks/node.js:30201:14)
+      at async loadAndTransform (file:///C:/Users/Mamadou/Desktop/Stock/Stockmaster_Africa/node_modules/vite/dist/node/chunks/node.js:20124:26)
+21 h 31 min 06 s [vite] (client) Pre-transform error: Failed to resolve import "./multi-business.css" from "apps/account-web/src/main.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: C:/Users/Mamadou/Desktop/Stock/Stockmaster_Africa/apps/account-web/src/main.tsx:6:7
+  4  |  import { employeeStoreIds, escapeHtml } from "./account-logic";
+  5  |  import "./account.css";
+  6  |  import "./multi-business.css";
+     |          ^
+  7  |  var _jsxFileName = "C:/Users/Mamadou/Desktop/Stock/Stockmaster_Africa/apps/account-web/src/main.tsx";
+  8  |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "react/jsx-dev-runtime";

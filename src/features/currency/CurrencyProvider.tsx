@@ -3,6 +3,7 @@ import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useSt
 
 import { useAuth } from '@/features/auth/AuthProvider';
 import { supabase } from '@/services/supabase/client';
+import { logger } from '@/services/observability/logger';
 
 type CurrencyValue = {
   primaryCode: string;
@@ -38,7 +39,7 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
       } catch {
         // Ignore a corrupt display-only cache; the server remains authoritative.
       }
-    });
+    }).catch((error) => logger.warning('currency_cache_read_failed', error, { companyId }));
   }, [companyId]);
 
   useEffect(() => {
@@ -49,7 +50,7 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
       primary: membership.defaultCurrencyCode,
       secondary: membership.secondaryCurrencyCode,
       rate: secondaryRate,
-    }));
+    })).catch((error) => logger.warning('currency_cache_write_failed', error, { companyId }));
   }, [companyId, membership?.defaultCurrencyCode, membership?.secondaryCurrencyCode, secondaryRate]);
 
   const primaryCode = membership?.defaultCurrencyCode ?? cachedPrimary;
@@ -59,22 +60,27 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
       setSecondaryRate(null);
       return;
     }
-    void supabase.from('currency_exchange_rates')
-      .select('rate')
-      .eq('base_currency_code', primaryCode)
-      .eq('quote_currency_code', secondaryCode)
-      .order('effective_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        const { data, error } = await supabase.from('currency_exchange_rates')
+          .select('rate')
+          .eq('base_currency_code', primaryCode)
+          .eq('quote_currency_code', secondaryCode)
+          .order('effective_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
         const rate = data?.rate ? Number(data.rate) : null;
         setSecondaryRate(rate);
         void AsyncStorage.setItem(cacheKey(companyId), JSON.stringify({
           primary: primaryCode,
           secondary: secondaryCode,
           rate,
-        }));
-      });
+        })).catch((cacheError) => logger.warning('currency_cache_write_failed', cacheError, { companyId }));
+      } catch (error) {
+        await logger.warning('currency_rate_load_failed', error, { companyId, primaryCode, secondaryCode });
+      }
+    })();
   }, [companyId, primaryCode, secondaryCode]);
 
   const value = useMemo<CurrencyValue>(() => ({

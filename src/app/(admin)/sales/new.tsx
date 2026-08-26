@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Card, Chip, HelperText, Icon, IconButton, Searchbar, SegmentedButtons, Text, TextInput, useTheme } from 'react-native-paper';
+import { Card, Chip, HelperText, Icon, IconButton, SegmentedButtons, Text, TextInput, useTheme } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { ProductThumbnail } from '@/components/products/ProductThumbnail';
@@ -15,6 +15,11 @@ import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { cartKey, useSaleCart } from '@/stores/saleCart';
 import { formatQuantity, parseDecimal } from '@/utils/number';
 import { useOffline } from '@/features/offline/OfflineProvider';
+import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
+import { AppSearchBar } from '@/components/ui/AppSearchBar';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { createOperationId } from '@/utils/operationId';
+import { readableError } from '@/utils/errors';
 
 export default function NewSale() {
   const { formatMoney } = useCurrency();
@@ -35,6 +40,7 @@ export default function NewSale() {
   const { refreshQueue } = useOffline();
   const { items, add, setQuantity, setDiscount, remove } = useSaleCart();
   const scannedAdded = useRef(false);
+  const operationId=useRef(createOperationId());
   const stock = useQuery({
     queryKey: ['sale-stock', company, storeId, employee],
     queryFn: () => getSaleStock(company, storeId, !employee),
@@ -77,7 +83,7 @@ export default function NewSale() {
   })}, [items,companySettings.data?.tax_rate]);
   const discountTooHigh=items.some(item=>item.discount>item.salePrice*item.quantity*Number(companySettings.data?.max_discount_percent??100)/100);
   const save = useMutation({
-    mutationFn: () => createSale(company, storeId, payment, items, customerId, payment==='credit'?0:payment==='partial'?parseDecimal(amountPaid):totals.total,undefined,!!companySettings.data?.allow_negative_stock),
+    mutationFn: () => createSale(company, storeId, payment, items, customerId, payment==='credit'?0:payment==='partial'?parseDecimal(amountPaid):totals.total,operationId.current,!!companySettings.data?.allow_negative_stock),
     onSuccess: async (result) => {
       useSaleCart.getState().clear();
       scannedAdded.current = true;
@@ -85,7 +91,7 @@ export default function NewSale() {
       setAmountPaid('');
       if (result.queued) {
         await refreshQueue();
-        router.replace((employee ? '/employee/sales' : '/sales') as never);
+        router.replace({pathname:(employee ? '/employee/sales' : '/sales') as never,params:{notice:'Vente enregistrée hors ligne'}});
         return;
       }
       await Promise.all([
@@ -94,15 +100,17 @@ export default function NewSale() {
         cache.invalidateQueries({ queryKey: ['sale-stock', company, storeId] }),
         cache.invalidateQueries({ queryKey: ['cash-transactions', company, storeId] }),
         cache.invalidateQueries({ queryKey: ['cash-summary', company, storeId] }),
+        cache.invalidateQueries({ queryKey: ['customers', company] }),
+        invalidateOperationalSummaries(cache, company, storeId),
       ]);
-      router.replace((employee ? `/employee/sales/${result.saleId}` : `/sales/${result.saleId}`) as never);
+      router.replace({pathname:(employee ? `/employee/sales/${result.saleId}` : `/sales/${result.saleId}`) as never,params:{notice:'Vente enregistrée'}});
     },
   });
 
   return (
     <AdminPage
       title="Nouvelle vente"
-      action={<IconButton accessibilityLabel="Scanner un produit" icon="barcode-scan" onPress={() => router.push({ pathname: (employee ? '/employee/scanner' : '/scanner') as never, params: { mode: 'sale' } })} />}
+      action={<AppButton mode="outlined" icon="barcode-scan" onPress={() => router.push({ pathname: (employee ? '/employee/scanner' : '/scanner') as never, params: { mode: 'sale' } })}>Scanner</AppButton>}
     >
       <View style={[styles.workspace, desktop && styles.workspaceDesktop]}>
       <View style={styles.catalogPane}>
@@ -114,7 +122,7 @@ export default function NewSale() {
           </Text>
         </Card.Content>
       </Card>
-      <Searchbar placeholder="Rechercher un produit ou un SKU" value={search} onChangeText={setSearch} />
+      <AppSearchBar placeholder="Rechercher un produit ou un SKU" value={search} onChangeText={setSearch} />
       <View style={styles.categoryFilters}><Chip selected={!categoryId} onPress={()=>setCategoryId(null)}>Tous</Chip>{categories.map(([id,name])=><Chip key={id} selected={categoryId===id} onPress={()=>setCategoryId(id)}>{name}</Chip>)}</View>
       {!!stock.error && <HelperText type="error" visible>{stock.error.message}</HelperText>}
       <View style={styles.list}>
@@ -134,7 +142,7 @@ export default function NewSale() {
             </Card>
           );
         })}
-        {!stock.isLoading && !shown.length && <Text>Aucun produit ne correspond à cette recherche.</Text>}
+        {!stock.isLoading && !shown.length && <EmptyState icon="package-variant" title="Aucun produit trouvé" message="Effacez la recherche ou choisissez une autre catégorie."/>}
       </View>
       </View>
       <View style={[styles.cartPane, desktop && styles.cartPaneDesktop]}>
@@ -183,10 +191,10 @@ export default function NewSale() {
           </View>
         </Card.Content>
       </Card>
-      {!!save.error && <HelperText type="error" visible>{save.error.message}</HelperText>}
+      {!!save.error && <HelperText type="error" visible>{readableError(save.error)}</HelperText>}
       {discountTooHigh&&<HelperText type="error" visible>Une remise dépasse la limite de {Number(companySettings.data?.max_discount_percent??100)} % définie par l’administrateur.</HelperText>}
       <AppButton icon="check" loading={save.isPending} disabled={!items.length || !storeId || save.isPending || discountTooHigh || ((payment==='credit'||payment==='partial')&&!customerId) || (payment==='partial'&&(!(parseDecimal(amountPaid)>0)||parseDecimal(amountPaid)>=totals.total))} onPress={() => save.mutate()}>
-        ENCAISSER
+        Enregistrer la vente
       </AppButton>
       </View>
       </View>

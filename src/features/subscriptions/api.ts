@@ -18,7 +18,7 @@ type PlanRow = {
   id: string;
   code: string;
   name: string;
-  description: string;
+  description: string | null;
   monthly_price: number;
   annual_price: number;
   currency: string;
@@ -29,27 +29,22 @@ type PlanRow = {
     feature_key: PlanFeature['featureKey'];
     is_enabled: boolean;
     usage_limit: number | null;
-  }[];
+  }[] | null;
 };
 
-export async function getPlans(): Promise<SubscriptionPlan[]> {
-  const { data, error } = await supabase.from('plans')
-    .select('id,code,name,description,monthly_price,annual_price,currency,max_businesses,max_stores,max_employees,plan_features(feature_key,is_enabled,usage_limit)')
-    .eq('is_active', true)
-    .order('monthly_price');
-  fail(error);
-  return ((data ?? []) as unknown as PlanRow[]).map((plan) => ({
+function mapPlans(data: unknown): SubscriptionPlan[] {
+  return ((data ?? []) as PlanRow[]).map((plan) => ({
     id: plan.id,
     code: plan.code,
     name: plan.name,
-    description: plan.description,
+    description: plan.description ?? '',
     monthlyPrice: Number(plan.monthly_price),
     annualPrice: Number(plan.annual_price),
     currency: plan.currency,
     maxBusinesses: plan.max_businesses,
     maxStores: plan.max_stores,
     maxEmployees: plan.max_employees,
-    features: plan.plan_features.map((feature) => ({
+    features: (plan.plan_features ?? []).map((feature) => ({
       featureKey: feature.feature_key,
       isEnabled: feature.is_enabled,
       usageLimit: feature.usage_limit,
@@ -57,9 +52,31 @@ export async function getPlans(): Promise<SubscriptionPlan[]> {
   }));
 }
 
+export async function getPlans(companyId: string): Promise<SubscriptionPlan[]> {
+  const { data, error } = await supabase.rpc('company_subscription_plans', { p_company_id: companyId });
+  if (!error) {
+    const localizedPlans = mapPlans(data);
+    if (localizedPlans.length) return localizedPlans;
+  }
+
+  // Compatibilité avec les environnements Supabase où la fonction de
+  // localisation des devises n'est pas encore déployée.
+  return getCatalogPlans();
+}
+
+export async function getCatalogPlans(): Promise<SubscriptionPlan[]> {
+  const { data, error } = await supabase.from('plans')
+    .select('id,code,name,description,monthly_price,annual_price,currency,max_businesses,max_stores,max_employees,plan_features(feature_key,is_enabled,usage_limit)')
+    .eq('is_active', true)
+    .order('monthly_price');
+  fail(error);
+  return mapPlans(data);
+}
+
 export async function getCurrentSubscription(companyId: string): Promise<SubscriptionContextValue | null> {
-  const { error: lifecycleError } = await supabase.rpc('refresh_subscription_lifecycle', { p_company_id: companyId });
-  fail(lifecycleError);
+  // La mise à jour du cycle est utile, mais ne doit jamais bloquer l'ouverture
+  // du catalogue si cette procédure n'est pas encore disponible à distance.
+  await supabase.rpc('refresh_subscription_lifecycle', { p_company_id: companyId });
   const { data, error } = await supabase.rpc('current_subscription', { p_company_id: companyId });
   fail(error);
   const row = Array.isArray(data) ? data[0] : data;

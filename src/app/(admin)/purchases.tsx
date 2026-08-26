@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
-import { Card, HelperText, IconButton, Searchbar, Switch, TextInput } from 'react-native-paper';
+import { Card, HelperText, IconButton, Switch, TextInput } from 'react-native-paper';
 import { SelectField } from '@/components/forms/SelectField';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
@@ -11,10 +11,14 @@ import { recordPurchase, type PurchaseLine } from '@/features/operations/api';
 import { getProducts, getSuppliers } from '@/features/products/api';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { formatQuantity, parseDecimal } from '@/utils/number';
+import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
+import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
+import { AppSearchBar } from '@/components/ui/AppSearchBar';
 
 export default function PurchasesScreen() {
   const { membership } = useAuth();
   const { formatMoney } = useCurrency();
+  const { canUseFeature } = useSubscription();
   const cache = useQueryClient();
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? '';
@@ -27,6 +31,7 @@ export default function PurchasesScreen() {
   const [paid, setPaid] = useState(true);
   const [items, setItems] = useState<PurchaseLine[]>([]);
   const [formError, setFormError] = useState('');
+  const canCreateSupplierDebt = canUseFeature('supplier_debt');
 
   const suppliers = useQuery({ queryKey: ['suppliers', company, store], queryFn: () => getSuppliers(company, store), enabled: !!store });
   const products = useQuery({ queryKey: ['purchase-products', company, store, debouncedSearch], queryFn: () => getProducts(company, store, debouncedSearch, 0), enabled: !!store });
@@ -53,7 +58,7 @@ export default function PurchasesScreen() {
   };
 
   const mutation = useMutation({
-    mutationFn: () => recordPurchase(store, supplierId!, items, paid),
+    mutationFn: () => recordPurchase(store, supplierId!, items, canCreateSupplierDebt ? paid : true),
     onSuccess: async () => {
       setItems([]);
       setSupplierId(null);
@@ -61,6 +66,7 @@ export default function PurchasesScreen() {
         cache.invalidateQueries({ queryKey: ['stock-levels', company] }),
         cache.invalidateQueries({ queryKey: ['sale-stock', company, store] }),
         cache.invalidateQueries({ queryKey: ['supplier-stats', company, store] }),
+        invalidateOperationalSummaries(cache, company, store),
       ]);
       router.replace('/suppliers' as never);
     },
@@ -73,7 +79,7 @@ export default function PurchasesScreen() {
       <Card mode="outlined">
         <Card.Title title="Ajouter un produit" subtitle="Recherchez par nom, SKU ou code-barres" />
         <Card.Content style={{ gap: 10 }}>
-          <Searchbar placeholder="Rechercher dans le catalogue" value={productSearch} onChangeText={setProductSearch} loading={productSearch !== debouncedSearch} />
+          <AppSearchBar placeholder="Rechercher dans le catalogue" value={productSearch} onChangeText={setProductSearch} loading={productSearch !== debouncedSearch} />
           <SelectField label="Produit" value={productId} onChange={(value) => { setProductId(value); const product = products.data?.find((item) => item.id === value); if (product) setUnitCost(String(product.purchase_price)); }} options={(products.data ?? []).filter((item) => item.is_active).map((item) => ({ label: `${item.name} · ${item.sku}`, value: item.id }))} />
           {!!products.error && <HelperText type="error" visible>{products.error.message}</HelperText>}
           <TextInput mode="outlined" label="Quantité reçue" keyboardType="decimal-pad" value={quantity} onChangeText={setQuantity} />
@@ -83,7 +89,7 @@ export default function PurchasesScreen() {
         </Card.Content>
       </Card>
       {items.map((item) => <Card key={item.productId} mode="contained"><Card.Title title={item.name} subtitle={`${formatQuantity(item.quantity)} × ${formatMoney(item.unitCost)}`} right={() => <IconButton icon="delete" onPress={() => setItems((rows) => rows.filter((row) => row.productId !== item.productId))} />} /></Card>)}
-      <Card mode="contained"><Card.Title title={`Total : ${formatMoney(total)}`} subtitle={paid ? 'Payé maintenant' : 'Dette fournisseur'} right={() => <Switch value={paid} onValueChange={setPaid} style={{ marginRight: 12 }} />} /></Card>
+      <Card mode="contained"><Card.Title title={`Total : ${formatMoney(total)}`} subtitle={!canCreateSupplierDebt ? 'Paiement immédiat · les dettes fournisseurs nécessitent Pro' : paid ? 'Payé maintenant' : 'Dette fournisseur'} right={() => canCreateSupplierDebt ? <Switch value={paid} onValueChange={setPaid} style={{ marginRight: 12 }} /> : null} /></Card>
       {!!mutation.error && <HelperText type="error" visible>{mutation.error.message}</HelperText>}
       <AppButton icon="truck-check" loading={mutation.isPending} disabled={!store || !supplierId || !items.length || mutation.isPending} onPress={() => mutation.mutate()}>Confirmer la réception</AppButton>
     </AdminPage>

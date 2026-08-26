@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Card, Chip, HelperText, Searchbar, Switch, Text, useTheme } from 'react-native-paper';
+import { Card, Chip, HelperText, Switch, Text, useTheme } from 'react-native-paper';
 import { PlatformPage } from '@/components/superAdmin/PlatformPage';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { getPlatformStores, setStoreActive } from '@/features/superAdmin/api';
+import { AppSearchBar } from '@/components/ui/AppSearchBar';
+import { StatusChip } from '@/components/ui/StatusChip';
 
 export default function StoresScreen() {
   const theme = useTheme();
@@ -22,12 +24,12 @@ export default function StoresScreen() {
   const items = (query.data ?? []).filter((item) => !needle || item.name.toLowerCase().includes(needle) || item.company?.name.toLowerCase().includes(needle));
   if (query.isLoading) return <LoadingScreen label="Chargement des magasins…" />;
   return (
-    <PlatformPage title="Magasins">
-      <Searchbar placeholder="Rechercher un magasin ou une entreprise" value={search} onChangeText={setSearch} />
+    <PlatformPage title="Boutiques">
+      <AppSearchBar placeholder="Rechercher une boutique ou une entreprise" value={search} onChangeText={setSearch} />
       {query.error && <ErrorState message={query.error.message} onRetry={() => query.refetch()} />}
       {!!mutation.error && <HelperText type="error" visible>{mutation.error.message}</HelperText>}
-      {!query.isLoading && !query.error && items.length === 0 && <EmptyState title="Aucun magasin" message="Aucun résultat trouvé." />}
-      <View style={styles.grid}>{items.map((store) => <Card key={store.id} mode="contained" style={[styles.card, mobile && styles.cardMobile, { backgroundColor: theme.colors.surface }]}><Card.Content style={styles.content}><View style={styles.heading}><View style={styles.copy}><Text variant="titleMedium" style={styles.bold}>{store.name}</Text><Text variant="bodySmall" style={{color:theme.colors.onSurfaceVariant}}>{store.address||'Adresse non renseignée'}</Text></View><View style={styles.status}><Text variant="labelSmall">{store.is_active?'Actif':'Suspendu'}</Text><Switch value={store.is_active} disabled={mutation.isPending} onValueChange={(active)=>setPending({id:store.id,name:store.name,active})}/></View></View><Chip icon="office-building-outline" style={styles.selfStart}>{store.company?.name??'Entreprise inconnue'}</Chip></Card.Content></Card>)}</View>
+      {!query.isLoading && !query.error && items.length === 0 && <EmptyState title="Aucune boutique" message="Aucun résultat trouvé." />}
+      <View style={styles.grid}>{items.map((store) => <Card key={store.id} mode="contained" style={[styles.card, mobile && styles.cardMobile, { backgroundColor: theme.colors.surface }]}><Card.Content style={styles.content}><View style={styles.heading}><View style={styles.copy}><Text variant="titleMedium" style={styles.bold}>{store.name}</Text><Text variant="bodySmall" style={{color:theme.colors.onSurfaceVariant}}>{store.address||'Adresse non renseignée'}</Text></View><View style={styles.status}><StatusChip status={store.is_active?'active':'suspended'}/><Switch value={store.is_active} disabled={mutation.isPending} onValueChange={(active)=>setPending({id:store.id,name:store.name,active})}/></View></View><Chip icon="office-building-outline" style={styles.selfStart}>{store.company?.name??'Entreprise inconnue'}</Chip></Card.Content></Card>)}</View>
       <ConfirmDialog visible={pending !== null} title={pending?.active ? 'Réactiver la boutique' : 'Désactiver la boutique'} message={pending?.active ? `Réactiver la boutique ${pending?.name} ?` : `Désactiver ${pending?.name} ? Les opérations de cette boutique seront bloquées.`} destructive={!pending?.active} loading={mutation.isPending} onCancel={() => setPending(null)} onConfirm={() => pending && mutation.mutate({ id: pending.id, active: pending.active }, { onSuccess: () => setPending(null) })} />
     </PlatformPage>
   );

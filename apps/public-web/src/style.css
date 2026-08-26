@@ -27,7 +27,7 @@ button { cursor: pointer; }
 a { color: inherit; text-decoration: none; }
 p { color: var(--muted); line-height: 1.68; }
 
-.marketingSite { overflow: hidden; }
+.marketingSite { overflow-x: clip; overflow-y: visible; }
 .siteHeader {
   position: sticky;
   top: 0;

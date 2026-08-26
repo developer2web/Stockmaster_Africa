@@ -2,11 +2,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Card, Dialog, FAB, HelperText, Portal, Snackbar, Text } from 'react-native-paper';
+import { Card, Dialog, FAB, HelperText, Portal, Text } from 'react-native-paper';
 
 import { FormField } from '@/components/forms/FormField';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
+import { AppFeedback } from '@/components/ui/AppFeedback';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -63,10 +64,10 @@ export default function ExpensesScreen() {
           <Dialog visible={open} onDismiss={() => setOpen(false)}>
             <Dialog.Title>Nouvelle dépense</Dialog.Title>
             <Dialog.Content><FormField control={control} name="label" label="Motif" /><FormField control={control} name="amount" label="Montant" keyboardType="decimal-pad" /><FormField control={control} name="expenseDate" label="Date (AAAA-MM-JJ)" />{!!add.error && <HelperText type="error" visible>{add.error.message}</HelperText>}</Dialog.Content>
-            <Dialog.Actions><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={add.isPending} disabled={add.isPending} onPress={handleSubmit((value) => add.mutate(value))}>Enregistrer</AppButton></Dialog.Actions>
+            <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={add.isPending} disabled={add.isPending} onPress={handleSubmit((value) => add.mutate(value))}>Enregistrer</AppButton></Dialog.Actions>
           </Dialog>
         </Portal>
-        <Snackbar visible={!!successMessage} onDismiss={() => setSuccessMessage('')} duration={3000}>{successMessage}</Snackbar>
+        <AppFeedback message={successMessage} onDismiss={() => setSuccessMessage('')} />
         <ConfirmDialog visible={!!reviewing} title={reviewing?.approve?'Approuver cette dépense ?':'Refuser cette dépense ?'} message={`${reviewing?.request.label??''} • ${reviewing?formatMoney(Number(reviewing.request.amount)):''}`} destructive={!reviewing?.approve} loading={review.isPending} onCancel={()=>setReviewing(null)} onConfirm={()=>review.mutate()}/>
       </AdminPage>
     </PermissionGuard>

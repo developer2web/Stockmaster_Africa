@@ -79,7 +79,7 @@ export default function SettingsScreen() {
           {!!passwordValidation && <HelperText type="error" visible>{passwordValidation}</HelperText>}
           {!!passwordMutation.error && <HelperText type="error" visible>{passwordMutation.error.message}</HelperText>}
         </Dialog.Content>
-        <Dialog.Actions><AppButton mode="text" disabled={passwordMutation.isPending} onPress={() => setPasswordOpen(false)}>Annuler</AppButton><AppButton icon="shield-check" loading={passwordMutation.isPending} disabled={passwordMutation.isPending} onPress={submitPassword}>Confirmer</AppButton></Dialog.Actions>
+        <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" disabled={passwordMutation.isPending} onPress={() => setPasswordOpen(false)}>Annuler</AppButton><AppButton icon="shield-check" loading={passwordMutation.isPending} disabled={passwordMutation.isPending} onPress={submitPassword}>Confirmer</AppButton></Dialog.Actions>
       </Dialog>
 
     </Portal>

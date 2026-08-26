@@ -27,7 +27,7 @@ export function AuthScreen({ title, subtitle, children }: PropsWithChildren<{ ti
 
   return (
     <KeyboardAvoidingView style={[styles.flex, { backgroundColor: theme.dark ? '#06130F' : '#071A2F' }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.backdrop} pointerEvents="none">
+      <View style={[styles.backdrop, styles.noPointerEvents]}>
         <Animated.View style={[styles.orb, styles.orbOne, orbOne]} />
         <Animated.View style={[styles.orb, styles.orbTwo, orbTwo]} />
         <View style={styles.gridLineOne} />
@@ -58,7 +58,8 @@ const styles = StyleSheet.create({
   compactPage: { justifyContent: 'flex-start', padding: 12, paddingVertical: 18, gap: 16, minHeight: undefined },
   brand: { alignItems: 'center', gap: 8 },
   compactBrand: { gap: 4 },
-  logoMark: { width: 70, height: 70, borderRadius: 20, shadowColor: '#18C795', shadowOpacity: 0.45, shadowRadius: 20 },
+  logoMark: { width: 70, height: 70, borderRadius: 20, boxShadow: '0 8px 20px rgba(24,199,149,0.45)' },
+  noPointerEvents: { pointerEvents: 'none' },
   compactLogoMark: { width: 54, height: 54, borderRadius: 16 },
   logo: { color: design.colors.brand, fontWeight: '800', letterSpacing: -1.2 },
   subtitle: { color: '#B8D6CF', textAlign: 'center' },
