@@ -40,11 +40,15 @@ export default function PaymentStatusScreen() {
           </Text>
           <AppButton
             onPress={async () => {
-              if (success) await refreshSubscription();
-              router.replace(success ? '/' : '/(subscription)' as never);
+              if (success) {
+                await refreshSubscription();
+                router.replace({ pathname: '/(auth)/login' as never, params: { notice: 'Votre forfait a bien été activé. Connectez-vous pour démarrer.' } });
+                return;
+              }
+              router.replace('/(subscription)' as never);
             }}
           >
-            {success ? 'Ouvrir StockMaster' : manualReview ? 'Voir l’abonnement' : 'Voir les forfaits'}
+            {success ? 'Se connecter' : manualReview ? 'Voir l’abonnement' : 'Voir les forfaits'}
           </AppButton>
         </Card.Content>
       </Card>

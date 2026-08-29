@@ -77,10 +77,10 @@ export default function PurchasesScreen() {
       <SelectField label="Fournisseur" value={supplierId} onChange={setSupplierId} options={(suppliers.data ?? []).filter((item) => item.is_active).map((item) => ({ label: item.name, value: item.id }))} />
       {!!suppliers.error && <HelperText type="error" visible>{suppliers.error.message}</HelperText>}
       <Card mode="outlined">
-        <Card.Title title="Ajouter un produit" subtitle="Recherchez par nom, SKU ou code-barres" />
+        <Card.Title title="Ajouter un produit" subtitle="Recherchez par nom ou code-barres" />
         <Card.Content style={{ gap: 10 }}>
           <AppSearchBar placeholder="Rechercher dans le catalogue" value={productSearch} onChangeText={setProductSearch} loading={productSearch !== debouncedSearch} />
-          <SelectField label="Produit" value={productId} onChange={(value) => { setProductId(value); const product = products.data?.find((item) => item.id === value); if (product) setUnitCost(String(product.purchase_price)); }} options={(products.data ?? []).filter((item) => item.is_active).map((item) => ({ label: `${item.name} · ${item.sku}`, value: item.id }))} />
+          <SelectField label="Produit" value={productId} onChange={(value) => { setProductId(value); const product = products.data?.find((item) => item.id === value); if (product) setUnitCost(String(product.purchase_price)); }} options={(products.data ?? []).filter((item) => item.is_active).map((item) => ({ label: item.name, value: item.id }))} />
           {!!products.error && <HelperText type="error" visible>{products.error.message}</HelperText>}
           <TextInput mode="outlined" label="Quantité reçue" keyboardType="decimal-pad" value={quantity} onChangeText={setQuantity} />
           <TextInput mode="outlined" label="Prix d’achat unitaire" keyboardType="decimal-pad" value={unitCost} onChangeText={setUnitCost} />

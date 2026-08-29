@@ -1,4 +1,5 @@
-import { supabase } from '@/services/supabase/client';
+import { clearCachedSession, supabase } from '@/services/supabase/client';
+import { isJwtIssuedInFuture, retryJwtClockSkew } from '@/services/supabase/jwtRetry';
 import type { AppRole } from '@/types/database';
 import { portalAccessDeniedMessage } from './portalMessages';
 import { portalAllowsRoles, type LoginPortal } from './portalRules';
@@ -22,27 +23,29 @@ export async function signInForPortal(
   password: string,
   portal: LoginPortal,
 ): Promise<PortalLoginResult> {
-  const { data, error } = await supabase.auth.signInWithPassword({
+  await clearCachedSession();
+  const { data, error } = await retryJwtClockSkew(() => supabase.auth.signInWithPassword({
     email: email.trim().toLowerCase(),
     password,
-  });
+  }));
 
   if (error || !data.user) {
     return {
       ok: false,
-      message: /email not confirmed/i.test(error?.message??'')
+      message: isJwtIssuedInFuture(error)
+        ? 'Le serveur finalise votre session. Attendez quelques secondes puis réessayez.'
+        : /email not confirmed/i.test(error?.message??'')
         ? 'Votre adresse email n’est pas encore confirmée. Ouvrez le message reçu dans votre boîte email ou demandez un nouvel envoi depuis la page d’inscription.'
         : 'Email ou mot de passe incorrect.',
     };
   }
 
-  const [{ data: businesses, error: businessesError }, { data: context }] = await Promise.all([
-    supabase.rpc('get_accessible_businesses'),
-    supabase.rpc('get_my_context'),
+  const [{ data: businesses, error: businessesError }, { data: context, error: contextError }] = await Promise.all([
+    retryJwtClockSkew(() => supabase.rpc('get_accessible_businesses')),
+    retryJwtClockSkew(() => supabase.rpc('get_my_context')),
   ]);
 
-  if (businessesError) {
-    await supabase.auth.signOut({ scope: 'local' });
+  if (businessesError || contextError) {
     return { ok: false, message: 'Impossible de vérifier le type de ce compte. Réessayez.' };
   }
 

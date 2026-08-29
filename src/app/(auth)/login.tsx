@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, router } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Card, HelperText, Icon, Text } from 'react-native-paper';
@@ -12,6 +12,7 @@ import { signInForPortal } from '@/features/auth/portalLogin';
 import { loginSchema, LoginInput } from '@/schemas/auth';
 
 export default function LoginScreen() {
+  const { notice } = useLocalSearchParams<{ notice?: string }>();
   const [mode,setMode]=useState<'choice'|'admin'>('choice');
   const [error,setError]=useState('');
   const { refreshMembership } = useAuth();
@@ -25,6 +26,7 @@ export default function LoginScreen() {
   </AuthScreen>;
 
   return <AuthScreen title="Connexion administrateur" subtitle="Accédez à la gestion StockMaster.">
+    {!!notice && <HelperText type="info" visible>{String(notice)}</HelperText>}
     <FormField control={control} name="email" label="Email" autoCapitalize="none" keyboardType="email-address"/>
     <FormField control={control} name="password" label="Mot de passe" passwordToggle/>
     {!!error&&<HelperText type="error" visible>{error}</HelperText>}

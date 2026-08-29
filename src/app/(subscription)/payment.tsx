@@ -12,8 +12,8 @@ import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import type { BillingCycle } from '@/features/subscriptions/types';
 
 export default function PaymentScreen() {
-  const params = useLocalSearchParams<{ planId: string; cycle: BillingCycle }>();
-  const { membership } = useAuth();
+  const params = useLocalSearchParams<{ planId: string; cycle: BillingCycle; keepCompanyId?: string }>();
+  const { membership, businesses } = useAuth();
   const { plans } = useSubscription();
   const plan = plans.find((item) => item.id === params.planId);
   const cycle: BillingCycle = params.cycle === 'annual' ? 'annual' : 'monthly';
@@ -49,6 +49,7 @@ export default function PaymentScreen() {
         {!!quote.data?.discountAmount && <Text>Prix initial {money(quote.data.baseAmount)} · réduction {money(quote.data.discountAmount)}</Text>}
         {!!quote.data?.bonusDays && <Text>Avantage : {quote.data.bonusDays} jours supplémentaires</Text>}
         {!!quote.data?.promotionName && <Chip icon="ticket-percent">{quote.data.promotionName}</Chip>}
+        {!!params.keepCompanyId && <Text>Entreprise conservée : {businesses.find((item) => item.companyId === params.keepCompanyId)?.companyName ?? 'Entreprise sélectionnée'}</Text>}
       </Card.Content></Card>
 
       <Card mode="outlined"><Card.Title title="Code promotionnel" /><Card.Content style={styles.row}>
@@ -56,7 +57,14 @@ export default function PaymentScreen() {
         <AppButton mode="outlined" loading={quote.isFetching} onPress={() => setAppliedPromo(promoCode.trim().toUpperCase())}>Appliquer</AppButton>
       </Card.Content>{!!quote.error && <Card.Content><HelperText type="error" visible>{quote.error.message}</HelperText></Card.Content>}</Card>
 
-      <SegmentedButtons value={method} onValueChange={(value) => setMethod(value as typeof method)} buttons={[{ value: 'orange_money', label: 'Orange Money', icon: 'cellphone' }, { value: 'stripe', label: 'Carte / Stripe', icon: 'credit-card-outline' }]} />
+      <Card mode="outlined"><Card.Title title="Méthode de paiement" subtitle="Choisissez le mode de règlement" /><Card.Content style={styles.content}>
+        <SegmentedButtons value={method} onValueChange={(value) => setMethod(value as typeof method)} buttons={[{ value: 'orange_money', label: 'Orange Money', icon: 'cellphone' }, { value: 'stripe', label: 'Carte / Stripe', icon: 'credit-card-outline' }]} />
+        <View style={styles.paymentSummary}>
+          <Text variant="labelLarge">Montant à payer</Text>
+          <Text variant="headlineSmall" style={styles.bold}>{money(quote.data?.finalAmount ?? 0)}</Text>
+          <Text>{method === 'orange_money' ? 'Paiement mobile avec validation manuelle par le support.' : 'Paiement sécurisé par carte via Stripe.'}</Text>
+        </View>
+      </Card.Content></Card>
 
       {method === 'orange_money' ? <Card mode="outlined"><Card.Title title="Paiement Orange Money" subtitle="Validation manuelle après vérification" /><Card.Content style={styles.content}>
         <Text>Envoyez exactement <Text style={styles.bold}>{money(quote.data?.finalAmount ?? 0)}</Text> au :</Text>
@@ -81,4 +89,5 @@ export default function PaymentScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 }, page: { width: '100%', maxWidth: 680, alignSelf: 'center', padding: 16, paddingBottom: 44, gap: 16 },
   content: { gap: 12 }, row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }, grow: { flex: 1, minWidth: 220 }, bold: { fontWeight: '800' }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  paymentSummary: { gap: 4, padding: 12, borderRadius: 12, backgroundColor: '#F2F6FF' },
 });

@@ -38,7 +38,6 @@ export default function SaleDetails() {
           <Divider />
           <Text>Sous-total : {money(Number(sale.data.subtotal))}</Text>
           <Text>Remises : {money(Number(sale.data.discount_total))}</Text>
-          <Text>Taxes ({Number(sale.data.tax_rate_snapshot??0)} %) : {money(Number(sale.data.tax_total??0))}</Text>
           <Text>Montant payé : {money(Number(sale.data.amount_paid))}</Text>
           {Number(sale.data.amount_due)>0&&<Text variant="titleMedium" style={{color:'#C92A2A'}}>Reste dû : {money(Number(sale.data.amount_due))} • {sale.data.payment_status==='credit'?'À crédit':'Paiement partiel'}</Text>}
           {!employee && <Text>Coût historique : {money(Number(sale.data.cost_total))}</Text>}

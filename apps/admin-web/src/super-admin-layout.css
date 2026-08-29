@@ -1,0 +1,524 @@
+:root {
+  --sm-primary: #075c5e;
+  --sm-primary-strong: #03464a;
+  --sm-primary-soft: #e9f5f2;
+  --sm-accent: #0a8b70;
+  --sm-background: #f3f7f6;
+  --sm-surface: #ffffff;
+  --sm-border: #dce8e5;
+  --sm-text: #163c3b;
+  --sm-muted: #687d79;
+  --sm-danger: #c8403a;
+  --sm-warning: #b66b16;
+  --sm-radius: 14px;
+  --sm-shadow: 0 10px 28px rgba(3, 70, 74, 0.065);
+}
+
+body {
+  background: var(--sm-background);
+  color: var(--sm-text);
+}
+
+.adminApp {
+  grid-template-columns: 248px minmax(0, 1fr);
+  background: var(--sm-background);
+}
+
+.adminApp .side {
+  width: 248px;
+  padding: 22px 14px 16px;
+  background: linear-gradient(180deg, #063f43 0%, #043438 100%);
+  border-right: 0;
+  box-shadow: 8px 0 30px rgba(2, 49, 52, 0.1);
+}
+
+.adminApp .side::before {
+  height: 3px;
+  background: linear-gradient(90deg, #56c9aa, #a7e5d2);
+}
+
+.adminApp .sideBrand {
+  padding: 4px 8px 22px;
+}
+
+.adminApp .sideBrand img {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  box-shadow: 0 9px 22px rgba(0, 22, 24, 0.22);
+}
+
+.adminApp .sideBrand b { color: #fff; font-size: 17px; }
+.adminApp .sideBrand small { color: #9ee3cf; }
+.adminApp .side nav { gap: 4px; }
+.adminApp .side nav button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: #cbe0dc;
+  font-size: 12px;
+  text-align: left;
+}
+
+.adminApp .side nav button i {
+  display: grid;
+  place-items: center;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  margin-right: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #9ee3cf;
+}
+
+.adminApp .side nav button:hover {
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.adminApp .side nav button.active {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: linear-gradient(100deg, #0b806d, #087365);
+  box-shadow: 0 8px 18px rgba(0, 29, 30, 0.18);
+}
+
+.adminApp .accountBlock { gap: 7px; padding-top: 13px; }
+.adminApp .profile { height: 56px; border-radius: 11px; }
+.adminApp .logoutButton { height: 38px; border-radius: 10px; }
+
+.adminApp .content {
+  grid-column: 2;
+  width: 100%;
+  max-width: 1640px;
+  padding: 30px clamp(22px, 3vw, 46px) 72px;
+  gap: 18px;
+}
+
+.adminApp .pageTitle {
+  align-items: center;
+  min-height: 72px;
+  margin: 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--sm-border);
+}
+
+.adminApp .pageTitle h1 {
+  margin: 0;
+  color: var(--sm-text);
+  font-size: clamp(23px, 2vw, 29px);
+  letter-spacing: -0.035em;
+}
+
+.adminApp .pageTitle p { margin: 5px 0 0; color: var(--sm-muted); }
+.adminApp .pageEyebrow { margin-bottom: 6px; color: var(--sm-accent); }
+.adminApp .titleActions { gap: 8px; }
+
+.adminApp :is(.primary, .approve, .refreshBtn, .detailsBtn, .successBtn, .dangerBtn, .resetFilters, .revenueExport) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.adminApp :is(.primary, .approve) {
+  border: 1px solid var(--sm-primary);
+  background: var(--sm-primary);
+  color: #fff;
+}
+
+.adminApp :is(.primary, .approve):hover {
+  transform: translateY(-1px);
+  border-color: var(--sm-primary-strong);
+  background: var(--sm-primary-strong);
+  box-shadow: 0 8px 16px rgba(3, 70, 74, 0.14);
+}
+
+.adminApp .refreshBtn,
+.adminApp .detailsBtn,
+.adminApp .resetFilters,
+.adminApp .revenueExport {
+  border: 1px solid var(--sm-border);
+  background: var(--sm-surface);
+  color: var(--sm-primary);
+}
+
+.adminApp .successBtn { border: 1px solid #a8dbc9; background: #eaf8f2; color: #087459; }
+.adminApp .dangerBtn { border: 1px solid #efc0bc; background: #fff7f6; color: var(--sm-danger); }
+.adminApp button:disabled { cursor: not-allowed; opacity: 0.55; transform: none !important; }
+
+.adminApp .dashboardHero {
+  min-height: 252px;
+  margin: 0;
+  padding: 30px 36px;
+  border: 0;
+  border-radius: 22px;
+  background: radial-gradient(circle at 88% 15%, rgba(73, 199, 164, 0.24), transparent 28%), linear-gradient(135deg, #06464a, #06373b);
+  box-shadow: 0 18px 40px rgba(3, 58, 61, 0.16);
+}
+
+.adminApp .heroCopy h1 { font-size: clamp(29px, 3vw, 41px); }
+.adminApp .heroCopy h1 em { color: #9fe4cf; }
+.adminApp .heroPrimary { background: #fff; color: var(--sm-primary-strong); }
+.adminApp .heroRing::before { background: linear-gradient(145deg, #075c5e, #03464a); }
+.adminApp .floatingStat { background: rgba(3, 56, 59, 0.82); }
+
+.adminApp .commandRail {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 4px;
+}
+
+.adminApp .commandRail button,
+.adminApp .pageSummary article,
+.adminApp .kpi,
+.adminApp .panel,
+.adminApp .validatedRevenue,
+.adminApp .dataSection,
+.adminApp .timeline {
+  border: 1px solid var(--sm-border);
+  background: var(--sm-surface);
+  box-shadow: var(--sm-shadow);
+}
+
+.adminApp .commandRail button {
+  min-height: 70px;
+  border-radius: var(--sm-radius);
+}
+
+.adminApp .commandRail button:hover { border-color: #b8d8cf; box-shadow: 0 12px 25px rgba(3, 70, 74, 0.09); }
+.adminApp .commandRail button > i { background: var(--sm-primary-soft); color: var(--sm-primary); }
+.adminApp .commandRail button > span b { color: var(--sm-text); }
+
+.adminApp .sectionHeading { margin: 8px 0 0; }
+.adminApp .sectionHeading h2 { color: var(--sm-text); }
+.adminApp .pageSummary { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 0; }
+.adminApp .pageSummary article { min-height: 78px; border-radius: var(--sm-radius); }
+.adminApp .pageSummary article > i { background: var(--sm-primary-soft); color: var(--sm-primary); }
+
+.adminApp .kpis { gap: 12px; }
+.adminApp .kpi { min-height: 116px; padding: 17px; border-radius: var(--sm-radius); }
+.adminApp .kpi::before { background: linear-gradient(90deg, var(--sm-accent), #6ed0b4); }
+.adminApp .kpi strong { color: var(--sm-text); }
+.adminApp .kpi small { color: var(--sm-muted); }
+.adminApp .kpiTop > i { background: var(--sm-primary-soft); color: var(--sm-primary); }
+
+.adminApp .panel { padding: 18px; border-radius: var(--sm-radius); }
+.adminApp .panel h2,
+.adminApp .panelHead > strong,
+.adminApp .quick b,
+.adminApp .quick strong { color: var(--sm-text); }
+.adminApp .panelHead > div > span { color: var(--sm-accent); }
+.adminApp .chart { background: #fff; }
+.adminApp .bars { border-color: var(--sm-border); }
+.adminApp .quick { border-color: var(--sm-border); }
+.adminApp .quick > button { background: var(--sm-primary); }
+.adminApp .textButton { color: var(--sm-primary); }
+
+.adminApp .validatedRevenue {
+  margin: 0;
+  border-radius: var(--sm-radius);
+  background: linear-gradient(110deg, #fff, #edf8f4);
+}
+.adminApp .revenueIcon { background: var(--sm-primary); color: #fff; }
+.adminApp .revenuePeriod button.active { background: var(--sm-primary); }
+.adminApp .revenueTotals strong { color: var(--sm-primary-strong); }
+
+.adminApp .toolbar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius);
+  background: #fff;
+  box-shadow: none;
+}
+
+.adminApp .searchBox { max-width: 520px; }
+.adminApp .searchBox input,
+.adminApp .toolbar > select,
+.adminApp .promoForm input,
+.adminApp .promoForm select,
+.adminApp .settings input,
+.adminApp .settings select {
+  height: 42px;
+  border: 1px solid var(--sm-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--sm-text);
+}
+
+.adminApp .searchBox input:focus,
+.adminApp .toolbar > select:focus,
+.adminApp .promoForm input:focus,
+.adminApp .promoForm select:focus,
+.adminApp .settings input:focus,
+.adminApp .settings select:focus {
+  border-color: #70c5ae;
+  box-shadow: 0 0 0 3px rgba(10, 139, 112, 0.12);
+}
+
+.adminApp .dataSection { overflow: visible; border-radius: var(--sm-radius); }
+.adminApp .tableMeta { padding: 13px 16px; background: #f7faf9; border-color: var(--sm-border); }
+.adminApp .tableMeta b { background: var(--sm-primary-soft); color: var(--sm-primary); }
+.adminApp .tableWrap { overflow-x: auto; border-radius: 0 0 var(--sm-radius) var(--sm-radius); }
+.adminApp .tableWrap th { height: 46px; background: #f4f8f7; color: #59706c; }
+.adminApp .tableWrap td { height: 58px; border-color: #e7efed; }
+.adminApp .tableWrap tr:hover td { background: #f3faf7; }
+
+.adminApp .actionMenu { position: relative; width: max-content; margin-left: auto; }
+.adminApp .actionMenuTrigger {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 36px;
+  border: 1px solid var(--sm-border);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--sm-primary);
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 800;
+}
+.adminApp .actionMenu.open > .actionMenuTrigger { border-color: #86cdb9; background: var(--sm-primary-soft); }
+.adminApp .actionMenuPanel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  display: grid;
+  gap: 6px;
+  min-width: 180px;
+  padding: 8px;
+  border: 1px solid var(--sm-border);
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 14px 35px rgba(3, 54, 57, 0.16);
+}
+.adminApp .actionMenuPanel button { width: 100%; }
+.adminApp .paymentActionBar { flex-wrap: wrap; }
+.adminApp .tablePagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 13px 16px; border-top: 1px solid var(--sm-border); }
+.adminApp .tablePagination .secondaryButton { min-height: 38px; padding: 0 13px; border: 1px solid var(--sm-border); border-radius: 9px; background: #fff; color: var(--sm-primary); }
+
+.adminApp .settings {
+  grid-template-columns: 210px minmax(0, 1fr);
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius);
+  background: #fff;
+  box-shadow: var(--sm-shadow);
+}
+.adminApp .settings nav { padding: 12px; background: #f1f7f5; border-right: 1px solid var(--sm-border); }
+.adminApp .settings nav button { color: var(--sm-muted); }
+.adminApp .settings nav button:hover { background: #e7f2ef; color: var(--sm-primary); }
+.adminApp .settings nav button.active { border: 1px solid #b9dcd2; background: #fff; color: var(--sm-primary); }
+.adminApp .settings section { width: 100%; max-width: 920px; padding: 26px; }
+.adminApp .settings section > h2 { color: var(--sm-text); }
+.adminApp .statusCards article,
+.adminApp .securityList article,
+.adminApp .providerInfo,
+.adminApp .securityForm { border: 1px solid var(--sm-border); background: #f8fbfa; color: var(--sm-text); }
+
+.adminApp .promoForm { border-radius: var(--sm-radius); }
+.adminApp .promoForm h2 { color: var(--sm-text); }
+.adminApp .timeline { border-radius: var(--sm-radius); }
+.adminApp .modalActions { align-items: center; }
+.adminApp .drawer.companyModal { border-radius: 18px; }
+
+.adminApp .paymentControlBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px;
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius);
+  background: #fff;
+}
+.adminApp .paymentControlBar .paymentMethods { margin: 0; box-shadow: none; }
+.adminApp .currencyPicker { display: flex; align-items: center; gap: 9px; color: var(--sm-muted); font-size: 10px; font-weight: 800; }
+.adminApp .currencyPicker select { min-width: 205px; height: 40px; padding: 0 34px 0 11px; border: 1px solid var(--sm-border); border-radius: 10px; background: #fff; color: var(--sm-text); }
+.adminApp .paymentReviewButton { width: 100%; min-width: 90px; }
+.adminApp .drawer.paymentReviewModal { position: relative; inset: auto; width: min(680px, 100%); max-height: calc(100vh - 44px); padding: 26px; overflow-y: auto; border-radius: 18px; background: #fff; box-shadow: 0 28px 90px rgba(0, 32, 34, 0.25); }
+.adminApp .paymentReviewIcon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 13px; background: var(--sm-primary); color: #fff; font-size: 12px; font-weight: 900; }
+.adminApp .paymentReviewAmount { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 7px 16px; margin: 18px 0; padding: 18px; border: 1px solid #cce4dd; border-radius: 14px; background: linear-gradient(110deg, #f8fcfa, #eaf7f2); }
+.adminApp .paymentReviewAmount span { color: var(--sm-muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.adminApp .paymentReviewAmount strong { grid-row: 2; color: var(--sm-primary-strong); font-size: 26px; letter-spacing: -0.04em; }
+.adminApp .paymentReviewAmount .badge { grid-column: 2; grid-row: 1 / span 2; }
+.adminApp .paymentReviewDetails { margin: 0 0 16px; border-block: 1px solid var(--sm-border); }
+.adminApp .paymentReviewDetails div { display: grid; grid-template-columns: 155px minmax(0, 1fr); gap: 14px; padding: 11px 2px; border-bottom: 1px solid #edf3f1; }
+.adminApp .paymentReviewDetails div:last-child { border-bottom: 0; }
+.adminApp .paymentReviewDetails dt { color: var(--sm-muted); font-size: 11px; }
+.adminApp .paymentReviewDetails dd { margin: 0; overflow-wrap: anywhere; color: var(--sm-text); font-size: 12px; font-weight: 750; }
+.adminApp .paymentProofButton { width: 100%; margin-bottom: 15px; }
+.adminApp .paymentDecision { padding-top: 16px; border-top: 1px solid var(--sm-border); }
+.adminApp .paymentDecision label { display: grid; gap: 7px; color: var(--sm-text); font-size: 11px; font-weight: 800; }
+.adminApp .paymentDecision label span { color: var(--sm-muted); font-size: 9px; font-weight: 500; }
+.adminApp .paymentDecision textarea { width: 100%; min-height: 96px; resize: vertical; padding: 11px; border: 1px solid var(--sm-border); border-radius: 10px; color: var(--sm-text); font: inherit; }
+.adminApp .paymentDecision textarea:focus { outline: 0; border-color: #70c5ae; box-shadow: 0 0 0 3px rgba(10, 139, 112, 0.12); }
+.adminApp .paymentLockedNotice { padding: 14px; border: 1px solid var(--sm-border); border-radius: 11px; background: #f7faf9; color: var(--sm-muted); font-size: 11px; }
+
+.adminApp .settingsSectionHead { margin-bottom: 22px; padding-bottom: 17px; border-bottom: 1px solid var(--sm-border); }
+.adminApp .settingsSectionHead > span { color: var(--sm-accent); font-size: 8px; font-weight: 900; letter-spacing: 0.15em; }
+.adminApp .settingsSectionHead h2 { margin: 5px 0; color: var(--sm-text); font-size: 20px; }
+.adminApp .settingsSectionHead p { margin: 0; color: var(--sm-muted); font-size: 11px; }
+.adminApp .providerGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+.adminApp .providerGrid article { display: flex; align-items: center; gap: 12px; padding: 15px; border: 1px solid var(--sm-border); border-radius: 13px; background: #f8fbfa; }
+.adminApp .providerGrid article > i { display: grid; place-items: center; flex: 0 0 40px; height: 40px; border-radius: 11px; background: var(--sm-primary-soft); color: var(--sm-primary); font-size: 11px; font-style: normal; font-weight: 900; }
+.adminApp .providerGrid b, .adminApp .providerGrid span { display: block; }
+.adminApp .providerGrid b { color: var(--sm-text); font-size: 12px; }
+.adminApp .providerGrid span { margin-top: 3px; color: var(--sm-muted); font-size: 9px; }
+.adminApp .settingsFormGroup { display: grid; gap: 12px; max-width: 680px; }
+.adminApp .settingsFormGroup label { display: grid; grid-template-columns: 190px minmax(0, 1fr); align-items: center; gap: 14px; margin: 0; color: var(--sm-text); font-size: 11px; font-weight: 750; }
+.adminApp .settingsActions { display: flex; justify-content: flex-end; max-width: 680px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--sm-border); }
+
+.adminApp .securityOverview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; margin-bottom: 15px; }
+.adminApp .securityOverview article { display: flex; align-items: center; gap: 11px; min-width: 0; padding: 14px; border: 1px solid var(--sm-border); border-radius: 13px; background: #f8fbfa; }
+.adminApp .securityOverview article > i { display: grid; place-items: center; flex: 0 0 38px; height: 38px; border-radius: 10px; background: var(--sm-primary-soft); color: var(--sm-primary); font-size: 10px; font-style: normal; font-weight: 900; }
+.adminApp .securityOverview span, .adminApp .securityOverview b { display: block; overflow: hidden; text-overflow: ellipsis; }
+.adminApp .securityOverview span { color: var(--sm-muted); font-size: 9px; }
+.adminApp .securityOverview b { margin-top: 4px; color: var(--sm-text); font-size: 11px; white-space: nowrap; }
+.adminApp .securityOverview article button,
+.adminApp .securityCardHead > button {
+  margin-top: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--sm-primary);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 800;
+  text-align: left;
+}
+.adminApp .securityCardHead > button { margin: 0; padding: 8px 10px; border: 1px solid var(--sm-border); border-radius: 9px; background: #f6faf9; }
+.adminApp .securityOverview article button:hover,
+.adminApp .securityCardHead > button:hover { color: var(--sm-accent); }
+.adminApp .mfaSetupPanel { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 18px; max-width: none; margin-bottom: 15px; padding: 18px; border: 1px solid #a9d8ca; border-radius: 14px; background: #f3faf7; }
+.adminApp .mfaSetupPanel > div > span { color: var(--sm-accent); font-size: 8px; font-weight: 900; letter-spacing: .13em; }
+.adminApp .mfaSetupPanel h3 { margin: 5px 0; color: var(--sm-text); font-size: 16px; }
+.adminApp .mfaSetupPanel p { max-width: 650px; margin: 0; color: var(--sm-muted); font-size: 10px; line-height: 1.55; }
+.adminApp .mfaEnrollment { grid-column: 1 / -1; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 18px; align-items: center; }
+.adminApp .mfaEnrollment img { width: 150px; height: 150px; padding: 8px; border: 1px solid var(--sm-border); border-radius: 12px; background: #fff; }
+.adminApp .mfaEnrollment code { display: block; margin: 4px 0 12px; overflow-wrap: anywhere; color: var(--sm-primary); }
+.adminApp .mfaEnrollment label { display: grid; gap: 5px; color: var(--sm-text); font-size: 10px; font-weight: 800; }
+.adminApp .mfaEnrollment input { width: min(230px, 100%); height: 40px; padding: 0 11px; border: 1px solid var(--sm-border); border-radius: 9px; font-size: 16px; letter-spacing: .25em; }
+.adminApp .mfaEnrollment .successBtn { margin-top: 10px; }
+.adminApp .securitySettingsGrid { display: grid; grid-template-columns: 1.35fr 0.85fr; gap: 13px; }
+.adminApp .securityCard { display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid var(--sm-border); border-radius: 14px; background: #fff; box-shadow: 0 8px 22px rgba(3, 70, 74, 0.045); }
+.adminApp .securityCardHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 13px; border-bottom: 1px solid var(--sm-border); }
+.adminApp .securityCardHead span { color: var(--sm-accent); font-size: 8px; font-weight: 900; letter-spacing: 0.13em; }
+.adminApp .securityCardHead h3 { margin: 4px 0 0; color: var(--sm-text); font-size: 15px; }
+.adminApp .securityCardHead > i { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--sm-primary-soft); color: var(--sm-primary); font-style: normal; font-weight: 900; }
+.adminApp .securityFields { display: grid; gap: 11px; }
+.adminApp .securityFields label { display: grid; grid-template-columns: 180px minmax(0, 1fr); align-items: center; gap: 12px; margin: 0; color: var(--sm-text); font-size: 10px; font-weight: 750; }
+.adminApp .securityFields input { width: 100%; height: 40px; padding: 0 11px; border: 1px solid var(--sm-border); border-radius: 9px; background: #fff; color: var(--sm-text); }
+.adminApp .passwordChecks { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.adminApp .passwordChecks span { display: inline-flex; align-items: center; gap: 5px; color: #8a9996; font-size: 9px; }
+.adminApp .passwordChecks span i { font-style: normal; }
+.adminApp .passwordChecks span.valid { color: #087459; }
+.adminApp .sessionCard p { margin: 0; color: var(--sm-muted); font-size: 11px; line-height: 1.55; }
+.adminApp .sessionStatus { display: flex; align-items: center; gap: 10px; margin-bottom: auto; padding: 12px; border-radius: 11px; background: #f1f8f5; }
+.adminApp .sessionStatus > i { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 50%; background: #dff4eb; color: #087459; font-style: normal; }
+.adminApp .sessionStatus b, .adminApp .sessionStatus small { display: block; }
+.adminApp .sessionStatus b { color: var(--sm-text); font-size: 10px; }
+.adminApp .sessionStatus small { margin-top: 3px; color: var(--sm-muted); font-size: 9px; }
+.adminApp .sessionFacts { margin: 0; border-block: 1px solid var(--sm-border); }
+.adminApp .sessionFacts div { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 9px 0; border-bottom: 1px solid #edf3f1; }
+.adminApp .sessionFacts div:last-child { border-bottom: 0; }
+.adminApp .sessionFacts dt { color: var(--sm-muted); font-size: 9px; }
+.adminApp .sessionFacts dd { margin: 0; color: var(--sm-text); font-size: 9px; font-weight: 750; text-align: right; }
+.adminApp .securityFeedback { position: static; margin: 13px 0 0; }
+
+@media (max-width: 1120px) {
+  .adminApp .content { padding-inline: 22px; }
+  .adminApp .commandRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .adminApp .commandRail > :last-child { grid-column: 1 / -1; }
+  .adminApp .pageSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .adminApp .validatedRevenue { grid-template-columns: 1fr auto; }
+}
+
+@media (max-width: 860px) {
+  .adminApp { display: block; }
+  .adminApp .content { padding: 14px 12px 92px; }
+  .adminApp .side {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 50;
+    display: flex;
+    width: 100%;
+    height: 72px;
+    padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+    background: rgba(4, 52, 56, 0.97);
+    backdrop-filter: blur(16px);
+  }
+  .adminApp .side::before,
+  .adminApp .sideBrand,
+  .adminApp .accountBlock { display: none; }
+  .adminApp .side nav { display: grid; grid-template-columns: repeat(5, 1fr); width: 100%; gap: 4px; }
+  .adminApp .side nav button { display: none; height: 56px; padding: 4px 2px; flex-direction: column; justify-content: center; gap: 2px; border-radius: 10px; font-size: 9px; text-align: center; }
+  .adminApp .side nav button:nth-child(1),
+  .adminApp .side nav button:nth-child(2),
+  .adminApp .side nav button:nth-child(3),
+  .adminApp .side nav button:nth-child(5),
+  .adminApp .side nav button:nth-child(9) { display: flex; }
+  .adminApp .side nav button i { flex-basis: 23px; width: 23px; height: 23px; margin: 0; }
+  .adminApp .mobileHead { position: sticky; top: 8px; z-index: 40; display: flex; margin: 0 0 14px; }
+  .adminApp .pageTitle { align-items: flex-start; min-height: 0; }
+  .adminApp .dashboardHero { grid-template-columns: 1fr; padding: 24px 20px; }
+  .adminApp .heroVisual { min-height: 185px; }
+  .adminApp .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .adminApp .settings { grid-template-columns: 1fr; }
+  .adminApp .settings nav { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--sm-border); }
+  .adminApp .settings nav button { min-width: max-content; }
+  .adminApp .securityOverview { grid-template-columns: 1fr 1fr; }
+  .adminApp .securitySettingsGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+  .adminApp .pageTitle { flex-direction: column; gap: 12px; }
+  .adminApp .titleActions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .adminApp .titleActions > * { width: 100%; }
+  .adminApp .commandRail,
+  .adminApp .pageSummary,
+  .adminApp .kpis { grid-template-columns: 1fr; }
+  .adminApp .commandRail > :last-child { grid-column: auto; }
+  .adminApp .toolbar { align-items: stretch; flex-direction: column; }
+  .adminApp .searchBox { max-width: none; }
+  .adminApp .toolbar > select,
+  .adminApp .toolbar .resetFilters { width: 100%; }
+  .adminApp .validatedRevenue { grid-template-columns: 1fr; }
+  .adminApp .revenuePeriod { justify-self: stretch; display: grid; grid-template-columns: repeat(3, 1fr); }
+  .adminApp .revenueTotals { justify-content: flex-start; text-align: left; }
+  .adminApp .tableMeta small { display: none; }
+  .adminApp .tablePagination { justify-content: space-between; }
+  .adminApp .tablePagination span { font-size: 10px; }
+  .adminApp .settings section { padding: 20px 16px; }
+  .adminApp .drawerKpis { grid-template-columns: 1fr; }
+  .adminApp .modalActions { flex-direction: column-reverse; }
+  .adminApp .modalActions button { width: 100%; }
+  .adminApp .paymentControlBar { align-items: stretch; flex-direction: column; }
+  .adminApp .paymentControlBar .paymentMethods { display: grid; grid-template-columns: 1fr; width: 100%; }
+  .adminApp .currencyPicker { align-items: stretch; flex-direction: column; }
+  .adminApp .currencyPicker select { width: 100%; min-width: 0; }
+  .adminApp .paymentReviewDetails div { grid-template-columns: 1fr; gap: 4px; }
+  .adminApp .paymentReviewAmount { grid-template-columns: 1fr; }
+  .adminApp .paymentReviewAmount .badge { grid-column: 1; grid-row: auto; justify-self: start; }
+  .adminApp .providerGrid, .adminApp .securityOverview { grid-template-columns: 1fr; }
+  .adminApp .mfaSetupPanel, .adminApp .mfaEnrollment { grid-template-columns: 1fr; }
+  .adminApp .mfaEnrollment { justify-items: start; }
+  .adminApp .settingsFormGroup label, .adminApp .securityFields label { grid-template-columns: 1fr; gap: 6px; }
+  .adminApp .settingsActions .primary { width: 100%; }
+}

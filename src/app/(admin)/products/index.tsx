@@ -44,7 +44,7 @@ export default function ProductsScreen() {
       action={<View style={styles.actions}><Menu visible={actionsOpen} onDismiss={()=>setActionsOpen(false)} anchor={<AppButton mode="outlined" icon="dots-horizontal" accessibilityLabel="Actions produits" onPress={()=>setActionsOpen(true)}>Actions</AppButton>}><Menu.Item leadingIcon="shape-outline" title="Gérer les catégories" onPress={()=>{setActionsOpen(false);router.push('/categories' as never)}}/><Menu.Item leadingIcon="whatsapp" title="Partager le catalogue" onPress={()=>void runAction(()=>shareProductCatalog(membership?.companyName??'StockMaster',rows,formatMoney))}/><Menu.Item leadingIcon="download" title="Exporter Excel" onPress={()=>void runAction(()=>shareProductsExport(company,store))}/><Menu.Item leadingIcon="file-excel" title="Importer Excel" onPress={()=>{setActionsOpen(false);router.push('/products/import' as never)}}/></Menu><AppButton icon="plus" onPress={() => router.push('/products/new' as never)}>Ajouter</AppButton></View>}
     >
       <AppSearchBar
-        placeholder="Nom, SKU ou code-barres"
+        placeholder="Nom ou code-barres"
         value={search}
         onChangeText={setSearch}
         loading={search !== debounced}
@@ -59,7 +59,7 @@ export default function ProductsScreen() {
           <Card.Title
             left={() => <ProductThumbnail url={product.image_urls?.[0]} />}
             title={product.name}
-            subtitle={`${product.sku} • ${product.category?.name ?? 'Sans catégorie'}`}
+            subtitle={product.category?.name ?? 'Sans catégorie'}
             right={() => <View style={styles.price}><Text variant="titleMedium" style={styles.bold}>{formatMoney(Number(product.sale_price))}</Text><StatusChip status={product.is_active?'active':'inactive'}/></View>}
           />
         </Card>
@@ -78,7 +78,7 @@ export default function ProductsScreen() {
         <EmptyState
           icon="package-variant"
           title={search ? 'Aucun résultat' : 'Aucun produit'}
-          message={search ? 'Essayez un autre nom, SKU ou code-barres.' : 'Créez votre premier produit pour constituer le catalogue.'}
+          message={search ? 'Essayez un autre nom ou code-barres.' : 'Créez votre premier produit pour constituer le catalogue.'}
           action={!search?<AppButton icon="plus" onPress={()=>router.push('/products/new' as never)}>Ajouter un produit</AppButton>:undefined}
         />
       )}

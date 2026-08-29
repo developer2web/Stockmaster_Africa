@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Appbar, Card, Chip, SegmentedButtons, Text, useTheme } from 'react-native-paper';
+import { Appbar, Card, Chip, Dialog, Portal, SegmentedButtons, Text, useTheme } from 'react-native-paper';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -44,10 +44,34 @@ const featureLabels: Record<string, string> = {
 
 export default function SubscriptionScreen() {
   const theme = useTheme();
-  const { membership } = useAuth();
+  const { membership, businesses } = useAuth();
   const { subscription, plans, isLoading, error, refreshSubscription } = useSubscription();
   const [cycle, setCycle] = useState<BillingCycle>('monthly');
+  const [pendingDowngrade, setPendingDowngrade] = useState<{ planId: string; cycle: BillingCycle } | null>(null);
+  const [keepCompanyId, setKeepCompanyId] = useState<string | null>(membership?.companyId ?? null);
   const statusLabels:Record<string,string>={trialing:'Essai gratuit',active:'Actif',past_due:'Période de grâce',expired:'Expiré',canceled:'Annulé',cancelled:'Annulé',pending:'Paiement en attente',suspended:'Suspendu'};
+
+  const choosePlan = (planId: string, targetCycle: BillingCycle) => {
+    const targetPlan = plans.find((item) => item.id === planId);
+    if (!targetPlan || membership?.role !== 'company_admin') return;
+    const currentLimit = subscription?.maxBusinesses ?? targetPlan.maxBusinesses;
+    const requiresCompanyChoice = !!subscription && targetPlan.maxBusinesses < currentLimit && businesses.length > 1;
+    if (requiresCompanyChoice) {
+      setKeepCompanyId(membership.companyId ?? businesses[0]?.companyId ?? null);
+      setPendingDowngrade({ planId, cycle: targetCycle });
+      return;
+    }
+    router.push({ pathname: '/(subscription)/payment' as never, params: { planId, cycle: targetCycle } });
+  };
+
+  const proceedWithDowngrade = () => {
+    if (!pendingDowngrade || !keepCompanyId) return;
+    router.push({
+      pathname: '/(subscription)/payment' as never,
+      params: { planId: pendingDowngrade.planId, cycle: pendingDowngrade.cycle, keepCompanyId },
+    });
+    setPendingDowngrade(null);
+  };
 
   if (isLoading) return <LoadingScreen label="Chargement des forfaits…" />;
   if (error) return <ErrorState message={error.message} onRetry={() => void refreshSubscription()} />;
@@ -123,10 +147,7 @@ export default function SubscriptionScreen() {
                   {membership?.role === 'company_admin' && (
                     <AppButton
                       disabled={active && !subscription?.isReadOnly}
-                      onPress={() => router.push({
-                        pathname: '/(subscription)/payment' as never,
-                        params: { planId: plan.id, cycle },
-                      })}
+                      onPress={() => choosePlan(plan.id, cycle)}
                     >
                       {active ? 'Renouveler' : 'Choisir ce forfait'}
                     </AppButton>
@@ -151,6 +172,33 @@ export default function SubscriptionScreen() {
           </Text>
         )}
       </ScrollView>
+      <Portal>
+        <Dialog visible={!!pendingDowngrade} onDismiss={() => setPendingDowngrade(null)}>
+          <Dialog.Title>Choisir l’entreprise à conserver</Dialog.Title>
+          <Dialog.Content style={styles.dialogContent}>
+            <Text>
+              Ce forfait limite le nombre d’entreprises autorisées. Choisissez celle à conserver pour continuer.
+            </Text>
+            {businesses.map((business) => (
+              <Card
+                key={business.companyId}
+                mode={keepCompanyId === business.companyId ? 'contained' : 'outlined'}
+                onPress={() => setKeepCompanyId(business.companyId)}
+                style={styles.businessCard}
+              >
+                <Card.Content>
+                  <Text style={styles.bold}>{business.companyName}</Text>
+                  <Text>{business.roleName}</Text>
+                </Card.Content>
+              </Card>
+            ))}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <AppButton mode="text" onPress={() => setPendingDowngrade(null)}>Annuler</AppButton>
+            <AppButton disabled={!keepCompanyId} onPress={proceedWithDowngrade}>Continuer</AppButton>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -165,4 +213,6 @@ const styles = StyleSheet.create({
   chip: { marginRight: 12 },
   center: { textAlign: 'center' },
   emptyPlans: { gap: 10, alignItems: 'flex-start' },
+  dialogContent: { gap: 12 },
+  businessCard: { borderRadius: 14 },
 });

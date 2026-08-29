@@ -26,7 +26,7 @@ export default function EmployeeCatalog() {
   const suppliers = useQuery({ queryKey: ['suppliers', company, store], queryFn: () => getSuppliers(company, store), enabled: !!company && !!store && can('suppliers.read') });
   const normalized = search.trim().toLowerCase();
   const visibleProducts = (products.data ?? []).filter((product) =>
-    !normalized || product.name.toLowerCase().includes(normalized) || product.sku.toLowerCase().includes(normalized) || product.barcode?.toLowerCase().includes(normalized),
+    !normalized || product.name.toLowerCase().includes(normalized) || product.barcode?.toLowerCase().includes(normalized),
   );
   const error = products.error ?? categories.error ?? suppliers.error;
 
@@ -51,7 +51,7 @@ export default function EmployeeCatalog() {
           })}
         </View>
         {can('products.read') && (
-          <AppSearchBar placeholder="Rechercher un nom, SKU ou code-barres" value={search} onChangeText={setSearch} />
+          <AppSearchBar placeholder="Rechercher un nom ou code-barres" value={search} onChangeText={setSearch} />
         )}
         {error && <ErrorState message={error.message} onRetry={() => { void products.refetch(); void categories.refetch(); void suppliers.refetch(); }} />}
         {can('products.read') && visibleProducts.length === 0 && !products.isLoading && (
@@ -64,7 +64,7 @@ export default function EmployeeCatalog() {
                 <ProductThumbnail url={product.image_urls?.[0]} size={44} />
                 <View style={styles.productCopy}>
                   <Text variant="titleMedium" numberOfLines={1} style={styles.bold}>{product.name}</Text>
-                  <Text style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>{product.sku}{product.category?.name ? ` · ${product.category.name}` : ''}</Text>
+                  <Text style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>{product.category?.name ?? 'Sans catégorie'}</Text>
                 </View>
                 <Text variant="titleMedium" style={{ color: theme.colors.primary, fontWeight: '800' }}>{formatMoney(Number(product.sale_price))}</Text>
               </Card.Content>

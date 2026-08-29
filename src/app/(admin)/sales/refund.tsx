@@ -13,7 +13,7 @@ import { getSale } from '@/features/sales/api';
 import { getSaleReturns, recordSaleReturn, type ReturnDisposition } from '@/features/sales/returns';
 import { formatQuantity, parseDecimal } from '@/utils/number';
 
-const methods = [{ label: 'Espèces', value: 'cash' }, { label: 'Mobile Money', value: 'mobile_money' }, { label: 'Avoir client', value: 'credit_note' }];
+const methods = [{ label: 'Espèces', value: 'cash' }, { label: 'Mobile Money', value: 'mobile_money' }];
 const dispositions = [{ label: 'Remettre en stock', value: 'restock' }, { label: 'Produit endommagé', value: 'damaged' }, { label: 'Produit perdu', value: 'lost' }];
 
 export default function SaleRefundScreen() {

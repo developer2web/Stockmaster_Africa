@@ -89,7 +89,7 @@ export default function ScannerScreen() {
       />
       <View style={styles.status}><Text style={styles.statusText}>{locked ? 'Scan en pause' : 'Placez le code dans le cadre'}</Text></View>
     </View>}
-    <TextInput mode="outlined" label="Saisir le SKU ou le code" value={manual} onChangeText={setManual} autoCapitalize="characters" maxLength={160} onSubmitEditing={() => void find(manual)} />
+    <TextInput mode="outlined" label="Saisir le code-barres" value={manual} onChangeText={setManual} autoCapitalize="characters" maxLength={160} onSubmitEditing={() => void find(manual)} />
     <AppButton mode="outlined" loading={locked && !missing && !error} disabled={!manual.trim() || locked} onPress={() => void find(manual)}>Rechercher</AppButton>
     {!!error && <><HelperText type="error" visible>{error}</HelperText><AppButton icon="refresh" onPress={reset}>Recommencer</AppButton></>}
     {!!missing && <Card mode="outlined"><Card.Content style={styles.unknown}>

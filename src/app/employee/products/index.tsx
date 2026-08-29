@@ -23,9 +23,9 @@ export default function EmployeeProducts() {
   const query = useQuery({ queryKey: ['employee-products', company, store, debounced], queryFn: () => getProducts(company, store, debounced), enabled: !!company && !!store });
   const products=Array.isArray(query.data)?query.data:[];
   return <PermissionGuard permission="products.read"><AdminPage title="Produits" action={canWrite ? <FAB size="small" icon="plus" onPress={() => router.push('/employee/products/new' as never)} /> : undefined}>
-    <AppSearchBar placeholder="Nom, SKU ou code-barres" value={search} onChangeText={setSearch} loading={search !== debounced} />
+    <AppSearchBar placeholder="Nom ou code-barres" value={search} onChangeText={setSearch} loading={search !== debounced} />
     {!!query.error&&<HelperText type="error" visible>{query.error.message}</HelperText>}
-    {products.map((product) => <Card key={product.id} mode="contained" onPress={canWrite ? () => router.push(`/employee/products/${product.id}` as never) : undefined}><Card.Title left={()=><ProductThumbnail url={product.image_urls?.[0]}/>} title={product.name} subtitle={`${product.sku} • ${product.category?.name ?? 'Sans catégorie'}`} right={() => <Text style={{ marginRight: 16 }}>{formatMoney(Number(product.sale_price))}</Text>} /></Card>)}
+    {products.map((product) => <Card key={product.id} mode="contained" onPress={canWrite ? () => router.push(`/employee/products/${product.id}` as never) : undefined}><Card.Title left={()=><ProductThumbnail url={product.image_urls?.[0]}/>} title={product.name} subtitle={product.category?.name ?? 'Sans catégorie'} right={() => <Text style={{ marginRight: 16 }}>{formatMoney(Number(product.sale_price))}</Text>} /></Card>)}
     {!query.isLoading && !products.length && <EmptyState icon="package-variant" title={search ? 'Aucun résultat' : 'Aucun produit'} message={search ? 'Modifiez votre recherche.' : 'Aucun produit dans le catalogue.'} />}
   </AdminPage></PermissionGuard>;
 }

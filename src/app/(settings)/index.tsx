@@ -51,12 +51,15 @@ export default function SettingsScreen() {
     </>}
 
     <Text variant="titleMedium">Compte et sécurité</Text>
-    <Card mode="outlined" onPress={() => router.push('/(settings)/security' as never)}><Card.Title title="Sécurité et 2FA" subtitle="Double authentification et sessions actives" left={() => <Icon source="shield-key-outline" size={28} />} right={() => <Icon source="chevron-right" size={24} />} /></Card>
+    <Card mode="outlined" onPress={() => router.push('/(settings)/security' as never)}><Card.Title title="Sécurité et 2FA" subtitle="Double authentification, codes QR et sessions actives" left={() => <Icon source="shield-key-outline" size={28} />} right={() => <Icon source="chevron-right" size={24} />} /></Card>
     <Card mode="outlined" onPress={() => router.push('/(settings)/security-history' as never)}><Card.Title title="Journal des connexions" subtitle="Historique récent des accès au compte" left={() => <Icon source="history" size={28} />} right={() => <Icon source="chevron-right" size={24} />} /></Card>
     <Card mode="outlined" onPress={() => router.push('/(settings)/offline' as never)}><Card.Title title="Synchronisation hors ligne" subtitle="Opérations en attente et conflits de stock" left={() => <Icon source="cloud-sync-outline" size={28} />} right={() => <Icon source="chevron-right" size={24} />} /></Card>
     <Card mode="outlined">
-      <Card.Title title="Mot de passe" subtitle="L’ancien mot de passe sera vérifié" left={() => <Icon source="shield-lock-outline" size={28} />} />
-      <Card.Actions><AppButton mode="text" icon="lock-reset" onPress={() => { passwordMutation.reset(); setPasswordValidation(''); setPasswordOpen(true); }}>Modifier en sécurité</AppButton></Card.Actions>
+      <Card.Title title="Mot de passe et sécurité" subtitle="Vérification de l’ancien mot de passe + renforcement de la protection" left={() => <Icon source="shield-lock-outline" size={28} />} />
+      <Card.Actions style={{ gap: 8 }}>
+        <AppButton mode="contained" icon="lock-reset" onPress={() => { passwordMutation.reset(); setPasswordValidation(''); setPasswordOpen(true); }}>Changer le mot de passe</AppButton>
+        <AppButton mode="text" icon="shield-check" onPress={() => router.push('/(settings)/security' as never)}>Gérer la 2FA</AppButton>
+      </Card.Actions>
     </Card>
     {passwordSuccess && <HelperText type="info" visible>Votre mot de passe a été modifié.</HelperText>}
     <Card mode="outlined" onPress={() => router.push('/legal/privacy' as never)}><Card.Title title="Politique de confidentialité" subtitle="Utilisation et protection de vos données" left={() => <Icon source="shield-account-outline" size={28} />} right={() => <Icon source="chevron-right" size={24} />} /></Card>

@@ -2,6 +2,37 @@ import { createClient } from '@supabase/supabase-js';
 
 const url = import.meta.env.VITE_SUPABASE_URL || import.meta.env.EXPO_PUBLIC_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const projectRef = (() => {
+  try { return url ? new URL(url).hostname.split('.')[0] : 'missing'; }
+  catch { return 'missing'; }
+})();
+const authStorageKey = `sb-${projectRef}-auth-token`;
+
+const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const isJwtIssuedInFuture = (error: unknown) =>
+  /jwt issued at future|issued in the future/i.test(
+    typeof error === 'object' && error !== null && 'message' in error
+      ? String(error.message)
+      : String(error ?? ''),
+  );
+
+async function retryJwtClockSkew<T extends { error: unknown }>(
+  operation: () => PromiseLike<T>,
+  attempts = 5,
+): Promise<T> {
+  let result = await operation();
+  for (let attempt = 1; result.error && isJwtIssuedInFuture(result.error) && attempt < attempts; attempt += 1) {
+    await wait(Math.min(8_000, 1_000 * 2 ** (attempt - 1)));
+    result = await operation();
+  }
+  return result;
+}
+
+export function clearCachedWebSession() {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(authStorageKey);
+  window.localStorage.removeItem(`${authStorageKey}-code-verifier`);
+}
 
 export const configured = Boolean(url && anonKey);
 export const supabase = createClient(
@@ -31,18 +62,22 @@ export type BusinessAccess = {
 };
 
 export async function signIn(email: string, password: string) {
-  const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+  clearCachedWebSession();
+  const { error } = await retryJwtClockSkew(() => supabase.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  }));
   if (error) throw error;
 }
 
 export async function getContext(): Promise<UserContext | null> {
-  const { data, error } = await supabase.rpc('get_my_context');
+  const { data, error } = await retryJwtClockSkew(() => supabase.rpc('get_my_context'));
   if (error) throw error;
   return (Array.isArray(data) ? data[0] : data) as UserContext | null;
 }
 
 export async function getAccessibleBusinesses(): Promise<BusinessAccess[]> {
-  const { data, error } = await supabase.rpc('get_accessible_businesses');
+  const { data, error } = await retryJwtClockSkew(() => supabase.rpc('get_accessible_businesses'));
   if (error) throw error;
   return (Array.isArray(data) ? data : []) as BusinessAccess[];
 }

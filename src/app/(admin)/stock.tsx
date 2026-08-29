@@ -31,7 +31,7 @@ export default function StockScreen() {
   const needle = search.trim().toLowerCase();
   const visible = rows.filter((row) => !needle
     || row.product?.name.toLowerCase().includes(needle)
-    || row.product?.sku.toLowerCase().includes(needle)
+
     || row.store?.name.toLowerCase().includes(needle));
 
   return (
@@ -52,7 +52,7 @@ export default function StockScreen() {
       </View>
 
       <View style={styles.tools}>
-        <AppSearchBar style={[styles.search, compact && styles.compactSearch]} placeholder="Produit, SKU ou boutique" value={search} onChangeText={setSearch} />
+        <AppSearchBar style={[styles.search, compact && styles.compactSearch]} placeholder="Produit ou boutique" value={search} onChangeText={setSearch} />
         <AppButton style={compact ? styles.fullWidth : undefined} mode="outlined" icon="shape-outline" onPress={() => router.push('/categories' as never)}>
           Catégories
         </AppButton>
@@ -75,7 +75,7 @@ export default function StockScreen() {
           <Card.Content style={[styles.tableRow, compact && styles.compactTableRow]}>
             <View style={[styles.productColumn, compact && styles.compactProductColumn]}>
               <Text variant="titleSmall" style={styles.bold} numberOfLines={2}>{level.product?.name ?? 'Produit'}</Text>
-              <Text style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>{level.variant?.sku ?? level.product?.sku}</Text>
+              <Text style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>{level.variant?.name ?? level.product?.name}</Text>
             </View>
             <Text style={[styles.storeColumn, compact && styles.compactValue]} numberOfLines={2}>{compact ? `Boutique : ${level.store?.name ?? 'Boutique'}` : level.store?.name ?? 'Boutique'}</Text>
             <Text style={[styles.numberColumn, compact && styles.compactValue, styles.bold, { color: Number(level.quantity) <= 0 ? theme.colors.error : theme.colors.primary }]}>{compact ? `Quantité : ${Number(level.quantity).toLocaleString('fr-FR')}` : Number(level.quantity).toLocaleString('fr-FR')}</Text>

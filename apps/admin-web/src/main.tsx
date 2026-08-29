@@ -6,12 +6,13 @@ import './stability.css';
 import './actions-fix.css';
 import './premium-admin.css';
 import '../../shared/ux.css';
+import './super-admin-layout.css';
 
 type View = 'Vue générale' | 'Entreprises' | 'Utilisateurs' | 'Abonnements' | 'Paiements' | 'Promotions' | 'Support' | 'Activité' | 'Paramètres';
 type Stats = { companies: number; active_companies: number; stores: number; users: number; sales: number; subscriptions: Record<string, number>; revenue_by_currency: { currency_code: string; revenue: number }[]; monthly_sales: { month: string; currency_code: string; revenue: number; sales: number }[] };
 type Company = { id: string; name: string; slug: string | null; is_active: boolean; store_count: number; user_count: number; sale_count: number; revenue: number; currency_code: string; subscription_status: string | null; plan_code: string | null; subscription_starts_at: string | null; subscription_expires_at: string | null; trial_ends_at: string | null };
 type User = { membership_id: string; email: string; full_name: string; company_name: string; store_name: string | null; role_name: string; is_active: boolean; created_at: string };
-type Payment = { id: string; company_name: string; client_email: string; plan_name: string; amount: number; currency: string; provider: string; provider_reference: string | null; proof_path: string | null; status: string; created_at: string; failure_reason: string | null };
+type Payment = { id: string; company_name: string; client_email: string; plan_name: string; amount: number; currency: string; provider: string; provider_reference: string | null; proof_path: string | null; status: string; created_at: string; failure_reason: string | null; archived_at: string | null; archive_reason: string | null };
 type Promotion = { id: string; name: string; code: string | null; promotion_type: string; value: number; expires_at: string; is_active: boolean };
 type Ticket = { id: string; subject: string; description: string; priority: string; status: string; resolution: string | null; created_at: string; company: { name: string } | null };
 type Audit = { id: string; action: string; entity_type: string; created_at: string; company: { name: string } | null; actor: { full_name: string } | null };
@@ -21,9 +22,25 @@ type Run = (action: () => PromiseLike<{ error: unknown }>, message: string) => P
 
 const views: View[] = ['Vue générale', 'Entreprises', 'Utilisateurs', 'Abonnements', 'Paiements', 'Promotions', 'Support', 'Activité', 'Paramètres'];
 const icons = ['⌂', '▦', '♧', '▤', '▣', '◇', '◉', '◷', '⚙'];
-const money = (value: number, currency = 'GNF') => new Intl.NumberFormat('fr-FR', { style: 'currency', currency, currencyDisplay: 'code', maximumFractionDigits: 0 }).format(Number(value));
+const normalizeCurrency = (currency?: string | null) => (currency || 'GNF').toUpperCase() === 'FG' ? 'GNF' : (currency || 'GNF').toUpperCase();
+const currencyLabel = (currency: string) => ({ GNF: 'FG — Franc guinéen', USD: 'USD — Dollar américain', EUR: 'EUR — Euro', CAD: 'CAD — Dollar canadien', XOF: 'XOF — Franc CFA' } as Record<string, string>)[normalizeCurrency(currency)] ?? normalizeCurrency(currency);
+const money = (value: number, currency = 'GNF') => {
+  const code = normalizeCurrency(currency);
+  const amount = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(value));
+  if (code === 'GNF') return `${amount} FG`;
+  try { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: code, currencyDisplay: 'code', maximumFractionDigits: 0 }).format(Number(value)); }
+  catch { return `${amount} ${code}`; }
+};
 const day = (value: string) => new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date(value));
 const errorMessage = (value: unknown) => {const raw=value instanceof Error?value.message:typeof value==='object'&&value!==null&&'message'in value?String(value.message):'';if(/failed to fetch|network/i.test(raw))return 'Connexion au serveur impossible. Vérifiez Internet puis réessayez.';if(/permission|row-level security|forbidden/i.test(raw))return 'Vous n’avez pas l’autorisation d’effectuer cette action.';if(/duplicate|unique|already exists/i.test(raw))return 'Cette information existe déjà.';return raw||'Opération impossible.'};
+
+async function loadBillingPayments() {
+  const current = await supabase.rpc('super_admin_billing_payments_v2');
+  if (!current.error) return current;
+  if (!/super_admin_billing_payments_v2|schema cache|could not find/i.test(current.error.message)) return current;
+  const legacy = await supabase.rpc('super_admin_billing_payments');
+  return legacy.error ? legacy : { ...legacy, data: (legacy.data ?? []).map((payment: Record<string, unknown>) => ({ ...payment, archived_at: null, archive_reason: null })) };
+}
 
 async function toggleCompanyAccess(company: Company, run: Run) {
   let reason: string | null = null;
@@ -56,7 +73,7 @@ function App() {
         supabase.rpc('super_admin_dashboard'),
         supabase.rpc('super_admin_companies'),
         supabase.rpc('super_admin_users'),
-        supabase.rpc('super_admin_billing_payments'),
+        loadBillingPayments(),
         supabase.from('promotions').select('id,name,code,promotion_type,value,expires_at,is_active').order('created_at', { ascending: false }),
         supabase.from('support_tickets').select('id,subject,description,priority,status,resolution,created_at,company:companies(name)').order('created_at', { ascending: false }),
         supabase.from('audit_logs').select('id,action,entity_type,created_at,company:companies(name),actor:profiles!audit_logs_actor_id_fkey(full_name)').order('created_at', { ascending: false }).limit(150),
@@ -102,7 +119,7 @@ function App() {
   async function proof(payment: Payment) { if (!payment.proof_path) { setError('Aucun justificatif joint à ce paiement.'); return; } const popup = window.open('about:blank', '_blank'); const result = await supabase.storage.from('payment-proofs').createSignedUrl(payment.proof_path, 300); if (result.error) { popup?.close(); setError(result.error.message); return; } if (popup) popup.location.href = result.data.signedUrl; else window.location.assign(result.data.signedUrl); }
   async function logout() { await supabase.auth.signOut(); setContext(null); }
   function changeView(next: View) { setView(next); setSearch(''); setStatus('all'); setError(''); setNotice(''); }
-  const term = search.toLowerCase().trim(); const shownCompanies = companies.filter(company => (!term || company.name.toLowerCase().includes(term)) && (status === 'all' || (status === 'active') === company.is_active)); const shownUsers = users.filter(user => !term || `${user.full_name} ${user.email} ${user.company_name}`.toLowerCase().includes(term)); const shownPayments = payments.filter(payment => (!term || `${payment.company_name} ${payment.provider_reference ?? ''}`.toLowerCase().includes(term)) && (status === 'all' || payment.status === status));
+  const term = search.toLowerCase().trim(); const shownCompanies = companies.filter(company => (!term || company.name.toLowerCase().includes(term)) && (status === 'all' || (status === 'active') === company.is_active)); const shownUsers = users.filter(user => !term || `${user.full_name} ${user.email} ${user.company_name}`.toLowerCase().includes(term)); const shownPayments = payments.filter(payment => (!term || `${payment.company_name} ${payment.provider_reference ?? ''}`.toLowerCase().includes(term)) && (status === 'all' || (status === 'processing' ? payment.status === 'processing' || payment.status === 'pending' : payment.status === status)));
   if (opening) return <div className="loading">Ouverture de StockMaster…</div>; if (!context) return <Login ready={setContext}/>;
   return <div className="adminApp"><aside className="side"><div className="sideBrand"><img src="/stockmaster-icon.png" alt=""/><div><b>StockMaster</b><small>ADMIN</small></div></div><nav>{views.map((item, index) => <button className={view === item ? 'active' : ''} key={item} onClick={() => changeView(item)}><i>{icons[index]}</i>{item}</button>)}</nav><div className="accountBlock"><button className="profile" onClick={() => changeView('Paramètres')}><span>SA</span><div><b>Super Admin</b><small>Gérer mon espace</small></div><em>›</em></button><button className="logoutButton" onClick={() => void logout()}>Déconnexion</button></div></aside><main className="content"><header className="mobileHead"><b>StockMaster Admin</b><select value={view} onChange={event => changeView(event.target.value as View)}>{views.map(item => <option key={item}>{item}</option>)}</select></header>{busy && <div className="alert">Traitement en cours…</div>}{error && <div className="alert danger">{error}</div>}{notice && <div className="alert success">{notice}</div>}{view === 'Vue générale' && <Dashboard stats={stats} payments={payments} companies={companies} audit={audit} go={changeView}/>} {view === 'Entreprises' && <Companies data={shownCompanies} search={search} setSearch={setSearch} status={status} setStatus={setStatus} open={setSelected} run={run}/>} {view === 'Utilisateurs' && <Users data={shownUsers} search={search} setSearch={setSearch} run={run}/>} {view === 'Abonnements' && <Subscriptions companies={companies} stats={stats} run={run}/>} {view === 'Paiements' && <Payments data={shownPayments} search={search} setSearch={setSearch} status={status} setStatus={setStatus} run={run} proof={proof}/>} {view === 'Promotions' && <Promotions data={promotions} run={run}/>} {view === 'Support' && <Support data={tickets} run={run}/>} {view === 'Activité' && <Activity data={audit}/>} {view === 'Paramètres' && <SettingsPage value={settings} setValue={setSettings} run={run}/>}</main>{selected && <CompanyDetails company={selected} close={() => setSelected(null)} run={run}/>}</div>;
 }
@@ -115,10 +132,10 @@ function ValidatedRevenue({ payments }: { payments: Payment[] }) { const [period
 function Toolbar({ search, setSearch, children }: { search: string; setSearch: (value: string) => void; children?: React.ReactNode }) { return <div className="toolbar"><div className="searchBox"><span>⌕</span><input aria-label="Rechercher" placeholder="Rechercher dans la liste…" value={search} onChange={event => setSearch(event.target.value)}/>{search && <button onClick={() => setSearch('')} aria-label="Effacer la recherche">×</button>}</div>{children}</div>; }
 function exportDashboard(stats: Stats | null) { openPdfReport('Rapport général de la plateforme', 'Vue globale StockMaster', `Entreprises actives : ${stats?.active_companies ?? 0}\nVentes enregistrées : ${stats?.sales ?? 0}`, ['Indicateur', 'Valeur'], [['Entreprises', stats?.companies ?? 0], ['Entreprises actives', stats?.active_companies ?? 0], ['Magasins', stats?.stores ?? 0], ['Utilisateurs', stats?.users ?? 0], ['Ventes', stats?.sales ?? 0]]); }
 
-function Dashboard({ stats, payments, companies, audit, go }: { stats: Stats | null; payments: Payment[]; companies: Company[]; audit: Audit[]; go: (view: View) => void }) { const pending = payments.filter(payment => payment.status === 'processing'); const revenue = stats?.revenue_by_currency?.[0]; const months = stats?.monthly_sales ?? []; const max = Math.max(1, ...months.map(month => Number(month.revenue))); const today = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()); return <><section className="dashboardHero"><div className="heroCopy"><span className="heroBadge"><i/> PLATEFORME OPÉRATIONNELLE</span><p className="heroDate">{today}</p><h1>Pilotez StockMaster<br/><em>avec une vue claire.</em></h1><p>Surveillez les entreprises, les revenus et les opérations importantes depuis un espace sécurisé.</p><div className="heroActions"><button className="heroPrimary" onClick={() => go('Entreprises')}>Gérer les entreprises <span>→</span></button><button className="heroSecondary" onClick={() => exportDashboard(stats)}>Exporter le rapport</button></div></div><div className="heroVisual"><div className="heroRing"><div><span>Disponibilité</span><strong>99.9%</strong><small>Services actifs</small></div></div><div className="floatingStat first"><span>Ventes enregistrées</span><b>{stats?.sales ?? 0}</b></div><div className="floatingStat second"><span>Boutiques connectées</span><b>{stats?.stores ?? 0}</b></div></div></section><ValidatedRevenue payments={payments}/><div className="commandRail"><button onClick={() => go('Paiements')}><i className="orange">{pending.length}</i><span><b>Paiements à vérifier</b><small>Traiter les opérations manuelles</small></span><em>→</em></button><button onClick={() => go('Promotions')}><i className="violet">%</i><span><b>Campagnes promotionnelles</b><small>Créer et gérer les offres</small></span><em>→</em></button><button onClick={() => go('Activité')}><i className="blue">◷</i><span><b>Journal d’activité</b><small>Consulter les événements récents</small></span><em>→</em></button></div><div className="sectionHeading"><div><span>PERFORMANCE</span><h2>Les chiffres essentiels</h2></div><button className="refreshBtn" onClick={() => window.dispatchEvent(new Event('stockmaster:refresh'))}>↻ Actualiser</button></div><div className="kpis"><Kpi label="Entreprises actives" value={stats?.active_companies ?? '—'} note={`${stats?.companies ?? 0} entreprises au total`}/><Kpi label="Revenus mensuels" value={revenue ? money(revenue.revenue, revenue.currency_code) : '—'} note="Chiffre d’affaires consolidé"/><Kpi label="Abonnements actifs" value={stats?.subscriptions?.active ?? 0} note="Clients actuellement abonnés"/><Kpi label="Paiements à vérifier" value={pending.length} note="Opérations nécessitant une action" warning/></div><div className="twoCols dashboardAnalytics"><section className="panel chart"><div className="panelHead"><div><span>ANALYTIQUE</span><h2>Évolution des revenus</h2></div><strong>{revenue ? money(revenue.revenue, revenue.currency_code) : '—'}</strong></div><div className="bars">{months.slice(-10).map(month => <i key={`${month.month}${month.currency_code}`} style={{ height: `${Math.max(12, Number(month.revenue) / max * 100)}%` }}><b>{Number(month.revenue) > 0 ? money(Number(month.revenue), month.currency_code) : ''}</b><span>{month.month.slice(5)}</span></i>)}</div></section><section className="panel pendingPanel"><div className="panelHead"><div><span>ACTION REQUISE</span><h2>Paiements à vérifier</h2></div><button className="textButton" onClick={() => go('Paiements')}>Tout voir</button></div>{pending.slice(0, 4).map(payment => <div className="quick" key={payment.id}><span className="round">{payment.provider === 'stripe' ? 'CB' : 'OM'}</span><div><b>{payment.company_name}</b><small>{payment.provider_reference}</small></div><strong>{money(payment.amount, payment.currency)}</strong><button onClick={() => go('Paiements')}>Traiter</button></div>)}{!pending.length && <div className="successEmpty"><i>✓</i><b>Tout est à jour</b><span>Aucun paiement en attente.</span></div>}</section></div><div className="threeCols insightGrid"><section className="panel"><div className="panelHead"><div><span>CROISSANCE</span><h2>Nouvelles entreprises</h2></div><button className="textButton" onClick={() => go('Entreprises')}>Voir</button></div>{companies.slice(0, 3).map(company => <div className="quick" key={company.id}><span className="round">{company.name.slice(0, 1).toUpperCase()}</span><div><b>{company.name}</b><small>{company.user_count} utilisateur(s) · {company.store_count} boutique(s)</small></div></div>)}</section><section className="panel subscriptionPanel"><div className="panelHead"><div><span>ABONNEMENTS</span><h2>Répartition actuelle</h2></div></div><div className="donut"/><div className="legend">{Object.entries(stats?.subscriptions ?? {}).map(([key, value]) => <span key={key}><i/> {key} <b>{value}</b></span>)}</div></section><section className="panel"><div className="panelHead"><div><span>SURVEILLANCE</span><h2>Activité récente</h2></div><button className="textButton" onClick={() => go('Activité')}>Journal</button></div>{audit.slice(0, 4).map(item => <div className="activityMini" key={item.id}><i/><p><b>{item.action.replaceAll('_', ' ')}</b><small>{item.company?.name ?? 'Plateforme'} · {day(item.created_at)}</small></p></div>)}</section></div></>; }
+function Dashboard({ stats, payments, companies, audit, go }: { stats: Stats | null; payments: Payment[]; companies: Company[]; audit: Audit[]; go: (view: View) => void }) { const pending = payments.filter(payment => payment.status === 'processing'); const revenue = stats?.revenue_by_currency?.[0]; const months = stats?.monthly_sales ?? []; const max = Math.max(1, ...months.map(month => Number(month.revenue))); const activeRate = stats?.companies ? Math.round((Number(stats.active_companies ?? 0) / Number(stats.companies)) * 100) : 0; const today = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()); return <><section className="dashboardHero"><div className="heroCopy"><span className="heroBadge"><i/> CENTRE DE CONTRÔLE</span><p className="heroDate">{today}</p><h1>Pilotez StockMaster<br/><em>avec une vue claire.</em></h1><p>Surveillez les entreprises, les revenus et les opérations importantes depuis un espace sécurisé.</p><div className="heroActions"><button className="heroPrimary" onClick={() => go('Entreprises')}>Gérer les entreprises <span>→</span></button><button className="heroSecondary" onClick={() => exportDashboard(stats)}>Exporter le rapport</button></div></div><div className="heroVisual"><div className="heroRing" style={{ background: `conic-gradient(#77e0be 0 ${activeRate}%,rgba(255,255,255,.13) ${activeRate}% 100%)` }}><div><span>Entreprises actives</span><strong>{activeRate}%</strong><small>{stats?.active_companies ?? 0} sur {stats?.companies ?? 0}</small></div></div><div className="floatingStat first"><span>Ventes enregistrées</span><b>{stats?.sales ?? 0}</b></div><div className="floatingStat second"><span>Boutiques enregistrées</span><b>{stats?.stores ?? 0}</b></div></div></section><ValidatedRevenue payments={payments}/><div className="commandRail"><button onClick={() => go('Paiements')}><i className="orange">{pending.length}</i><span><b>Paiements à vérifier</b><small>Traiter les opérations manuelles</small></span><em>→</em></button><button onClick={() => go('Promotions')}><i className="violet">%</i><span><b>Campagnes promotionnelles</b><small>Créer et gérer les offres</small></span><em>→</em></button><button onClick={() => go('Activité')}><i className="blue">◷</i><span><b>Journal d’activité</b><small>Consulter les événements récents</small></span><em>→</em></button></div><div className="sectionHeading"><div><span>PERFORMANCE</span><h2>Les chiffres essentiels</h2></div><button className="refreshBtn" onClick={() => window.dispatchEvent(new Event('stockmaster:refresh'))}>↻ Actualiser</button></div><div className="kpis"><Kpi label="Entreprises actives" value={stats?.active_companies ?? '—'} note={`${stats?.companies ?? 0} entreprises au total`}/><Kpi label="Revenus mensuels" value={revenue ? money(revenue.revenue, revenue.currency_code) : '—'} note="Chiffre d’affaires consolidé"/><Kpi label="Abonnements actifs" value={stats?.subscriptions?.active ?? 0} note="Clients actuellement abonnés"/><Kpi label="Paiements à vérifier" value={pending.length} note="Opérations nécessitant une action" warning/></div><div className="twoCols dashboardAnalytics"><section className="panel chart"><div className="panelHead"><div><span>ANALYTIQUE</span><h2>Évolution des revenus</h2></div><strong>{revenue ? money(revenue.revenue, revenue.currency_code) : '—'}</strong></div><div className="bars">{months.slice(-10).map(month => <i key={`${month.month}${month.currency_code}`} style={{ height: `${Math.max(12, Number(month.revenue) / max * 100)}%` }}><b>{Number(month.revenue) > 0 ? money(Number(month.revenue), month.currency_code) : ''}</b><span>{month.month.slice(5)}</span></i>)}</div></section><section className="panel pendingPanel"><div className="panelHead"><div><span>ACTION REQUISE</span><h2>Paiements à vérifier</h2></div><button className="textButton" onClick={() => go('Paiements')}>Tout voir</button></div>{pending.slice(0, 4).map(payment => <div className="quick" key={payment.id}><span className="round">{payment.provider === 'stripe' ? 'CB' : 'OM'}</span><div><b>{payment.company_name}</b><small>{payment.provider_reference}</small></div><strong>{money(payment.amount, payment.currency)}</strong><button onClick={() => go('Paiements')}>Traiter</button></div>)}{!pending.length && <div className="successEmpty"><i>✓</i><b>Tout est à jour</b><span>Aucun paiement en attente.</span></div>}</section></div><div className="threeCols insightGrid"><section className="panel"><div className="panelHead"><div><span>CROISSANCE</span><h2>Nouvelles entreprises</h2></div><button className="textButton" onClick={() => go('Entreprises')}>Voir</button></div>{companies.slice(0, 3).map(company => <div className="quick" key={company.id}><span className="round">{company.name.slice(0, 1).toUpperCase()}</span><div><b>{company.name}</b><small>{company.user_count} utilisateur(s) · {company.store_count} boutique(s)</small></div></div>)}</section><section className="panel subscriptionPanel"><div className="panelHead"><div><span>ABONNEMENTS</span><h2>Répartition actuelle</h2></div></div><div className="donut"/><div className="legend">{Object.entries(stats?.subscriptions ?? {}).map(([key, value]) => <span key={key}><i/> {key} <b>{value}</b></span>)}</div></section><section className="panel"><div className="panelHead"><div><span>SURVEILLANCE</span><h2>Activité récente</h2></div><button className="textButton" onClick={() => go('Activité')}>Journal</button></div>{audit.slice(0, 4).map(item => <div className="activityMini" key={item.id}><i/><p><b>{item.action.replaceAll('_', ' ')}</b><small>{item.company?.name ?? 'Plateforme'} · {day(item.created_at)}</small></p></div>)}</section></div></>; }
 
 function Companies({ data, search, setSearch, status, setStatus, open, run }: { data: Company[]; search: string; setSearch: (value: string) => void; status: string; setStatus: (value: string) => void; open: (company: Company) => void; run: Run }) { const active = data.filter(company => company.is_active).length; const stores = data.reduce((sum, company) => sum + company.store_count, 0); return <><Title>Entreprises</Title><div className="pageSummary"><article><i>▦</i><div><span>Entreprises affichées</span><b>{data.length}</b></div></article><article><i>✓</i><div><span>Comptes actifs</span><b>{active}</b></div></article><article><i>⌂</i><div><span>Boutiques rattachées</span><b>{stores}</b></div></article></div><Toolbar search={search} setSearch={setSearch}><select value={status} onChange={event => setStatus(event.target.value)}><option value="all">Tous les statuts</option><option value="active">Actives</option><option value="inactive">Suspendues</option></select></Toolbar><Table heads={['Entreprise', 'Plan', 'Utilisateurs', 'Boutiques', 'Statut', 'Actions']}>{data.map(company => <tr key={company.id}><td><div className="entityCell"><span>{company.name.slice(0, 1).toUpperCase()}</span><div><b>{company.name}</b><small>{company.slug ?? 'Identifiant interne'}</small></div></div></td><td><span className="planTag">{company.plan_code === 'premium' ? 'Business' : company.plan_code ?? 'Sans forfait'}</span></td><td>{company.user_count}</td><td>{company.store_count}</td><td><Badge ok={company.is_active}>{company.is_active ? 'Actif' : 'Suspendu'}</Badge></td><td><ActionMenu><button className="detailsBtn" onClick={() => open(company)}>Ouvrir la fiche</button><button className={company.is_active ? 'dangerBtn' : 'successBtn'} onClick={() => void toggleCompanyAccess(company, run)}>{company.is_active ? 'Suspendre' : 'Réactiver'}</button></ActionMenu></td></tr>)}</Table></>; }
-function Users({ data, search, setSearch, run }: { data: User[]; search: string; setSearch: (value: string) => void; run: Run }) { const [role, setRole] = useState('all'); const [userStatus, setUserStatus] = useState('all'); const roles = [...new Set(data.map(user => user.role_name))].sort(); const filtered = data.filter(user => (role === 'all' || user.role_name === role) && (userStatus === 'all' || (userStatus === 'active') === user.is_active)); return <><Title>Utilisateurs</Title><Toolbar search={search} setSearch={setSearch}><select value={role} onChange={event => setRole(event.target.value)}><option value="all">Tous les rôles</option>{roles.map(item => <option value={item} key={item}>{item}</option>)}</select><select value={userStatus} onChange={event => setUserStatus(event.target.value)}><option value="all">Tous les statuts</option><option value="active">Actifs</option><option value="inactive">Inactifs</option></select>{(search || role !== 'all' || userStatus !== 'all') && <button className="resetFilters" onClick={() => { setSearch(''); setRole('all'); setUserStatus('all'); }}>Réinitialiser</button>}</Toolbar><Table heads={['Utilisateur', 'Entreprise', 'Rôle', 'Statut', 'Inscription', 'Action']}>{filtered.map(user => <tr key={user.membership_id}><td><div className="entityCell"><span>{(user.full_name || user.email).slice(0, 1).toUpperCase()}</span><div><b>{user.full_name || user.email}</b><small>{user.email}</small></div></div></td><td>{user.company_name}</td><td><span className="planTag">{user.role_name}</span></td><td><Badge ok={user.is_active}>{user.is_active ? 'Actif' : 'Inactif'}</Badge></td><td>{day(user.created_at)}</td><td><button className={user.is_active ? 'dangerBtn' : 'successBtn'} onClick={() => confirm(`${user.is_active ? 'Désactiver' : 'Réactiver'} cet accès ?`) && void run(() => supabase.rpc('set_membership_active', { p_membership_id: user.membership_id, p_active: !user.is_active }), 'Accès mis à jour.')}>{user.is_active ? 'Désactiver' : 'Réactiver'}</button></td></tr>)}</Table></>; }
+function Users({ data, search, setSearch, run }: { data: User[]; search: string; setSearch: (value: string) => void; run: Run }) { const [role, setRole] = useState('all'); const [userStatus, setUserStatus] = useState('all'); const roles = [...new Set(data.map(user => user.role_name))].sort(); const filtered = data.filter(user => (role === 'all' || user.role_name === role) && (userStatus === 'all' || (userStatus === 'active') === user.is_active)); return <><Title>Utilisateurs</Title><Toolbar search={search} setSearch={setSearch}><select value={role} onChange={event => setRole(event.target.value)}><option value="all">Tous les rôles</option>{roles.map(item => <option value={item} key={item}>{item}</option>)}</select><select value={userStatus} onChange={event => setUserStatus(event.target.value)}><option value="all">Tous les statuts</option><option value="active">Actifs</option><option value="inactive">Inactifs</option></select>{(search || role !== 'all' || userStatus !== 'all') && <button className="resetFilters" onClick={() => { setSearch(''); setRole('all'); setUserStatus('all'); }}>Réinitialiser</button>}</Toolbar><Table heads={['Utilisateur', 'Entreprise', 'Rôle', 'Statut', 'Inscription', 'Actions']}>{filtered.map(user => <tr key={user.membership_id}><td><div className="entityCell"><span>{(user.full_name || user.email).slice(0, 1).toUpperCase()}</span><div><b>{user.full_name || user.email}</b><small>{user.email}</small></div></div></td><td>{user.company_name}</td><td><span className="planTag">{user.role_name}</span></td><td><Badge ok={user.is_active}>{user.is_active ? 'Actif' : 'Inactif'}</Badge></td><td>{day(user.created_at)}</td><td><ActionMenu><button className={user.is_active ? 'dangerBtn' : 'successBtn'} onClick={() => confirm(`${user.is_active ? 'Désactiver' : 'Réactiver'} cet accès ?`) && void run(() => supabase.rpc('set_membership_active', { p_membership_id: user.membership_id, p_active: !user.is_active }), 'Accès mis à jour.')}>{user.is_active ? 'Désactiver' : 'Réactiver'}</button></ActionMenu></td></tr>)}</Table></>; }
 const remainingDays = (value: string | null) => value ? Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 86400000)) : 0;
 function TrialCard({ company, changePlan }: { company: Company; changePlan: (company: Company, code: string) => void }) { const end = company.trial_ends_at ?? company.subscription_expires_at; const remaining = remainingDays(end); const startTime = company.subscription_starts_at ? new Date(company.subscription_starts_at).getTime() : Date.now(); const endTime = end ? new Date(end).getTime() : startTime; const total = Math.max(1, Math.ceil((endTime - startTime) / 86400000)); const progress = Math.max(0, Math.min(100, remaining / total * 100)); return <article className="trialCard"><header><div className="entityCell"><span>{company.name.slice(0, 1).toUpperCase()}</span><div><b>{company.name}</b><small>{company.plan_code === 'premium' ? 'Business' : company.plan_code ?? 'Essai StockMaster'}</small></div></div><Badge ok={remaining > 0}>{remaining > 0 ? 'En essai' : 'Expiré'}</Badge></header><div className="trialDays"><strong>{remaining}</strong><span>jour{remaining > 1 ? 's' : ''}<br/>restant{remaining > 1 ? 's' : ''}</span></div><div className="trialProgress"><i style={{ width: `${progress}%` }}/></div><dl><div><dt>Début</dt><dd>{company.subscription_starts_at ? day(company.subscription_starts_at) : '—'}</dd></div><div><dt>Fin de l’essai</dt><dd>{end ? day(end) : '—'}</dd></div><div><dt>Boutiques</dt><dd>{company.store_count}</dd></div><div><dt>Utilisateurs</dt><dd>{company.user_count}</dd></div></dl><select className="actionSelect" defaultValue="" onChange={event => { changePlan(company, event.target.value); event.currentTarget.value = ''; }}><option value="" disabled>Convertir vers un forfait</option><option value="basic">Activer Basic · 30 jours</option><option value="pro">Activer Pro · 30 jours</option><option value="premium">Activer Business · 30 jours</option></select></article>; }
 function TrialControls({ companies, run }: { companies: Company[]; run: Run }) { const [companyId, setCompanyId] = useState(''); const [days, setDays] = useState(14); const [planCode, setPlanCode] = useState<'basic'|'pro'|'premium'>('basic'); const [defaultDays, setDefaultDays] = useState(14); const [trialEnabled, setTrialEnabled] = useState(true); useEffect(() => { supabase.from('billing_settings').select('trial_days,trial_enabled').eq('id', true).single().then(({ data }) => { if (data) { setDefaultDays(data.trial_days); setTrialEnabled(data.trial_enabled); } }); }, []); function grant() { if (!companyId) return; const company = companies.find(item => item.id === companyId); const planLabel=planCode==='premium'?'Business':planCode==='pro'?'Pro':'Basic'; if (company && confirm(`Attribuer ${days} jours d’essai ${planLabel} à ${company.name} ?`)) void run(() => supabase.rpc('super_admin_grant_trial', { p_company_id: companyId, p_days: days, p_plan_code: planCode }), 'Essai gratuit attribué.'); } function saveDefaults() { void run(() => supabase.from('billing_settings').update({ trial_days: defaultDays, trial_enabled: trialEnabled }).eq('id', true), 'Règles des nouveaux clients enregistrées.'); } return <section className="trialControls"><article><header><i>+</i><div><b>Attribuer un essai</b><span>Choisissez une entreprise, un forfait et une durée.</span></div></header><label>Entreprise<select value={companyId} onChange={event => setCompanyId(event.target.value)}><option value="">Sélectionner une entreprise</option>{companies.map(company => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label><label>Forfait d’essai<select value={planCode} onChange={event => setPlanCode(event.target.value as 'basic'|'pro'|'premium')}><option value="basic">Basic</option><option value="pro">Pro</option><option value="premium">Business</option></select></label><label>Durée en jours<input type="number" min="1" max="90" value={days} onChange={event => setDays(Number(event.target.value))}/></label><button className="primary" disabled={!companyId || days < 1 || days > 90} onClick={grant}>Attribuer l’essai</button></article><article><header><i>◷</i><div><b>Nouveaux clients</b><span>Le forfait choisi à l’inscription est activé pendant l’essai.</span></div></header><label className="compactSwitch">Essai automatique<input type="checkbox" checked={trialEnabled} onChange={event => setTrialEnabled(event.target.checked)}/></label><label>Durée par défaut<input type="number" min="1" max="90" value={defaultDays} onChange={event => setDefaultDays(Number(event.target.value))}/></label><button className="detailsBtn" onClick={saveDefaults}>Enregistrer la règle</button></article><article className="offerControl"><header><i>%</i><div><b>Offre commerciale</b><span>Transformez l’avantage en jours gratuits, montant ou pourcentage.</span></div></header><div className="offerTypes"><span>Jours gratuits</span><span>Montant fixe</span><span>Pourcentage</span></div><button className="detailsBtn" onClick={() => window.dispatchEvent(new Event('stockmaster:open-promotions'))}>Créer une promotion</button></article></section>; }
@@ -138,19 +155,361 @@ function Subscriptions({ companies, stats, run }: { companies: Company[]; stats:
   </>;
 }
 
-function Payments({ data, search, setSearch, status, setStatus, run, proof }: { data: Payment[]; search: string; setSearch: (value: string) => void; status: string; setStatus: (value: string) => void; run: Run; proof: (payment: Payment) => Promise<void> }) { const [method, setMethod] = useState<'all' | 'orange_money_manual' | 'stripe'>('all'); const filtered = data.filter(payment => method === 'all' || payment.provider === method); const succeeded = data.filter(payment => payment.status === 'succeeded').length; const pending = data.filter(payment => payment.status === 'processing').length; const stripe = data.filter(payment => payment.provider === 'stripe').length; return <><Title>Paiements</Title><div className="pageSummary paymentSummary"><article><i>✓</i><div><span>Paiements confirmés</span><b>{succeeded}</b></div></article><article><i>!</i><div><span>À vérifier</span><b>{pending}</b></div></article><article><i>CB</i><div><span>Paiements par carte</span><b>{stripe}</b></div></article></div><div className="paymentMethods"><button className={method === 'all' ? 'active' : ''} onClick={() => setMethod('all')}>Tous les moyens</button><button className={method === 'orange_money_manual' ? 'active' : ''} onClick={() => setMethod('orange_money_manual')}>Orange Money</button><button className={method === 'stripe' ? 'active' : ''} onClick={() => setMethod('stripe')}>Carte bancaire · Stripe</button></div><div className="warningBox">Orange Money est vérifié manuellement. Les cartes bancaires sont confirmées automatiquement par Stripe.</div><Toolbar search={search} setSearch={setSearch}><select value={status} onChange={event => setStatus(event.target.value)}><option value="all">Tous les statuts</option><option value="processing">En attente</option><option value="succeeded">Payés</option><option value="failed">Refusés</option></select></Toolbar><Table heads={['Référence', 'Entreprise', 'Montant', 'Méthode', 'Reçu le', 'Statut', 'Actions']}>{filtered.map(payment => <tr key={payment.id}><td><b>{payment.provider_reference ?? 'Sans référence'}</b></td><td><div className="entityCell"><span>{payment.company_name.slice(0, 1).toUpperCase()}</span><div><b>{payment.company_name}</b><small>{payment.client_email}</small></div></div></td><td><b>{money(payment.amount, payment.currency)}</b></td><td><span className={`methodBadge ${payment.provider === 'stripe' ? 'card' : 'om'}`}>{payment.provider === 'stripe' ? 'Carte bancaire' : 'Orange Money'}</span></td><td>{day(payment.created_at)}</td><td><Badge ok={payment.status === 'succeeded'}>{payment.status}</Badge></td><td><ActionMenu>{payment.proof_path && <button className="detailsBtn" onClick={() => void proof(payment)}>Ouvrir la preuve</button>}{payment.status === 'processing' && payment.provider !== 'stripe' && <><button className="successBtn" onClick={() => void run(() => supabase.rpc('super_admin_review_manual_payment', { p_payment_id: payment.id, p_approve: true, p_reason: null }), 'Paiement approuvé.')}>Approuver</button><button className="dangerBtn" onClick={() => { const reason = prompt('Motif du refus :'); if (reason?.trim()) void run(() => supabase.rpc('super_admin_review_manual_payment', { p_payment_id: payment.id, p_approve: false, p_reason: reason.trim() }), 'Paiement refusé.'); }}>Refuser</button></>}</ActionMenu></td></tr>)}</Table></>; }
+function Payments({ data, search, setSearch, status, setStatus, run, proof }: { data: Payment[]; search: string; setSearch: (value: string) => void; status: string; setStatus: (value: string) => void; run: Run; proof: (payment: Payment) => Promise<void> }) {
+  const [method, setMethod] = useState<'all' | 'orange_money_manual' | 'stripe'>('all');
+  const [currency, setCurrency] = useState('GNF');
+  const [archiveFilter, setArchiveFilter] = useState<'active' | 'archived' | 'all'>('active');
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const currencies = ['GNF', ...Array.from(new Set(data.map(payment => normalizeCurrency(payment.currency)))).filter(item => item !== 'GNF').sort()];
+  const filtered = data.filter(payment =>
+    (method === 'all' || payment.provider === method) &&
+    (currency === 'all' || normalizeCurrency(payment.currency) === currency) &&
+    (archiveFilter === 'all' || (archiveFilter === 'archived' ? Boolean(payment.archived_at) : !payment.archived_at))
+  );
+  const current = data.filter(payment => !payment.archived_at);
+  const succeeded = current.filter(payment => payment.status === 'succeeded').length;
+  const pending = current.filter(payment => payment.status === 'processing' || payment.status === 'pending').length;
+  const stripe = current.filter(payment => payment.provider === 'stripe').length;
+  return <>
+    <Title>Paiements</Title>
+    <div className="pageSummary paymentSummary">
+      <article><i>✓</i><div><span>Paiements confirmés</span><b>{succeeded}</b></div></article>
+      <article><i>!</i><div><span>À vérifier</span><b>{pending}</b></div></article>
+      <article><i>CB</i><div><span>Paiements par carte</span><b>{stripe}</b></div></article>
+    </div>
+    <div className="paymentControlBar">
+      <div className="paymentMethods">
+        <button className={method === 'all' ? 'active' : ''} onClick={() => setMethod('all')}>Tous les moyens</button>
+        <button className={method === 'orange_money_manual' ? 'active' : ''} onClick={() => setMethod('orange_money_manual')}>Orange Money</button>
+        <button className={method === 'stripe' ? 'active' : ''} onClick={() => setMethod('stripe')}>Carte bancaire · Stripe</button>
+      </div>
+      <label className="currencyPicker"><span>Devise</span><select value={currency} onChange={event => setCurrency(event.target.value)}>{currencies.map(item => <option value={item} key={item}>{currencyLabel(item)}</option>)}<option value="all">Toutes les devises</option></select></label>
+    </div>
+    <div className="warningBox">Les paiements sont affichés en FG par défaut. Les autres devises restent séparées et ne sont jamais additionnées sans conversion.</div>
+    <Toolbar search={search} setSearch={setSearch}>
+      <select value={status} onChange={event => setStatus(event.target.value)}><option value="all">Tous les statuts</option><option value="processing">En attente</option><option value="succeeded">Payés</option><option value="failed">Refusés</option></select>
+      <select value={archiveFilter} onChange={event => setArchiveFilter(event.target.value as 'active' | 'archived' | 'all')}><option value="active">Paiements actifs</option><option value="archived">Paiements archivés</option><option value="all">Actifs et archivés</option></select>
+    </Toolbar>
+    <Table heads={['Référence', 'Entreprise', 'Montant', 'Méthode', 'Reçu le', 'Statut', 'Actions']}>
+      {filtered.map(payment => <tr key={payment.id}>
+        <td><b>{payment.provider_reference ?? 'Sans référence'}</b></td>
+        <td><div className="entityCell"><span>{payment.company_name.slice(0, 1).toUpperCase()}</span><div><b>{payment.company_name}</b><small>{payment.client_email}</small></div></div></td>
+        <td><b>{money(payment.amount, payment.currency)}</b></td>
+        <td><span className={payment.provider === 'stripe' ? 'methodBadge card' : 'methodBadge om'}>{payment.provider === 'stripe' ? 'Carte bancaire' : 'Orange Money'}</span></td>
+        <td>{day(payment.created_at)}</td>
+        <td><Badge ok={payment.status === 'succeeded' && !payment.archived_at}>{payment.archived_at ? 'Archivé' : payment.status}</Badge></td>
+        <td><button className="detailsBtn paymentReviewButton" onClick={() => setSelectedPayment(payment)}>Examiner</button></td>
+      </tr>)}
+    </Table>
+    {selectedPayment && <PaymentReviewDialog payment={selectedPayment} close={() => setSelectedPayment(null)} run={run} proof={proof}/>}
+  </>;
+}
 
-function Promotions({ data, run }: { data: Promotion[]; run: Run }) { const [open, setOpen] = useState(false); const [query, setQuery] = useState(''); const [promoStatus, setPromoStatus] = useState('all'); const [promoType, setPromoType] = useState('all'); const [form, setForm] = useState({ name: '', code: '', type: 'percentage', value: 10, expires: '', usageLimit: '' }); const active = data.filter(promotion => promotion.is_active && new Date(promotion.expires_at) >= new Date()).length; const expired = data.filter(promotion => new Date(promotion.expires_at) < new Date()).length; const filtered = data.filter(promotion => (!query.trim() || `${promotion.name} ${promotion.code ?? ''}`.toLowerCase().includes(query.toLowerCase().trim())) && (promoType === 'all' || promotion.promotion_type === promoType) && (promoStatus === 'all' || (promoStatus === 'active' ? promotion.is_active && new Date(promotion.expires_at) >= new Date() : promoStatus === 'expired' ? new Date(promotion.expires_at) < new Date() : !promotion.is_active))); async function save(event: React.FormEvent) { event.preventDefault(); const expiresAt = new Date(`${form.expires}T23:59:59`); if (!form.name.trim() || !form.code.trim() || Number.isNaN(expiresAt.getTime())) return; const saved = await run(() => supabase.rpc('super_admin_save_promotion', { p_id: null, p_name: form.name.trim(), p_code: form.code.trim().toUpperCase(), p_type: form.type, p_value: Number(form.value), p_starts_at: new Date().toISOString(), p_expires_at: expiresAt.toISOString(), p_usage_limit: form.usageLimit ? Number(form.usageLimit) : null, p_audience: 'all', p_is_active: true, p_plan_ids: [] }), 'Promotion créée.'); if (saved) { setOpen(false); setForm({ name: '', code: '', type: 'percentage', value: 10, expires: '', usageLimit: '' }); } } return <><Title action={<button className="primary" onClick={() => setOpen(value => !value)}>{open ? 'Fermer le formulaire' : 'Nouvelle promotion'}</button>}>Promotions & codes</Title><div className="pageSummary"><article><i>%</i><div><span>Promotions créées</span><b>{data.length}</b></div></article><article><i>✓</i><div><span>Campagnes actives</span><b>{active}</b></div></article><article><i>◷</i><div><span>Campagnes expirées</span><b>{expired}</b></div></article></div>{open && <form className="promoForm panel" onSubmit={event => void save(event)}><div className="formIntro"><span>NOUVELLE CAMPAGNE</span><h2>Créer un avantage commercial</h2><p>Configurez un code clair, sa valeur et sa période de validité.</p></div><div><label>Nom de la campagne<input required value={form.name} onChange={event => setForm({ ...form, name: event.target.value })}/></label><label>Code promotionnel<input required value={form.code} onChange={event => setForm({ ...form, code: event.target.value.toUpperCase() })}/></label></div><div><label>Type d’avantage<select value={form.type} onChange={event => setForm({ ...form, type: event.target.value })}><option value="percentage">Pourcentage</option><option value="fixed_amount">Montant fixe</option><option value="free_days">Jours gratuits</option></select></label><label>Valeur<input required min="1" type="number" value={form.value} onChange={event => setForm({ ...form, value: Number(event.target.value) })}/></label></div><div><label>Date d’expiration<input required type="date" value={form.expires} onChange={event => setForm({ ...form, expires: event.target.value })}/></label><label>Limite d’utilisation<input min="1" type="number" value={form.usageLimit} onChange={event => setForm({ ...form, usageLimit: event.target.value })}/></label></div><button className="primary">Créer et activer la promotion</button></form>}<Toolbar search={query} setSearch={setQuery}><select value={promoStatus} onChange={event => setPromoStatus(event.target.value)}><option value="all">Tous les statuts</option><option value="active">Actives</option><option value="inactive">Inactives</option><option value="expired">Expirées</option></select><select value={promoType} onChange={event => setPromoType(event.target.value)}><option value="all">Tous les types</option><option value="percentage">Pourcentage</option><option value="fixed_amount">Montant fixe</option><option value="free_days">Jours gratuits</option></select>{(query || promoStatus !== 'all' || promoType !== 'all') && <button className="resetFilters" onClick={() => { setQuery(''); setPromoStatus('all'); setPromoType('all'); }}>Réinitialiser</button>}</Toolbar><Table heads={['Code', 'Nom', 'Type', 'Valeur', 'Expire le', 'Statut', 'Action']}>{filtered.map(promotion => <tr key={promotion.id}><td><span className="promoCode">{promotion.code ?? '—'}</span></td><td><b>{promotion.name}</b></td><td>{promotion.promotion_type}</td><td><b>{promotion.value}</b></td><td>{day(promotion.expires_at)}</td><td><Badge ok={promotion.is_active}>{promotion.is_active ? 'Actif' : 'Inactif'}</Badge></td><td><button className={promotion.is_active ? 'dangerBtn' : 'successBtn'} onClick={() => void run(() => supabase.from('promotions').update({ is_active: !promotion.is_active }).eq('id', promotion.id), 'Promotion mise à jour.')}>{promotion.is_active ? 'Désactiver' : 'Activer'}</button></td></tr>)}</Table></>; }
+function PaymentReviewDialog({ payment, close, run, proof }: { payment: Payment; close: () => void; run: Run; proof: (payment: Payment) => Promise<void> }) {
+  const [reason, setReason] = useState('');
+  const [localError, setLocalError] = useState('');
+  async function manage(action: 'confirm' | 'reject' | 'archive' | 'restore' | 'delete') {
+    const actionReason = reason.trim();
+    if (action !== 'restore' && actionReason.length < 3) {
+      setLocalError('Saisissez un motif d’au moins 3 caractères pour assurer la traçabilité.');
+      return;
+    }
+    const confirmations: Partial<Record<typeof action, string>> = {
+      confirm: `Confirmer manuellement le paiement de ${money(payment.amount, payment.currency)} ?`,
+      reject: 'Refuser ce paiement ? Cette décision sera enregistrée dans le journal.',
+      archive: 'Archiver ce paiement ? Il restera disponible dans le filtre « Paiements archivés ».',
+      restore: 'Restaurer ce paiement dans la liste active ?',
+      delete: 'Supprimer définitivement ce paiement non confirmé ? Cette action est irréversible.',
+    };
+    if (!window.confirm(confirmations[action] ?? 'Confirmer cette action ?')) return;
+    setLocalError('');
+    const saved = await run(
+      () => supabase.rpc('super_admin_manage_payment', {
+        p_payment_id: payment.id,
+        p_action: action,
+        p_reason: action === 'restore' ? null : actionReason,
+      }),
+      ({ confirm: 'Paiement confirmé.', reject: 'Paiement refusé.', archive: 'Paiement archivé.', restore: 'Paiement restauré.', delete: 'Paiement supprimé.' } as const)[action],
+    );
+    if (saved) close();
+  }
+  const canReview = (payment.status === 'processing' || payment.status === 'pending') && !payment.archived_at;
+  const canDelete = payment.status !== 'succeeded' && !payment.provider_reference;
+  return <div className="drawerBack" onMouseDown={event => event.target === event.currentTarget && close()}>
+    <section className="drawer paymentReviewModal">
+      <div className="modalHead">
+        <div><span className="paymentReviewIcon">{payment.provider === 'stripe' ? 'CB' : 'OM'}</span><div><small>TRAITEMENT DU PAIEMENT</small><h1>{payment.company_name}</h1></div></div>
+        <button className="close" onClick={close} aria-label="Fermer">×</button>
+      </div>
+      <div className="paymentReviewAmount"><span>Montant déclaré</span><strong>{money(payment.amount, payment.currency)}</strong><Badge ok={payment.status === 'succeeded' && !payment.archived_at}>{payment.archived_at ? 'Archivé' : payment.status}</Badge></div>
+      <dl className="paymentReviewDetails">
+        <div><dt>Référence</dt><dd>{payment.provider_reference ?? 'Non renseignée'}</dd></div>
+        <div><dt>Client</dt><dd>{payment.client_email}</dd></div>
+        <div><dt>Méthode</dt><dd>{payment.provider === 'stripe' ? 'Carte bancaire · Stripe' : 'Orange Money'}</dd></div>
+        <div><dt>Date</dt><dd>{new Date(payment.created_at).toLocaleString('fr-FR')}</dd></div>
+        <div><dt>Devise d’origine</dt><dd>{currencyLabel(payment.currency)}</dd></div>
+        {payment.archived_at && <div><dt>Archivage</dt><dd>{new Date(payment.archived_at).toLocaleString('fr-FR')} · {payment.archive_reason ?? 'Motif non renseigné'}</dd></div>}
+      </dl>
+      {payment.proof_path && <button className="detailsBtn paymentProofButton" onClick={() => void proof(payment)}>Ouvrir le justificatif</button>}
+      <div className="paymentDecision">
+        {!payment.archived_at && <label>Motif de l’action <span>obligatoire pour confirmer, refuser, archiver ou supprimer</span><textarea value={reason} onChange={event => setReason(event.target.value)} placeholder="Exemple : paiement vérifié auprès du client…"/></label>}
+        {localError && <div className="alert danger">{localError}</div>}
+        {!canReview && !payment.archived_at && <div className="paymentLockedNotice">Ce paiement n’est plus en attente. Il ne peut pas être confirmé ou refusé, mais il peut être archivé.</div>}
+        <div className="modalActions paymentActionBar">
+          <button className="detailsBtn" onClick={close}>Fermer</button>
+          {payment.archived_at ? <button className="successBtn" onClick={() => void manage('restore')}>Restaurer</button> : <>
+            {canDelete && <button className="dangerBtn" onClick={() => void manage('delete')}>Supprimer</button>}
+            <button className="detailsBtn archiveBtn" onClick={() => void manage('archive')}>Archiver</button>
+            {canReview && <button className="dangerBtn" onClick={() => void manage('reject')}>Refuser</button>}
+            {canReview && <button className="successBtn" onClick={() => void manage('confirm')}>Confirmer</button>}
+          </>}
+        </div>
+      </div>
+    </section>
+  </div>;
+}
 
-function Support({ data, run }: { data: Ticket[]; run: Run }) { const [query, setQuery] = useState(''); const [ticketStatus, setTicketStatus] = useState('all'); const [priority, setPriority] = useState('all'); const filtered = data.filter(ticket => (!query.trim() || `${ticket.subject} ${ticket.company?.name ?? ''}`.toLowerCase().includes(query.toLowerCase().trim())) && (ticketStatus === 'all' || ticket.status === ticketStatus) && (priority === 'all' || ticket.priority === priority)); return <><Title>Support et tickets</Title><Toolbar search={query} setSearch={setQuery}><select value={ticketStatus} onChange={event => setTicketStatus(event.target.value)}><option value="all">Tous les statuts</option><option value="open">Ouverts</option><option value="in_progress">En traitement</option><option value="resolved">Résolus</option><option value="closed">Fermés</option></select><select value={priority} onChange={event => setPriority(event.target.value)}><option value="all">Toutes les priorités</option><option value="low">Faible</option><option value="medium">Moyenne</option><option value="high">Élevée</option><option value="urgent">Urgente</option></select>{(query || ticketStatus !== 'all' || priority !== 'all') && <button className="resetFilters" onClick={() => { setQuery(''); setTicketStatus('all'); setPriority('all'); }}>Réinitialiser</button>}</Toolbar><Table heads={['ID Ticket', 'Entreprise', 'Sujet', 'Priorité', 'Statut', 'Date', 'Action']}>{filtered.map(ticket => <tr key={ticket.id}><td>#{ticket.id.slice(0, 5)}</td><td>{ticket.company?.name ?? '—'}</td><td><b>{ticket.subject}</b></td><td><Badge ok={ticket.priority === 'low'}>{ticket.priority}</Badge></td><td>{ticket.status}</td><td>{day(ticket.created_at)}</td><td><button className="detailsBtn" onClick={() => { const response = prompt('Réponse :', ticket.resolution ?? ''); if (response !== null) void run(() => supabase.rpc('update_support_ticket', { p_ticket_id: ticket.id, p_status: 'resolved', p_resolution: response }), 'Ticket résolu.'); }}>Répondre et résoudre</button></td></tr>)}</Table></>; }
+function Promotions({ data, run }: { data: Promotion[]; run: Run }) { const [open, setOpen] = useState(false); const [query, setQuery] = useState(''); const [promoStatus, setPromoStatus] = useState('all'); const [promoType, setPromoType] = useState('all'); const [form, setForm] = useState({ name: '', code: '', type: 'percentage', value: 10, expires: '', usageLimit: '' }); const active = data.filter(promotion => promotion.is_active && new Date(promotion.expires_at) >= new Date()).length; const expired = data.filter(promotion => new Date(promotion.expires_at) < new Date()).length; const filtered = data.filter(promotion => (!query.trim() || `${promotion.name} ${promotion.code ?? ''}`.toLowerCase().includes(query.toLowerCase().trim())) && (promoType === 'all' || promotion.promotion_type === promoType) && (promoStatus === 'all' || (promoStatus === 'active' ? promotion.is_active && new Date(promotion.expires_at) >= new Date() : promoStatus === 'expired' ? new Date(promotion.expires_at) < new Date() : !promotion.is_active))); async function save(event: React.FormEvent) { event.preventDefault(); const expiresAt = new Date(`${form.expires}T23:59:59`); if (!form.name.trim() || !form.code.trim() || Number.isNaN(expiresAt.getTime())) return; const saved = await run(() => supabase.rpc('super_admin_save_promotion', { p_id: null, p_name: form.name.trim(), p_code: form.code.trim().toUpperCase(), p_type: form.type, p_value: Number(form.value), p_starts_at: new Date().toISOString(), p_expires_at: expiresAt.toISOString(), p_usage_limit: form.usageLimit ? Number(form.usageLimit) : null, p_audience: 'all', p_is_active: true, p_plan_ids: [] }), 'Promotion créée.'); if (saved) { setOpen(false); setForm({ name: '', code: '', type: 'percentage', value: 10, expires: '', usageLimit: '' }); } } return <><Title action={<button className="primary" onClick={() => setOpen(value => !value)}>{open ? 'Fermer le formulaire' : 'Nouvelle promotion'}</button>}>Promotions & codes</Title><div className="pageSummary"><article><i>%</i><div><span>Promotions créées</span><b>{data.length}</b></div></article><article><i>✓</i><div><span>Campagnes actives</span><b>{active}</b></div></article><article><i>◷</i><div><span>Campagnes expirées</span><b>{expired}</b></div></article></div>{open && <form className="promoForm panel" onSubmit={event => void save(event)}><div className="formIntro"><span>NOUVELLE CAMPAGNE</span><h2>Créer un avantage commercial</h2><p>Configurez un code clair, sa valeur et sa période de validité.</p></div><div><label>Nom de la campagne<input required value={form.name} onChange={event => setForm({ ...form, name: event.target.value })}/></label><label>Code promotionnel<input required value={form.code} onChange={event => setForm({ ...form, code: event.target.value.toUpperCase() })}/></label></div><div><label>Type d’avantage<select value={form.type} onChange={event => setForm({ ...form, type: event.target.value })}><option value="percentage">Pourcentage</option><option value="fixed_amount">Montant fixe</option><option value="free_days">Jours gratuits</option></select></label><label>Valeur<input required min="1" type="number" value={form.value} onChange={event => setForm({ ...form, value: Number(event.target.value) })}/></label></div><div><label>Date d’expiration<input required type="date" value={form.expires} onChange={event => setForm({ ...form, expires: event.target.value })}/></label><label>Limite d’utilisation<input min="1" type="number" value={form.usageLimit} onChange={event => setForm({ ...form, usageLimit: event.target.value })}/></label></div><button className="primary">Créer et activer la promotion</button></form>}<Toolbar search={query} setSearch={setQuery}><select value={promoStatus} onChange={event => setPromoStatus(event.target.value)}><option value="all">Tous les statuts</option><option value="active">Actives</option><option value="inactive">Inactives</option><option value="expired">Expirées</option></select><select value={promoType} onChange={event => setPromoType(event.target.value)}><option value="all">Tous les types</option><option value="percentage">Pourcentage</option><option value="fixed_amount">Montant fixe</option><option value="free_days">Jours gratuits</option></select>{(query || promoStatus !== 'all' || promoType !== 'all') && <button className="resetFilters" onClick={() => { setQuery(''); setPromoStatus('all'); setPromoType('all'); }}>Réinitialiser</button>}</Toolbar><Table heads={['Code', 'Nom', 'Type', 'Valeur', 'Expire le', 'Statut', 'Action']}>{filtered.map(promotion => <tr key={promotion.id}><td><span className="promoCode">{promotion.code ?? '—'}</span></td><td><b>{promotion.name}</b></td><td>{promotion.promotion_type}</td><td><b>{promotion.value}</b></td><td>{day(promotion.expires_at)}</td><td><Badge ok={promotion.is_active}>{promotion.is_active ? 'Actif' : 'Inactif'}</Badge></td><td><ActionMenu><button className={promotion.is_active ? 'dangerBtn' : 'successBtn'} onClick={() => void run(() => supabase.from('promotions').update({ is_active: !promotion.is_active }).eq('id', promotion.id), 'Promotion mise à jour.')}>{promotion.is_active ? 'Désactiver' : 'Activer'}</button></ActionMenu></td></tr>)}</Table></>; }
+
+function Support({ data, run }: { data: Ticket[]; run: Run }) { const [query, setQuery] = useState(''); const [ticketStatus, setTicketStatus] = useState('all'); const [priority, setPriority] = useState('all'); const filtered = data.filter(ticket => (!query.trim() || `${ticket.subject} ${ticket.company?.name ?? ''}`.toLowerCase().includes(query.toLowerCase().trim())) && (ticketStatus === 'all' || ticket.status === ticketStatus) && (priority === 'all' || ticket.priority === priority)); return <><Title>Support et tickets</Title><Toolbar search={query} setSearch={setQuery}><select value={ticketStatus} onChange={event => setTicketStatus(event.target.value)}><option value="all">Tous les statuts</option><option value="open">Ouverts</option><option value="in_progress">En traitement</option><option value="resolved">Résolus</option><option value="closed">Fermés</option></select><select value={priority} onChange={event => setPriority(event.target.value)}><option value="all">Toutes les priorités</option><option value="low">Faible</option><option value="medium">Moyenne</option><option value="high">Élevée</option><option value="urgent">Urgente</option></select>{(query || ticketStatus !== 'all' || priority !== 'all') && <button className="resetFilters" onClick={() => { setQuery(''); setTicketStatus('all'); setPriority('all'); }}>Réinitialiser</button>}</Toolbar><Table heads={['ID Ticket', 'Entreprise', 'Sujet', 'Priorité', 'Statut', 'Date', 'Action']}>{filtered.map(ticket => <tr key={ticket.id}><td>#{ticket.id.slice(0, 5)}</td><td>{ticket.company?.name ?? '—'}</td><td><b>{ticket.subject}</b></td><td><Badge ok={ticket.priority === 'low'}>{ticket.priority}</Badge></td><td>{ticket.status}</td><td>{day(ticket.created_at)}</td><td><ActionMenu><button className="detailsBtn" onClick={() => { const response = prompt('Réponse :', ticket.resolution ?? ''); if (response !== null) void run(() => supabase.rpc('update_support_ticket', { p_ticket_id: ticket.id, p_status: 'resolved', p_resolution: response }), 'Ticket résolu.'); }}>Répondre et résoudre</button></ActionMenu></td></tr>)}</Table></>; }
 function Activity({ data }: { data: Audit[] }) { const [query, setQuery] = useState(''); const [period, setPeriod] = useState('30'); const [scope, setScope] = useState('all'); const companies = [...new Set(data.map(item => item.company?.name).filter((name): name is string => Boolean(name)))].sort(); const filtered = data.filter(item => { const matchesQuery = !query.trim() || `${item.action} ${item.actor?.full_name ?? ''} ${item.company?.name ?? ''}`.toLowerCase().includes(query.toLowerCase().trim()); const matchesCompany = scope === 'all' || (scope === 'platform' ? !item.company?.name : item.company?.name === scope); const matchesPeriod = period === 'all' || Date.now() - new Date(item.created_at).getTime() <= Number(period) * 86400000; return matchesQuery && matchesCompany && matchesPeriod; }); return <><Title>Journal d’activité</Title><Toolbar search={query} setSearch={setQuery}><select value={period} onChange={event => setPeriod(event.target.value)}><option value="7">7 derniers jours</option><option value="30">30 derniers jours</option><option value="90">90 derniers jours</option><option value="all">Toute la période</option></select><select value={scope} onChange={event => setScope(event.target.value)}><option value="all">Toutes les sources</option><option value="platform">Plateforme</option>{companies.map(company => <option value={company} key={company}>{company}</option>)}</select>{(query || period !== '30' || scope !== 'all') && <button className="resetFilters" onClick={() => { setQuery(''); setPeriod('30'); setScope('all'); }}>Réinitialiser</button>}</Toolbar><div className="activityCount"><b>{filtered.length}</b> événement{filtered.length > 1 ? 's' : ''} trouvé{filtered.length > 1 ? 's' : ''}</div><section className="timeline">{filtered.length ? filtered.map(item => <article key={item.id}><time>{new Date(item.created_at).toLocaleString('fr-FR')}</time><i/><div><b>{item.action.replaceAll('_', ' ')}</b><span>{item.company?.name ?? 'Plateforme'} · Par {item.actor?.full_name ?? 'le système'}</span></div></article>) : <p className="empty">Aucune activité ne correspond aux filtres.</p>}</section></>; }
 
-function SettingsPage({ value, setValue, run }: { value: Settings; setValue: (value: Settings) => void; run: Run }) { const [tab, setTab] = useState<'Général' | 'Paiements' | 'Abonnements' | 'Sécurité'>('Général'); function save() { void run(() => supabase.from('billing_settings').update(value).eq('id', true), 'Paramètres enregistrés.'); } return <><Title>Paramètres de la plateforme</Title><div className="settings"><nav>{(['Général', 'Paiements', 'Abonnements', 'Sécurité'] as const).map(item => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{item}</button>)}</nav><section>{tab === 'Général' && <><h2>État de la plateforme</h2><div className="statusCards"><article><span>Connexion Supabase</span><b className={configured ? 'good' : 'badText'}>{configured ? 'Configurée' : 'Manquante'}</b></article><article><span>Espace actuel</span><b>Super Administration</b></article><article><span>Contrôle d’accès</span><b>Rôle Super Admin requis</b></article></div><p className="settingsHelp">Les données affichées dans cet espace proviennent directement des fonctions sécurisées Supabase.</p></>}{tab === 'Paiements' && <><h2>Configuration des paiements</h2><div className="providerInfo"><b>Carte bancaire · Stripe</b><span>Disponible dans le portail client via la fonction sécurisée create-payment.</span></div><label>Numéro Orange Money<input value={value.orange_money_number} onChange={event => setValue({ ...value, orange_money_number: event.target.value })}/></label><label>Nom du compte<input value={value.orange_money_account_name} onChange={event => setValue({ ...value, orange_money_account_name: event.target.value })}/></label><button className="primary" onClick={save}>Enregistrer les paiements</button></>}{tab === 'Abonnements' && <><h2>Essais et abonnements</h2><label className="switchLabel">Essai gratuit activé<input type="checkbox" checked={value.trial_enabled} onChange={event => setValue({ ...value, trial_enabled: event.target.checked })}/></label><label>Durée de l’essai<input min="0" max="90" type="number" value={value.trial_days} onChange={event => setValue({ ...value, trial_days: Number(event.target.value) })}/></label><label>Délai de grâce<input min="0" max="30" type="number" value={value.grace_period_days} onChange={event => setValue({ ...value, grace_period_days: Number(event.target.value) })}/></label><button className="primary" onClick={save}>Enregistrer les abonnements</button></>}{tab === 'Sécurité' && <><h2>Sécurité et accès</h2><div className="securityList"><article><b>Accès Super Admin</b><span>Cette application refuse automatiquement les comptes Admin et Employé.</span></article><article><b>Politiques RLS</b><span>Les opérations sensibles passent par des RPC protégées côté Supabase.</span></article><article><b>Session</b><span>La déconnexion est désormais une action séparée et clairement identifiée.</span></article></div></>}</section></div></>; }
+function SettingsPage({ value, setValue, run }: { value: Settings; setValue: (value: Settings) => void; run: Run }) {
+  const [tab, setTab] = useState<'Général' | 'Paiements' | 'Abonnements' | 'Sécurité'>('Général');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [securityError, setSecurityError] = useState('');
+  const [securityNotice, setSecurityNotice] = useState('');
+  const [securityBusy, setSecurityBusy] = useState(false);
+  const [accountEmail, setAccountEmail] = useState('');
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [verifiedFactorId, setVerifiedFactorId] = useState<string | null>(null);
+  const [accessLevel, setAccessLevel] = useState('Vérification…');
+  const [lastSignIn, setLastSignIn] = useState<string | null>(null);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [showMfaPanel, setShowMfaPanel] = useState(false);
+  const [mfaEnrollment, setMfaEnrollment] = useState<{ id: string; qrCode: string; secret: string } | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
 
+  const loadSecurity = useCallback(async () => {
+    setSecurityError('');
+    try {
+      const [userResult, factorResult, sessionResult, currentContext] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.auth.mfa.listFactors(),
+        supabase.auth.getSession(),
+        getContext(),
+      ]);
+      if (userResult.error) throw userResult.error;
+      if (factorResult.error) throw factorResult.error;
+      const verified = factorResult.data?.totp.find(factor => factor.status === 'verified') ?? null;
+      setAccountEmail(userResult.data.user?.email ?? '');
+      setLastSignIn(userResult.data.user?.last_sign_in_at ?? null);
+      setSessionExpiresAt(sessionResult.data.session?.expires_at ?? null);
+      setMfaEnabled(Boolean(verified));
+      setVerifiedFactorId(verified?.id ?? null);
+      setAccessLevel(currentContext?.role === 'super_admin' ? 'Super Administrateur' : currentContext?.role ?? 'Non déterminé');
+    } catch (caught) {
+      setSecurityError(errorMessage(caught));
+    }
+  }, []);
+
+  useEffect(() => { void loadSecurity(); }, [loadSecurity]);
+
+  async function copyAccountEmail() {
+    if (!accountEmail) return;
+    await navigator.clipboard.writeText(accountEmail);
+    setSecurityNotice('✓ Adresse email copiée.');
+  }
+
+  async function startMfaSetup() {
+    setSecurityBusy(true); setSecurityError(''); setSecurityNotice('');
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'StockMaster Super Admin' });
+      if (error) throw error;
+      setMfaEnrollment({ id: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret });
+      setMfaCode(''); setShowMfaPanel(true);
+    } catch (caught) { setSecurityError(errorMessage(caught)); }
+    finally { setSecurityBusy(false); }
+  }
+
+  async function verifyMfaSetup() {
+    if (!mfaEnrollment || !/^\d{6}$/.test(mfaCode.trim())) { setSecurityError('Saisissez le code à 6 chiffres de votre application d’authentification.'); return; }
+    setSecurityBusy(true); setSecurityError(''); setSecurityNotice('');
+    try {
+      const challenge = await supabase.auth.mfa.challenge({ factorId: mfaEnrollment.id });
+      if (challenge.error) throw challenge.error;
+      const verified = await supabase.auth.mfa.verify({ factorId: mfaEnrollment.id, challengeId: challenge.data.id, code: mfaCode.trim() });
+      if (verified.error) throw verified.error;
+      setMfaEnrollment(null); setMfaCode(''); setShowMfaPanel(false);
+      setSecurityNotice('✓ Double authentification activée manuellement.');
+      await loadSecurity();
+    } catch (caught) { setSecurityError(errorMessage(caught)); }
+    finally { setSecurityBusy(false); }
+  }
+
+  async function disableMfa() {
+    if (!verifiedFactorId || !window.confirm('Désactiver la double authentification de ce compte ?')) return;
+    setSecurityBusy(true); setSecurityError(''); setSecurityNotice('');
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: verifiedFactorId });
+      if (error) throw error;
+      setSecurityNotice('✓ Double authentification désactivée.');
+      await loadSecurity();
+    } catch (caught) { setSecurityError(errorMessage(caught)); }
+    finally { setSecurityBusy(false); }
+  }
+
+  async function savePassword() {
+    setSecurityError('');
+    setSecurityNotice('');
+    if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
+      setSecurityError('Saisissez le mot de passe actuel et le nouveau mot de passe.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setSecurityError('La confirmation du mot de passe ne correspond pas.');
+      return;
+    }
+    if (newPassword.length < 10 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
+      setSecurityError('Le mot de passe doit compter au moins 10 caractères avec majuscule, minuscule, chiffre et symbole.');
+      return;
+    }
+    setSecurityBusy(true);
+    try {
+      const email = accountEmail || (await supabase.auth.getUser()).data.user?.email;
+      if (!email) throw new Error('Session invalide. Reconnectez-vous pour modifier votre mot de passe.');
+      await signIn(email, currentPassword);
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) throw updateError;
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setSecurityNotice('✓ Mot de passe mis à jour.');
+    } catch (caught) {
+      setSecurityError(errorMessage(caught));
+    } finally {
+      setSecurityBusy(false);
+    }
+  }
+
+  async function logoutOtherSessions() {
+    setSecurityBusy(true);
+    setSecurityError('');
+    setSecurityNotice('');
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'others' });
+      if (error) throw error;
+      setSecurityNotice('✓ Les autres appareils ont été déconnectés.');
+    } catch (caught) {
+      setSecurityError(errorMessage(caught));
+    } finally {
+      setSecurityBusy(false);
+    }
+  }
+
+  function save() {
+    void run(() => supabase.from('billing_settings').update(value).eq('id', true), 'Paramètres enregistrés.');
+  }
+
+  const passwordChecks = [
+    ['10 caractères minimum', newPassword.length >= 10],
+    ['Une majuscule et une minuscule', /[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword)],
+    ['Un chiffre', /[0-9]/.test(newPassword)],
+    ['Un symbole', /[^A-Za-z0-9]/.test(newPassword)],
+  ] as const;
+
+  return <>
+    <Title>Paramètres de la plateforme</Title>
+    <div className="settings">
+      <nav>{(['Général', 'Paiements', 'Abonnements', 'Sécurité'] as const).map(item => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{item}</button>)}</nav>
+      <section>
+        {tab === 'Général' && <>
+          <div className="settingsSectionHead"><span>CONFIGURATION</span><h2>État de la plateforme</h2><p>Informations techniques essentielles de votre espace Super Admin.</p></div>
+          <div className="statusCards"><article><span>Connexion Supabase</span><b className={configured ? 'good' : 'badText'}>{configured ? 'Configurée' : 'Manquante'}</b></article><article><span>Espace actuel</span><b>Super Administration</b></article><article><span>Contrôle d’accès</span><b>Rôle Super Admin requis</b></article></div>
+        </>}
+        {tab === 'Paiements' && <>
+          <div className="settingsSectionHead"><span>ENCAISSEMENTS</span><h2>Configuration des paiements</h2><p>Le franc guinéen (FG) est la devise principale. Les autres devises restent séparées.</p></div>
+          <div className="providerGrid"><article><i>FG</i><div><b>Devise principale</b><span>Franc guinéen · code système GNF</span></div></article><article><i>CB</i><div><b>Carte bancaire · Stripe</b><span>Confirmation automatique après validation Stripe</span></div></article></div>
+          <div className="settingsFormGroup"><label>Numéro Orange Money<input value={value.orange_money_number} onChange={event => setValue({ ...value, orange_money_number: event.target.value })}/></label><label>Nom du compte<input value={value.orange_money_account_name} onChange={event => setValue({ ...value, orange_money_account_name: event.target.value })}/></label></div>
+          <div className="settingsActions"><button className="primary" onClick={save}>Enregistrer les paiements</button></div>
+        </>}
+        {tab === 'Abonnements' && <>
+          <div className="settingsSectionHead"><span>FACTURATION</span><h2>Essais et abonnements</h2><p>Réglez les durées utilisées pour les nouveaux comptes.</p></div>
+          <div className="settingsFormGroup"><label className="switchLabel">Essai gratuit activé<input type="checkbox" checked={value.trial_enabled} onChange={event => setValue({ ...value, trial_enabled: event.target.checked })}/></label><label>Durée de l’essai<input min="0" max="90" type="number" value={value.trial_days} onChange={event => setValue({ ...value, trial_days: Number(event.target.value) })}/></label><label>Délai de grâce<input min="0" max="30" type="number" value={value.grace_period_days} onChange={event => setValue({ ...value, grace_period_days: Number(event.target.value) })}/></label></div>
+          <div className="settingsActions"><button className="primary" onClick={save}>Enregistrer les abonnements</button></div>
+        </>}
+        {tab === 'Sécurité' && <>
+          <div className="settingsSectionHead"><span>COMPTE ET SESSIONS</span><h2>Sécurité du Super Admin</h2><p>La double authentification reste volontaire et n’est jamais activée automatiquement.</p></div>
+          <div className="securityOverview">
+            <article><i>SA</i><div><span>Compte connecté</span><b title={accountEmail}>{accountEmail || 'Compte Super Admin'}</b><button type="button" onClick={() => void copyAccountEmail()}>Copier l’email</button></div></article>
+            <article><i>✓</i><div><span>Niveau d’accès vérifié</span><b>{accessLevel}</b><button type="button" onClick={() => void loadSecurity()}>Actualiser</button></div></article>
+            <article><i>{mfaEnabled ? '2F' : '—'}</i><div><span>Double authentification</span><b className={mfaEnabled ? 'good' : ''}>{mfaEnabled ? 'Activée manuellement' : 'Non activée'}</b><button type="button" onClick={() => mfaEnabled ? void disableMfa() : setShowMfaPanel(value => !value)}>{mfaEnabled ? 'Désactiver' : 'Configurer'}</button></div></article>
+          </div>
+          {showMfaPanel && !mfaEnabled && <section className="mfaSetupPanel">
+            <div><span>CONFIGURATION MANUELLE</span><h3>Double authentification</h3><p>Cette action ne démarre que lorsque vous la demandez. Scannez ensuite le QR code et saisissez le code à 6 chiffres.</p></div>
+            {!mfaEnrollment ? <button className="primary" disabled={securityBusy} onClick={() => void startMfaSetup()}>Générer mon QR code</button> : <div className="mfaEnrollment">
+              <img src={mfaEnrollment.qrCode} alt="QR code de double authentification"/>
+              <div><small>Clé manuelle</small><code>{mfaEnrollment.secret}</code><label>Code de vérification<input inputMode="numeric" maxLength={6} value={mfaCode} onChange={event => setMfaCode(event.target.value.replace(/\D/g, ''))} placeholder="000000"/></label><button className="successBtn" disabled={securityBusy || mfaCode.length !== 6} onClick={() => void verifyMfaSetup()}>Vérifier et activer</button></div>
+            </div>}
+          </section>}
+          <div className="securitySettingsGrid">
+            <section className="securityCard">
+              <div className="securityCardHead"><div><span>MOT DE PASSE</span><h3>Modifier votre mot de passe</h3></div><button type="button" aria-label={showPasswords ? 'Masquer les mots de passe' : 'Afficher les mots de passe'} onClick={() => setShowPasswords(value => !value)}>{showPasswords ? 'Masquer' : 'Afficher'}</button></div>
+              <div className="securityFields">
+                <label>Mot de passe actuel<input autoComplete="current-password" type={showPasswords ? 'text' : 'password'} value={currentPassword} onChange={event => setCurrentPassword(event.target.value)}/></label>
+                <label>Nouveau mot de passe<input autoComplete="new-password" type={showPasswords ? 'text' : 'password'} value={newPassword} onChange={event => setNewPassword(event.target.value)}/></label>
+                <label>Confirmer le mot de passe<input autoComplete="new-password" type={showPasswords ? 'text' : 'password'} value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)}/></label>
+              </div>
+              <div className="passwordChecks">{passwordChecks.map(([label, valid]) => <span className={valid ? 'valid' : ''} key={label}><i>{valid ? '✓' : '○'}</i>{label}</span>)}</div>
+              <button className="primary" disabled={securityBusy || !currentPassword || !newPassword || !confirmPassword} onClick={() => void savePassword()}>{securityBusy ? 'Traitement…' : 'Mettre à jour le mot de passe'}</button>
+            </section>
+            <section className="securityCard sessionCard">
+              <div className="securityCardHead"><div><span>APPAREIL ACTUEL</span><h3>Session active</h3></div><button type="button" onClick={() => void loadSecurity()}>Actualiser</button></div>
+              <p>Fermez les sessions ouvertes sur les autres téléphones et ordinateurs. Votre session actuelle restera connectée.</p>
+              <div className="sessionStatus"><i>✓</i><span><b>{navigator.userAgent.includes('Mobile') ? 'Téléphone actuel' : 'Ordinateur actuel'}</b><small>{accountEmail || 'Super Admin'}</small></span></div>
+              <dl className="sessionFacts"><div><dt>Dernière connexion</dt><dd>{lastSignIn ? new Date(lastSignIn).toLocaleString('fr-FR') : 'Non disponible'}</dd></div><div><dt>Expiration de la session</dt><dd>{sessionExpiresAt ? new Date(sessionExpiresAt * 1000).toLocaleString('fr-FR') : 'Non disponible'}</dd></div></dl>
+              <button className="dangerBtn" disabled={securityBusy} onClick={() => void logoutOtherSessions()}>Déconnecter les autres appareils</button>
+            </section>
+          </div>
+          {securityError && <div className="alert danger securityFeedback">{securityError}</div>}
+          {securityNotice && <div className="alert success securityFeedback">{securityNotice}</div>}
+        </>}
+      </section>
+    </div>
+  </>;
+}
 function CompanyDetails({ company, close, run }: { company: Company; close: () => void; run: Run }) { return <div className="drawerBack" onMouseDown={event => event.target === event.currentTarget && close()}><section className="drawer companyModal"><div className="modalHead"><div><span className="companyIcon">E</span><div><small>FICHE ENTREPRISE</small><h1>{company.name}</h1></div></div><button className="close" onClick={close} aria-label="Fermer">×</button></div><Badge ok={company.is_active}>{company.is_active ? 'Entreprise active' : 'Entreprise suspendue'}</Badge><div className="drawerKpis"><Kpi label="Plan actuel" value={company.plan_code === 'premium' ? 'Business' : company.plan_code ?? '—'} note={company.subscription_status ?? 'Sans abonnement'}/><Kpi label="Expiration" value={company.subscription_expires_at ? day(company.subscription_expires_at) : '—'} note={company.subscription_expires_at ? `${remainingDays(company.subscription_expires_at)} jours restants` : 'Aucune échéance'}/><Kpi label="Boutiques" value={company.store_count} note="Points de vente"/><Kpi label="Utilisateurs" value={company.user_count} note="Comptes liés"/></div><section className="companyInfo"><h2>Informations</h2><dl><div><dt>Identifiant</dt><dd>{company.slug ?? company.id}</dd></div><div><dt>Devise</dt><dd>{company.currency_code}</dd></div><div><dt>Statut abonnement</dt><dd>{company.subscription_status ?? 'Aucun'}</dd></div><div><dt>Début du forfait</dt><dd>{company.subscription_starts_at ? day(company.subscription_starts_at) : '—'}</dd></div><div><dt>Expiration actuelle</dt><dd>{company.subscription_expires_at ? day(company.subscription_expires_at) : '—'}</dd></div><div><dt>Fin de l’essai</dt><dd>{company.trial_ends_at ? day(company.trial_ends_at) : '—'}</dd></div><div><dt>Ventes enregistrées</dt><dd>{company.sale_count} · {money(company.revenue, company.currency_code)}</dd></div></dl></section><div className="modalActions"><button className="detailsBtn" onClick={close}>Fermer</button><button className={company.is_active ? 'dangerBtn' : 'successBtn'} onClick={() => void toggleCompanyAccess(company, run)}>{company.is_active ? 'Suspendre l’entreprise' : 'Réactiver l’entreprise'}</button></div></section></div>; }
 function statusLabel(value:string) { return ({ active:'Actif',succeeded:'Actif',processing:'En attente',pending:'En attente',trialing:'En attente',expired:'Expiré',failed:'Expiré',inactive:'Inactif',suspended:'Inactif',open:'En attente',in_progress:'En attente',resolved:'Actif',closed:'Inactif' } as Record<string,string>)[value.toLowerCase()] ?? value; }
 function Badge({ ok, children }: { ok: boolean; children: React.ReactNode }) { const value=typeof children==='string'?children:'';const pending=['processing','pending','trialing','open','in_progress'].includes(value.toLowerCase());return <span className={`badge ${pending?'pending':ok?'ok':'bad'}`}>{typeof children==='string'?statusLabel(children):children}</span>; }
-function ActionMenu({children}:{children:React.ReactNode}) { return <details className="actionMenu"><summary aria-label="Afficher les actions">⋯</summary><div>{children}</div></details>; }
+function ActionMenu({children}:{children:React.ReactNode}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  const [menuId] = useState(() => crypto.randomUUID());
+  useEffect(() => {
+    const closeOtherMenus = (event: Event) => { if ((event as CustomEvent<string>).detail !== menuId) setOpen(false); };
+    const closeOutside = (event: PointerEvent) => { if (!menuRef.current?.contains(event.target as Node)) setOpen(false); };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    window.addEventListener('stockmaster:action-menu-open', closeOtherMenus);
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('stockmaster:action-menu-open', closeOtherMenus);
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [menuId]);
+  function toggle() {
+    if (!open) window.dispatchEvent(new CustomEvent('stockmaster:action-menu-open', { detail: menuId }));
+    setOpen(value => !value);
+  }
+  return <div className={`actionMenu ${open ? 'open' : ''}`} ref={menuRef}>
+    <button type="button" className="actionMenuTrigger" aria-label="Afficher les actions" aria-expanded={open} onClick={toggle}>⋯</button>
+    {open && <div className="actionMenuPanel" onClick={() => setOpen(false)}>{children}</div>}
+  </div>;
+}
 function Table({ heads, children }: { heads: string[]; children: React.ReactNode }) {
   const rows = React.Children.toArray(children);
   const count = rows.length;

@@ -78,7 +78,7 @@ export function StockAdjustmentDialog({
     { label: 'Produit simple', value: null },
     ...variants
       .filter((variant) => variant.is_active)
-      .map((variant) => ({ label: `${variant.name} • ${variant.sku}`, value: variant.id })),
+      .map((variant) => ({ label: variant.name, value: variant.id })),
   ];
 
   return (

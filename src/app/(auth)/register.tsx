@@ -145,6 +145,7 @@ export default function RegisterScreen() {
   return (
     <AuthScreen title="Créer votre compte" subtitle="Votre adresse email devra être confirmée avant l’accès.">
       <Card mode="contained"><Card.Content style={{gap:6}}><Text variant="titleMedium">Confirmation par email</Text><Text>Après votre inscription, nous allons envoyer un email dans votre boîte de réception. Vous devrez cliquer sur le lien de confirmation avant de choisir votre essai gratuit ou votre abonnement.</Text></Card.Content></Card>
+      <Card mode="outlined"><Card.Content style={{gap:6}}><Text variant="titleMedium">Conditions d’utilisation</Text><Text variant="bodySmall">En créant votre compte, vous acceptez les conditions d’utilisation de StockMaster et la politique de confidentialité. Vous confirmez être autorisé à engager votre entreprise.</Text><Text variant="bodySmall">Lire les documents : <Link href="/legal/terms">Conditions d’utilisation</Link> et <Link href="/legal/privacy">Politique de confidentialité</Link>.</Text></Card.Content></Card>
       {!!error && <HelperText type="error" visible>{error}</HelperText>}
       <FormField control={control} name="fullName" label="Nom complet" />
       <FormField control={control} name="companyName" label="Entreprise" />

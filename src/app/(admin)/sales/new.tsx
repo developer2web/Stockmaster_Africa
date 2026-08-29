@@ -65,22 +65,22 @@ export default function NewSale() {
 
   const categories = Array.from(new Map((stock.data ?? []).filter(item=>item.categoryId).map(item=>[item.categoryId!,item.categoryName??'Catégorie'])).entries());
   const shown = (stock.data ?? [])
-    .filter((item) => (!categoryId || item.categoryId===categoryId) && `${item.name} ${item.sku}`.toLowerCase().includes(search.trim().toLowerCase()))
+    .filter((item) => (!categoryId || item.categoryId===categoryId) && item.name.toLowerCase().includes(search.trim().toLowerCase()))
     .slice(0, 30);
   const totals = useMemo(() => {
     const subtotal=items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
     const discount=items.reduce((sum,item)=>sum+item.discount,0);
-    const tax=Math.round((subtotal-discount)*Number(companySettings.data?.tax_rate??0))/100;
+    const tax=0;
     return ({
     subtotal,
     discount,
     tax,
-    total: subtotal-discount+tax,
+    total: subtotal-discount,
     grossProfit: items.reduce(
       (sum, item) => sum + (item.salePrice - item.purchasePrice) * item.quantity-item.discount,
       0,
     ),
-  })}, [items,companySettings.data?.tax_rate]);
+  })}, [items]);
   const discountTooHigh=items.some(item=>item.discount>item.salePrice*item.quantity*Number(companySettings.data?.max_discount_percent??100)/100);
   const save = useMutation({
     mutationFn: () => createSale(company, storeId, payment, items, customerId, payment==='credit'?0:payment==='partial'?parseDecimal(amountPaid):totals.total,operationId.current,!!companySettings.data?.allow_negative_stock),
@@ -122,7 +122,7 @@ export default function NewSale() {
           </Text>
         </Card.Content>
       </Card>
-      <AppSearchBar placeholder="Rechercher un produit ou un SKU" value={search} onChangeText={setSearch} />
+      <AppSearchBar placeholder="Rechercher un produit" value={search} onChangeText={setSearch} />
       <View style={styles.categoryFilters}><Chip selected={!categoryId} onPress={()=>setCategoryId(null)}>Tous</Chip>{categories.map(([id,name])=><Chip key={id} selected={categoryId===id} onPress={()=>setCategoryId(id)}>{name}</Chip>)}</View>
       {!!stock.error && <HelperText type="error" visible>{stock.error.message}</HelperText>}
       <View style={styles.list}>
@@ -133,7 +133,7 @@ export default function NewSale() {
               <Card.Title
                 left={() => <ProductThumbnail url={item.imageUrl} />}
                 title={item.name}
-                subtitle={`${item.sku} • Prix catalogue ${formatMoney(item.salePrice)}`}
+                subtitle={`Prix catalogue ${formatMoney(item.salePrice)}`}
                 right={() => available
                   ? <Chip style={styles.chip} icon={item.available>0?'package-variant':'alert'}>Stock {formatQuantity(item.available)}</Chip>
                   : <Chip style={styles.chip} icon="alert-circle-outline">Stock épuisé</Chip>}
@@ -186,7 +186,6 @@ export default function NewSale() {
           <View style={styles.checkoutCopy}>
           <Text variant="headlineSmall">Total : {formatMoney(totals.total)}</Text>
           {totals.discount>0&&<Text>Remises : −{formatMoney(totals.discount)}</Text>}
-          {totals.tax>0&&<Text>Taxes ({Number(companySettings.data?.tax_rate??0)} %) : {formatMoney(totals.tax)}</Text>}
           {!employee && <Text style={{ color: theme.colors.primary }}>Bénéfice brut : {formatMoney(totals.grossProfit)}</Text>}
           </View>
         </Card.Content>

@@ -4,6 +4,7 @@ import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { Alert, AppState, Platform } from 'react-native';
 import { supabase } from '@/services/supabase/client';
+import { retryJwtClockSkew } from '@/services/supabase/jwtRetry';
 import { createRealtimeTopic } from '@/services/supabase/realtime';
 import { getAccessibleBusinesses, getAccessibleStores, getWorkspaceContext } from '@/features/workspace/api';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -63,7 +64,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setMembershipError(null);
     setNeedsOnboarding(false);
     try {
-      const { data, error } = await supabase.rpc('get_my_context');
+      const { data, error } = await retryJwtClockSkew(() => supabase.rpc('get_my_context'));
       if (sequence !== refreshSequence.current) return;
       if (error) {
         setAccessBlocked(false);
@@ -100,7 +101,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setMembership(null);
         setStores([]);
         if (selectedCompanyId) clearWorkspace();
-        const { data: accessStatus, error: statusError } = await supabase.rpc('get_account_access_status');
+        const { data: accessStatus, error: statusError } = await retryJwtClockSkew(() => supabase.rpc('get_account_access_status'));
         if (sequence !== refreshSequence.current) return;
         if (statusError) {
           setMembershipError('Impossible de vérifier votre entreprise. Réessayez dans quelques instants.');
@@ -161,7 +162,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
 
       setMembership(null);
-      const { data: accessStatus, error: statusError } = await supabase.rpc('get_account_access_status');
+      const { data: accessStatus, error: statusError } = await retryJwtClockSkew(() => supabase.rpc('get_account_access_status'));
       if (sequence !== refreshSequence.current) return;
       if (statusError) {
         setAccessBlocked(false);
@@ -254,7 +255,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     void supabase.auth.getSession().then(async ({ data }) => {
       if (data.session) {
-        const { error: userError } = await supabase.auth.getUser();
+        const { error: userError } = await retryJwtClockSkew(() => supabase.auth.getUser());
         if (userError && [401, 403].includes(userError.status ?? 0)) {
           await supabase.auth.signOut({ scope: 'local' });
           setSession(null);

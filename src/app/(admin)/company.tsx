@@ -73,7 +73,7 @@ export default function CompanyScreen() {
     onSuccess: refresh,
   });
   const locked = !!company.data?.currency_locked_at;
-  const settingsMutation=useMutation({mutationFn:()=>updateBusinessSettings(companyId,{...settings,taxRate:Number(settings.taxRate)||0,maxDiscountPercent:Math.min(100,Math.max(0,Number(settings.maxDiscountPercent)||0)),cashOpeningRequired:canUseFeature('advanced_cash_closure')&&settings.cashOpeningRequired,cashVarianceReasonThreshold:canUseFeature('advanced_cash_closure')?Math.max(0,Number(settings.cashVarianceReasonThreshold)||0):0,expenseApprovalThreshold:canUseFeature('expense_approval')&&settings.expenseApprovalThreshold.trim()?Math.max(0,Number(settings.expenseApprovalThreshold)||0):null}),onSuccess:refresh});
+  const settingsMutation=useMutation({mutationFn:()=>updateBusinessSettings(companyId,{...settings,taxRate:0,allowCreditSales:false,maxDiscountPercent:Math.min(100,Math.max(0,Number(settings.maxDiscountPercent)||0)),cashOpeningRequired:canUseFeature('advanced_cash_closure')&&settings.cashOpeningRequired,cashVarianceReasonThreshold:canUseFeature('advanced_cash_closure')?Math.max(0,Number(settings.cashVarianceReasonThreshold)||0):0,expenseApprovalThreshold:canUseFeature('expense_approval')&&settings.expenseApprovalThreshold.trim()?Math.max(0,Number(settings.expenseApprovalThreshold)||0):null}),onSuccess:refresh});
 
   return (
     <AdminPage title="Entreprise">
@@ -130,9 +130,58 @@ export default function CompanyScreen() {
           </AppButton>
         </Card.Content>
       </Card>
-      <Card mode="outlined"><Card.Title title="Coordonnées et règles de vente" subtitle="Contrôles appliqués côté serveur à toutes les boutiques"/><Card.Content style={{gap:12}}><TextInput mode="outlined" label="Téléphone" value={settings.phone} onChangeText={phone=>setSettings(value=>({...value,phone}))}/><TextInput mode="outlined" label="Email" keyboardType="email-address" value={settings.email} onChangeText={email=>setSettings(value=>({...value,email}))}/><TextInput mode="outlined" label="Adresse" value={settings.address} onChangeText={address=>setSettings(value=>({...value,address}))}/><SelectField label="Langue" value={settings.language} onChange={language=>setSettings(value=>({...value,language:(language??'fr') as 'fr'|'en'}))} options={[{label:'Français',value:'fr'},{label:'English',value:'en'}]}/><TextInput mode="outlined" label="Taxes appliquées aux ventes (%)" keyboardType="decimal-pad" value={settings.taxRate} onChangeText={taxRate=>setSettings(value=>({...value,taxRate}))}/><TextInput mode="outlined" label="Remise maximale (%)" keyboardType="decimal-pad" value={settings.maxDiscountPercent} onChangeText={maxDiscountPercent=>setSettings(value=>({...value,maxDiscountPercent}))}/><TextInput mode="outlined" label="Message en bas du reçu" value={settings.receiptFooter} onChangeText={receiptFooter=>setSettings(value=>({...value,receiptFooter}))}/>{([['Autoriser les remises','allowDiscounts'],['Autoriser les ventes à crédit','allowCreditSales'],['Autoriser explicitement le stock négatif','allowNegativeStock'],['Motif obligatoire pour les remboursements','requireRefundReason'],['Activer les alertes de stock faible','lowStockAlerts']] as const).map(([label,key])=><Card key={key} mode="contained"><Card.Title title={label} right={()=><Switch value={settings[key]} onValueChange={checked=>setSettings(value=>({...value,[key]:checked}))} style={{marginRight:12}}/>}/></Card>)}{!!settingsMutation.error&&<HelperText type="error" visible>{settingsMutation.error.message}</HelperText>}<AppButton loading={settingsMutation.isPending} onPress={()=>settingsMutation.mutate()}>Enregistrer les paramètres</AppButton></Card.Content></Card>
-      <FeatureGate feature="advanced_cash_closure" label="Clôture de caisse avancée"><Card mode="outlined"><Card.Title title="Clôture de caisse avancée" subtitle="Contrôlez la reprise de caisse et justifiez automatiquement les écarts importants"/><Card.Content style={{gap:12}}><TextInput mode="outlined" label="Justifier un écart de caisse supérieur à" keyboardType="decimal-pad" value={settings.cashVarianceReasonThreshold} onChangeText={cashVarianceReasonThreshold=>setSettings(value=>({...value,cashVarianceReasonThreshold}))}/><Card mode="contained"><Card.Title title="Exiger l’ouverture de caisse avant une vente" right={()=><Switch value={settings.cashOpeningRequired} onValueChange={cashOpeningRequired=>setSettings(value=>({...value,cashOpeningRequired}))} style={{marginRight:12}}/>}/></Card><AppButton loading={settingsMutation.isPending} onPress={()=>settingsMutation.mutate()}>Enregistrer la clôture avancée</AppButton></Card.Content></Card></FeatureGate>
-      <FeatureGate feature="expense_approval" label="Approbation des dépenses"><Card mode="outlined"><Card.Title title="Validation des dépenses" subtitle="Laissez vide pour valider immédiatement toutes les dépenses"/><Card.Content style={{gap:12}}><TextInput mode="outlined" label="Seuil nécessitant l’accord Admin" keyboardType="decimal-pad" value={settings.expenseApprovalThreshold} onChangeText={expenseApprovalThreshold=>setSettings(value=>({...value,expenseApprovalThreshold}))}/><AppButton loading={settingsMutation.isPending} onPress={()=>settingsMutation.mutate()}>Enregistrer le seuil</AppButton></Card.Content></Card></FeatureGate>
+      <Card mode="outlined">
+        <Card.Title title="Coordonnées" subtitle="Informations visibles pour les clients et les équipes" />
+        <Card.Content style={{ gap: 12 }}>
+          <TextInput mode="outlined" label="Téléphone" value={settings.phone} onChangeText={(phone) => setSettings((value) => ({ ...value, phone }))} />
+          <TextInput mode="outlined" label="Email" keyboardType="email-address" value={settings.email} onChangeText={(email) => setSettings((value) => ({ ...value, email }))} />
+          <TextInput mode="outlined" label="Adresse" value={settings.address} onChangeText={(address) => setSettings((value) => ({ ...value, address }))} />
+          <SelectField label="Langue" value={settings.language} onChange={(language) => setSettings((value) => ({ ...value, language: (language ?? 'fr') as 'fr' | 'en' }))} options={[{ label: 'Français', value: 'fr' }, { label: 'English', value: 'en' }]} />
+        </Card.Content>
+      </Card>
+
+      <Card mode="outlined">
+        <Card.Title title="Règles de vente" subtitle="Réglages utiles sans surcharger l’écran" />
+        <Card.Content style={{ gap: 12 }}>
+          <TextInput mode="outlined" label="Remise maximale (%)" keyboardType="decimal-pad" value={settings.maxDiscountPercent} onChangeText={(maxDiscountPercent) => setSettings((value) => ({ ...value, maxDiscountPercent }))} />
+          <TextInput mode="outlined" label="Message en bas du reçu" value={settings.receiptFooter} onChangeText={(receiptFooter) => setSettings((value) => ({ ...value, receiptFooter }))} />
+          {([
+            ['Autoriser les remises', 'allowDiscounts'],
+            ['Autoriser le stock négatif', 'allowNegativeStock'],
+            ['Motif obligatoire pour les remboursements', 'requireRefundReason'],
+            ['Alertes de stock faible', 'lowStockAlerts'],
+          ] as const).map(([label, key]) => (
+            <Card key={key} mode="contained">
+              <Card.Title title={label} right={() => <Switch value={settings[key]} onValueChange={(checked) => setSettings((value) => ({ ...value, [key]: checked }))} style={{ marginRight: 12 }} />} />
+            </Card>
+          ))}
+        </Card.Content>
+      </Card>
+
+      <FeatureGate feature="advanced_cash_closure" label="Clôture de caisse avancée">
+        <Card mode="outlined">
+          <Card.Title title="Caisse" subtitle="Contrôles utiles uniquement pour la gestion avancée" />
+          <Card.Content style={{ gap: 12 }}>
+            <TextInput mode="outlined" label="Justifier un écart de caisse supérieur à" keyboardType="decimal-pad" value={settings.cashVarianceReasonThreshold} onChangeText={(cashVarianceReasonThreshold) => setSettings((value) => ({ ...value, cashVarianceReasonThreshold }))} />
+            <Card mode="contained">
+              <Card.Title title="Ouverture de caisse obligatoire" right={() => <Switch value={settings.cashOpeningRequired} onValueChange={(cashOpeningRequired) => setSettings((value) => ({ ...value, cashOpeningRequired }))} style={{ marginRight: 12 }} />} />
+            </Card>
+            <AppButton loading={settingsMutation.isPending} onPress={() => settingsMutation.mutate()}>Enregistrer la caisse</AppButton>
+          </Card.Content>
+        </Card>
+      </FeatureGate>
+
+      <FeatureGate feature="expense_approval" label="Approbation des dépenses">
+        <Card mode="outlined">
+          <Card.Title title="Dépenses" subtitle="Définissez le seuil d’approbation pour les dépenses" />
+          <Card.Content style={{ gap: 12 }}>
+            <TextInput mode="outlined" label="Seuil nécessitant l’accord Admin" keyboardType="decimal-pad" value={settings.expenseApprovalThreshold} onChangeText={(expenseApprovalThreshold) => setSettings((value) => ({ ...value, expenseApprovalThreshold }))} />
+            <AppButton loading={settingsMutation.isPending} onPress={() => settingsMutation.mutate()}>Enregistrer le seuil</AppButton>
+          </Card.Content>
+        </Card>
+      </FeatureGate>
+
+      {!!settingsMutation.error && <HelperText type="error" visible>{settingsMutation.error.message}</HelperText>}
     </AdminPage>
   );
 }
