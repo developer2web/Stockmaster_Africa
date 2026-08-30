@@ -10,6 +10,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import type { BillingCycle } from '@/features/subscriptions/types';
 import { AppBackButton } from '@/components/ui/AppBackButton';
+import { formatDate } from '@/utils/format';
 
 const featureLabels: Record<string, string> = {
   inventory: 'Produits et stock',
@@ -96,7 +97,7 @@ export default function SubscriptionScreen() {
             <Card.Content>
               <Text>
                 Expiration : {subscription.expiresAt
-                  ? new Date(subscription.expiresAt).toLocaleDateString('fr-CA')
+                  ? formatDate(subscription.expiresAt)
                   : 'non définie'}
               </Text>
               {subscription.expiresAt&&<Text>{Math.max(0,Math.ceil((new Date(subscription.expiresAt).getTime()-Date.now())/86400000))} jour(s) restant(s)</Text>}

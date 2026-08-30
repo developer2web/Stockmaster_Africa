@@ -4,17 +4,19 @@ import * as Sharing from 'expo-sharing';
 import type { BusinessReport } from '@/types/database';
 import type { FinancialDetails } from './api';
 import { printHtmlDocument } from '@/utils/printHtml';
+import { formatDate, formatDateTime } from '@/utils/format';
+import { formatQuantity } from '@/utils/number';
 
 type ExportContext = { report: BusinessReport; companyName: string; storeName?:string|null; currencyCode: string; periodLabel: string; cashBalance: number; details: FinancialDetails; preparedBy:string; scopeLabel:string;address?:string|null;phone?:string|null;email?:string|null;logoUrl?:string|null;footer?:string|null;accentColor?:string|null };
 const escape = (value: string) => value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
 
 function reportHtml({ report, companyName, storeName, currencyCode, periodLabel, cashBalance, details, preparedBy, scopeLabel,address,phone,email,logoUrl,footer,accentColor }: ExportContext) {
   const brandColor = accentColor && /^#[0-9A-Fa-f]{6}$/.test(accentColor) ? accentColor : '#084B50';
-  const money = (value: number) => new Intl.NumberFormat('fr-CA', { style: 'currency', currency: currencyCode, currencyDisplay: 'code' }).format(value);
+  const money = (value: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currencyCode, currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
   const shopValue = report.stockValue + cashBalance;
   const metric = (label: string, value: string, accent = '#102A24') => `<div class="metric"><span>${escape(label)}</span><strong style="color:${accent}">${escape(value)}</strong></div>`;
-  const rows = report.topProducts.map((row, index) => `<tr><td>${index + 1}</td><td>${escape(row.name)}</td><td>${Number(row.quantity ?? 0).toLocaleString('fr-FR')}</td><td>${money(Number(row.revenue ?? 0))}</td><td>${money(Number(row.gross_profit ?? 0))}</td></tr>`).join('');
-  const salesRows=details.sales.slice(0,100).map(row=>`<tr><td>${escape(row.reference??'Vente')}</td><td>${escape(new Date(row.created_at).toLocaleDateString('fr-CA'))}</td><td>${escape(row.store?.name??'Boutique')}</td><td>${money(Number(row.total))}</td><td>${money(Number(row.gross_profit))}</td></tr>`).join('');
+  const rows = report.topProducts.map((row, index) => `<tr><td>${index + 1}</td><td>${escape(row.name)}</td><td>${formatQuantity(row.quantity)}</td><td>${money(Number(row.revenue ?? 0))}</td><td>${money(Number(row.gross_profit ?? 0))}</td></tr>`).join('');
+  const salesRows=details.sales.slice(0,100).map(row=>`<tr><td>${escape(row.reference??'Vente')}</td><td>${escape(formatDate(row.created_at))}</td><td>${escape(row.store?.name??'Boutique')}</td><td>${money(Number(row.total))}</td><td>${money(Number(row.gross_profit))}</td></tr>`).join('');
   const expenseRows=details.expenses.slice(0,100).map(row=>`<tr><td>${escape(row.label)}</td><td>${escape(row.expense_date)}</td><td>${escape(row.store?.name??'Générale')}</td><td>${money(Number(row.amount))}</td></tr>`).join('');
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><style>
     @page{margin:28px}*{box-sizing:border-box}body{font-family:Helvetica,Arial,sans-serif;color:#102A24;margin:0}
@@ -29,7 +31,7 @@ function reportHtml({ report, companyName, storeName, currencyCode, periodLabel,
   <h2>Détail des ventes</h2><table><thead><tr><th>Référence</th><th>Date</th><th>Boutique</th><th>Total</th><th>Bénéfice</th></tr></thead><tbody>${salesRows||'<tr><td colspan="5">Aucune vente</td></tr>'}</tbody></table>
   <h2>Détail des dépenses</h2><table><thead><tr><th>Motif</th><th>Date</th><th>Boutique</th><th>Montant</th></tr></thead><tbody>${expenseRows||'<tr><td colspan="4">Aucune dépense</td></tr>'}</tbody></table>
   <h2>Produits les plus rentables</h2><table><thead><tr><th>#</th><th>Produit</th><th>Quantité</th><th>Revenus</th><th>Bénéfice brut</th></tr></thead><tbody>${rows || '<tr><td colspan="5">Aucune donnée</td></tr>'}</tbody></table>
-  <footer>${footer?`${escape(footer)}<br>`:''}Généré pour ${escape(companyName)} par ${escape(preparedBy)} le ${new Date().toLocaleString('fr-CA')}</footer></body></html>`;
+  <footer>${footer?`${escape(footer)}<br>`:''}Généré pour ${escape(companyName)} par ${escape(preparedBy)} le ${formatDateTime(new Date())}</footer></body></html>`;
 }
 
 export async function exportFinancialPdf(context: ExportContext) {

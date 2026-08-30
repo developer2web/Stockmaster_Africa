@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
-import { Card, Checkbox, Dialog, FAB, HelperText, Portal, Text } from 'react-native-paper';
+import { Card, Checkbox, Dialog, HelperText, Portal, Text } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -38,9 +38,9 @@ export default function RolesScreen() {
     { label: 'Comptable', codes: ['stores.read','sales.read','purchases.read','payments.read','expenses.read','expenses.write','cash_transactions.read','daily_reports.read','monthly_reports.read'] },
   ];
 
-  return <FeatureGate feature="advanced_permissions" label="Rôles et permissions avancés"><AdminPage title="Rôles et permissions" action={<FAB size="small" icon="plus" onPress={()=>show()}/> }>
+  return <FeatureGate feature="advanced_permissions" label="Rôles et permissions avancés"><AdminPage title="Rôles et permissions" action={<AppButton icon="plus" onPress={()=>show()}>Ajouter</AppButton>}>
     {!!roles.error&&<HelperText type="error" visible>Impossible de charger les rôles : {roles.error.message}</HelperText>}
-    {employeeRoles.length?employeeRoles.map(role=><Card key={role.id} onPress={()=>show(role)}><Card.Title title={role.name} subtitle={`${role.permissions.length} permission(s)`}/><Card.Actions><AppButton mode="text" onPress={()=>show(role)}>Modifier</AppButton><AppButton mode="text" textColor="#C92A2A" onPress={()=>setDeleting(role)}>Supprimer</AppButton></Card.Actions></Card>):!roles.isLoading&&<EmptyState icon="shield-plus" title="Aucun rôle employé" message="Créez un rôle avant d’inviter votre premier employé."/>}
+    {employeeRoles.length?employeeRoles.map(role=><Card key={role.id} onPress={()=>show(role)}><Card.Title title={role.name} subtitle={`${role.permissions.length} permission(s)`}/><Card.Actions><AppButton mode="text" onPress={()=>show(role)}>Modifier</AppButton><AppButton mode="text" destructive onPress={()=>setDeleting(role)}>Supprimer</AppButton></Card.Actions></Card>):!roles.isLoading&&<EmptyState icon="shield-plus" title="Aucun rôle employé" message="Créez un rôle avant d’inviter votre premier employé."/>}
 
     <Portal><Dialog visible={open} onDismiss={()=>setOpen(false)} style={[styles.dialog,{width:Math.min(width-24,680)}]}>
       <Dialog.Title>{editing?'Modifier le rôle':'Nouveau rôle'}</Dialog.Title>

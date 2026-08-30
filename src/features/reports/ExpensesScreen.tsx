@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Card, Dialog, FAB, HelperText, Portal, Text } from 'react-native-paper';
+import { Card, Dialog, HelperText, Portal, Text } from 'react-native-paper';
 
 import { FormField } from '@/components/forms/FormField';
 import { AdminPage } from '@/components/ui/AdminPage';
@@ -54,7 +54,7 @@ export default function ExpensesScreen() {
 
   return (
     <PermissionGuard permission="expenses.read">
-      <AdminPage title="Dépenses" action={canWrite ? <FAB size="small" icon="plus" onPress={() => setOpen(true)} /> : undefined}>
+      <AdminPage title="Dépenses" action={canWrite ? <AppButton icon="plus" onPress={() => setOpen(true)}>Ajouter</AppButton> : undefined}>
         <HelperText type="info" visible>Une dépense validée est immuable. Toute correction doit être tracée par une nouvelle opération autorisée.</HelperText>
         {(requests.data??[]).filter(item=>item.status==='pending').map(item=><Card key={item.id} mode="contained"><Card.Title title={`En attente • ${item.label}`} subtitle={`${item.expense_date} • ${formatMoney(Number(item.amount))}`}/>{membership?.role==='company_admin'&&<Card.Actions><AppButton mode="text" textColor="#C92A2A" onPress={()=>setReviewing({request:item,approve:false})}>Refuser</AppButton><AppButton onPress={()=>setReviewing({request:item,approve:true})}>Approuver</AppButton></Card.Actions>}</Card>)}
         {list.data?.map((expense) => <Card key={expense.id} mode="outlined"><Card.Title title={expense.label} subtitle={`${expense.store?.name ?? 'Boutique'} • ${expense.expense_date}`} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{formatForCurrency(Number(expense.amount), expense.currency_code)}</Text>} /></Card>)}

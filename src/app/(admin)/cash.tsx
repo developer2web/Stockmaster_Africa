@@ -15,6 +15,7 @@ import { printPaymentReceipt, sharePaymentReceipt } from '@/features/payments/re
 import { useReceiptAction } from '@/features/payments/useReceiptAction';
 import { useReceiptBranding } from '@/features/payments/branding';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
+import { formatDateTime } from '@/utils/format';
 
 type TransactionType = 'deposit' | 'withdrawal';
 
@@ -105,7 +106,7 @@ export default function CashScreen() {
             <View style={[styles.transactionIcon, { backgroundColor: item.transaction_type === 'deposit' ? theme.colors.primaryContainer : theme.colors.errorContainer }]}>
               <Icon source={item.transaction_type === 'deposit' ? 'arrow-down-left' : 'arrow-up-right'} size={23} color={item.transaction_type === 'deposit' ? theme.colors.primary : theme.colors.error} />
             </View>
-            <View style={styles.grow}><Text variant="titleMedium" style={styles.bold}>{item.designation}</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>{item.store?.name ?? 'Toutes les boutiques'} · {new Date(item.created_at).toLocaleString('fr-CA')}</Text></View>
+            <View style={styles.grow}><Text variant="titleMedium" style={styles.bold}>{item.designation}</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>{item.store?.name ?? 'Toutes les boutiques'} · {formatDateTime(item.created_at)}</Text></View>
             <Text variant="titleMedium" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.amount, styles.bold, { color: item.transaction_type === 'deposit' ? theme.colors.primary : theme.colors.error }]}>{item.transaction_type === 'deposit' ? '+' : '−'}{formatForCurrency(Number(item.amount), item.currency_code)}</Text>
           </Card.Content>
           <Card.Actions>{(()=>{const data={...receiptBranding,title:item.transaction_type==='deposit'?'Reçu d’entrée de caisse':'Reçu de sortie de caisse',party:item.designation,partyLabel:'Opération',amount:Number(item.amount),balanceBefore:0,balanceAfter:0,date:item.created_at,reference:`CAISSE-${item.id.slice(0,8).toUpperCase()}`,store:item.store?.name??receiptBranding.store,issuedBy:item.creator?.full_name||receiptBranding.issuedBy,amountLabel:item.transaction_type==='deposit'?'Montant encaissé':'Montant décaissé',showBalances:false};const printKey=`print-${item.id}`,shareKey=`share-${item.id}`;return [<AppButton key={printKey} mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(data,value=>formatForCurrency(value,item.currency_code)))}>Imprimer</AppButton>,<AppButton key={shareKey} mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(data,value=>formatForCurrency(value,item.currency_code)))}>Partager</AppButton>]})()}</Card.Actions>

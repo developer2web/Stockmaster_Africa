@@ -13,7 +13,7 @@ type CurrencyValue = {
   formatSecondary: (value: number, rate: number | null) => string | null;
 };
 
-const DEFAULT_CURRENCY = 'CAD';
+const DEFAULT_CURRENCY = 'GNF';
 const CurrencyContext = createContext<CurrencyValue | null>(null);
 
 function cacheKey(companyId: string) {
@@ -92,6 +92,8 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
         style: 'currency',
         currency: primaryCode,
         currencyDisplay: 'code',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
         ...options,
       }).format(numeric);
       if (!secondaryCode || !secondaryRate) return primary;
@@ -99,6 +101,8 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
         style: 'currency',
         currency: secondaryCode,
         currencyDisplay: 'code',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
         ...options,
       }).format(numeric * secondaryRate);
       return `${primary} · ${secondary}`;
@@ -107,12 +111,16 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
       style: 'currency',
       currency: currencyCode,
       currencyDisplay: 'code',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(Number(amount) || 0),
     formatSecondary: (amount, rate) => secondaryCode && rate
       ? new Intl.NumberFormat('fr-CA', {
         style: 'currency',
         currency: secondaryCode,
         currencyDisplay: 'code',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
       }).format((Number(amount) || 0) * rate)
       : null,
   }), [primaryCode, secondaryCode, secondaryRate]);

@@ -11,6 +11,8 @@ import { getStockLevels, getStockMovements } from '@/features/inventory/api';
 import { useStockRealtime } from '@/hooks/useStockRealtime';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { AppSearchBar } from '@/components/ui/AppSearchBar';
+import { formatDateTime } from '@/utils/format';
+import { formatQuantity } from '@/utils/number';
 
 export default function StockScreen() {
   const { formatMoney: money } = useCurrency();
@@ -45,7 +47,7 @@ export default function StockScreen() {
         </View>
         <View style={styles.metrics}>
           <Metric compact={compact} label="Produits référencés" value={String(new Set(rows.map((row) => row.product_id)).size)} />
-          <Metric compact={compact} label="Quantité totale" value={total.toLocaleString('fr-FR')} />
+          <Metric compact={compact} label="Quantité totale" value={formatQuantity(total)} />
           <Metric compact={compact} label="Valeur d’achat" value={money(purchaseValue)} />
           <Metric compact={compact} label="Valeur de vente du stock" value={money(expectedRevenue)} />
         </View>
@@ -78,7 +80,7 @@ export default function StockScreen() {
               <Text style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>{level.variant?.name ?? level.product?.name}</Text>
             </View>
             <Text style={[styles.storeColumn, compact && styles.compactValue]} numberOfLines={2}>{compact ? `Boutique : ${level.store?.name ?? 'Boutique'}` : level.store?.name ?? 'Boutique'}</Text>
-            <Text style={[styles.numberColumn, compact && styles.compactValue, styles.bold, { color: Number(level.quantity) <= 0 ? theme.colors.error : theme.colors.primary }]}>{compact ? `Quantité : ${Number(level.quantity).toLocaleString('fr-FR')}` : Number(level.quantity).toLocaleString('fr-FR')}</Text>
+            <Text style={[styles.numberColumn, compact && styles.compactValue, styles.bold, { color: Number(level.quantity) <= 0 ? theme.colors.error : theme.colors.primary }]}>{compact ? `Quantité : ${formatQuantity(level.quantity)}` : formatQuantity(level.quantity)}</Text>
             <Text style={[styles.numberColumn, compact && styles.compactValue, styles.bold]}>{compact ? `Prix : ${money(Number(level.product?.sale_price ?? 0))}` : money(Number(level.product?.sale_price ?? 0))}</Text>
           </Card.Content>
         </Card>
@@ -96,9 +98,9 @@ export default function StockScreen() {
               </View>
               <View style={styles.grow}>
                 <Text variant="titleSmall" style={styles.bold} numberOfLines={2}>{movement.product?.name ?? 'Produit'}</Text>
-                <Text style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={2}>{movement.store?.name ?? 'Boutique'} · {new Date(movement.created_at).toLocaleString('fr-CA')}</Text>
+                <Text style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={2}>{movement.store?.name ?? 'Boutique'} · {formatDateTime(movement.created_at)}</Text>
               </View>
-              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.movementQuantity, styles.bold, { color: positive ? theme.colors.primary : theme.colors.error }]}>{positive ? '+' : ''}{Number(movement.quantity).toLocaleString('fr-FR')}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.movementQuantity, styles.bold, { color: positive ? theme.colors.primary : theme.colors.error }]}>{positive ? '+' : ''}{formatQuantity(movement.quantity)}</Text>
             </Card.Content>
           </Card>
         );

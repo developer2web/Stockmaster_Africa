@@ -9,6 +9,7 @@ import { AppBackButton } from './AppBackButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { hasAnyPermission } from '@/features/auth/permissions';
 import { PageIntro } from './PageIntro';
+import { design } from '@/constants/design';
 
 const descriptions:Record<string,string>={
   Produits:'Consultez, recherchez et gérez le catalogue de la boutique.',Stock:'Suivez les quantités disponibles dans la boutique sélectionnée.',Ventes:'Consultez les ventes et ouvrez leur détail.','Nouvelle vente':'Ajoutez les produits, choisissez le client puis encaissez.',Clients:'Gérez les clients, leurs achats et leurs crédits.',Caisse:'Suivez le solde, les mouvements et les clôtures.',Rapports:'Analysez les ventes, les dépenses et la performance.',Fournisseurs:'Gérez les fournisseurs, achats, dettes et règlements.',Employés:'Gérez les comptes, rôles et accès aux boutiques.',Boutiques:'Gérez les points de vente de l’entreprise.',Support:'Créez et suivez les demandes d’assistance.',Notifications:'Consultez les informations qui nécessitent votre attention.',
@@ -25,9 +26,7 @@ export function AdminPage({ title, description, action, backToHome = false, chil
   const [storeMenuOpen, setStoreMenuOpen] = useState(false);
   const employee = membership?.role === 'employee';
   const employeeHeader = '#084B50';
-  const pageBackground = employee
-    ? (theme.dark ? '#0E0B20' : '#F5F3FF')
-    : theme.colors.background;
+  const pageBackground = theme.colors.background;
   const remainingDays = subscription?.expiresAt
     ? Math.ceil((new Date(subscription.expiresAt).getTime() - Date.now()) / 86_400_000)
     : null;
@@ -79,14 +78,6 @@ export function AdminPage({ title, description, action, backToHome = false, chil
           </Menu>
         )}
       </Appbar.Header>
-      {employee && (
-        <View style={styles.employeeRibbon}>
-          <View style={styles.employeeRibbonDot} />
-          <Text variant="labelMedium" style={styles.employeeRibbonText}>
-            {membership?.companyName} • {membership?.storeName ?? 'Boutique'}
-          </Text>
-        </View>
-      )}
       <ScrollView
         nestedScrollEnabled
         contentContainerStyle={[styles.page, employee && styles.employeePage, compact && styles.compactPage, employee && compact && { paddingBottom: 92 + insets.bottom }]}
@@ -139,16 +130,13 @@ function EmployeeBottomNavigation() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   headerContent: { flex: 1, minWidth: 0 },
-  page: { padding: 20, paddingBottom: 40, gap: 16, width: '100%', maxWidth: 1180, alignSelf: 'center' },
+  page: { padding: 20, paddingBottom: 40, gap: 16, width: '100%', maxWidth: design.contentMaxWidth, alignSelf: 'center' },
   compactPage: { padding: 12, paddingBottom: 28, gap: 12 },
   compactTitle: { fontSize: 18 },
   employeeTitle: { color: '#FFFFFF', fontWeight: '800' },
   employeeSubtitle: { color: '#D7EFF0', fontWeight: '700' },
   storeSubtitle: { fontWeight: '700' },
-  employeeRibbon: { minHeight: 38, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#084B50' },
-  employeeRibbonDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFD166' },
-  employeeRibbonText: { color: '#FFFFFF', fontWeight: '700' },
-  employeePage: { maxWidth: 980 },
+  employeePage: { maxWidth: 1100 },
   subscriptionWarning: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   grow: { flex: 1, minWidth: 220 },
   employeeBottom: { flexDirection: 'row', borderTopWidth: 1, paddingTop: 5, paddingHorizontal: 4 },

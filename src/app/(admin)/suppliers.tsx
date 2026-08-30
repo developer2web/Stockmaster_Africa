@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { ScrollView } from 'react-native';
-import { Card, Chip, Dialog, FAB, HelperText, Portal, Switch, Text, TextInput } from 'react-native-paper';
+import { Card, Chip, Dialog, HelperText, Portal, Switch, Text, TextInput } from 'react-native-paper';
 import { FormField } from '@/components/forms/FormField';
 import { SelectField } from '@/components/forms/SelectField';
 import { AdminPage } from '@/components/ui/AdminPage';
@@ -24,6 +24,8 @@ import { printPaymentReceipt, sharePaymentReceipt } from '@/features/payments/re
 import { useReceiptAction } from '@/features/payments/useReceiptAction';
 import { useReceiptBranding } from '@/features/payments/branding';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
+import { formatDate, formatDateTime } from '@/utils/format';
+import { StatusChip } from '@/components/ui/StatusChip';
 
 const paymentLabels: Record<SupplierPayment['payment_method'], string> = {
   cash: 'Espèces',
@@ -64,9 +66,10 @@ export default function Suppliers() {
     return (query.data ?? []).filter((item) => !term || `${item.name} ${item.email ?? ''} ${item.phone ?? ''}`.toLowerCase().includes(term));
   }, [query.data, search]);
 
-  const { control, handleSubmit, reset } = useForm<SupplierInput>({
+  const { control, handleSubmit, reset, formState: { isDirty, isValid } } = useForm<SupplierInput>({
     resolver: zodResolver(supplierSchema),
     defaultValues: { name: '', email: '', phone: '', address: '', isActive: true },
+    mode: 'onChange',
   });
   useEffect(() => reset(editing
     ? { name: editing.name, email: editing.email ?? '', phone: editing.phone ?? '', address: editing.address ?? '', isActive: editing.is_active }
@@ -112,7 +115,7 @@ export default function Suppliers() {
   };
   const parsedAmount = parseDecimal(amount);
 
-  return <AdminPage title="Fournisseurs" action={<FAB size="small" icon="plus" accessibilityLabel="Ajouter un fournisseur" onPress={() => show()} />}>
+  return <AdminPage title="Fournisseurs" action={<AppButton icon="plus" accessibilityLabel="Ajouter un fournisseur" onPress={() => show()}>Ajouter</AppButton>}>
     <AppSearchBar placeholder="Nom, email ou téléphone" value={search} onChangeText={setSearch} />
     {!!query.error && <HelperText type="error" visible>{query.error.message}</HelperText>}
     {!!stats.error && <HelperText type="error" visible>{stats.error.message}</HelperText>}
@@ -120,11 +123,11 @@ export default function Suppliers() {
       const summary = stats.data?.[item.id];
       const due = summary?.due ?? 0;
       return <Card key={item.id} mode="outlined">
-        <Card.Title title={item.name} subtitle={[item.email, item.phone].filter(Boolean).join(' • ') || 'Aucun contact'} right={() => <Chip style={{ marginRight: 12 }} compact>{item.is_active ? 'Actif' : 'Archivé'}</Chip>} />
+        <Card.Title title={item.name} subtitle={[item.email, item.phone].filter(Boolean).join(' • ') || 'Aucun contact'} right={() => <StatusChip style={{ marginRight: 12 }} status={item.is_active ? 'active' : 'archived'} />} />
         <Card.Content>
           <Text>Total achats : {formatMoney(summary?.total ?? 0)}</Text>
           <Text style={due > 0 ? { fontWeight: '800', color: '#C92A2A' } : undefined}>Dette restante : {formatMoney(due)}</Text>
-          <Text>Livraisons : {summary?.count ?? 0}{summary?.lastDelivery ? ` • dernière le ${new Date(summary.lastDelivery).toLocaleDateString('fr-CA')}` : ''}</Text>
+          <Text>Livraisons : {summary?.count ?? 0}{summary?.lastDelivery ? ` • dernière le ${formatDate(summary.lastDelivery)}` : ''}</Text>
         </Card.Content>
         <Card.Actions>
           <AppButton mode="text" icon="pencil" onPress={() => show(item)}>Modifier</AppButton>
@@ -135,7 +138,7 @@ export default function Suppliers() {
     <AppButton icon="truck-check-outline" onPress={() => router.push('/purchases' as never)}>Nouvel approvisionnement</AppButton>
     {!query.isLoading && !shown.length && <EmptyState icon={search ? 'magnify' : 'truck-plus'} title={search ? 'Aucun résultat' : 'Aucun fournisseur'} message={search ? 'Modifiez votre recherche.' : 'Ajoutez votre premier fournisseur.'} />}
     <Portal>
-      <Dialog visible={open} onDismiss={() => setOpen(false)}>
+      <Dialog visible={open} dismissable={!isDirty&&!mutation.isPending} onDismiss={() => !isDirty&&!mutation.isPending&&setOpen(false)}>
         <Dialog.Title>{editing ? 'Modifier le fournisseur' : 'Nouveau fournisseur'}</Dialog.Title>
         <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}><ScrollView nestedScrollEnabled contentContainerStyle={{ gap: 12, paddingHorizontal: 24, paddingBottom: 12 }} keyboardShouldPersistTaps="handled">
           <FormField control={control} name="name" label="Nom" />
@@ -145,7 +148,7 @@ export default function Suppliers() {
           <Controller control={control} name="isActive" render={({ field }) => <Card mode="outlined"><Card.Title title="Fournisseur actif" right={() => <Switch value={field.value} onValueChange={field.onChange} style={{ marginRight: 12 }} />} /></Card>} />
           {!!mutation.error && <HelperText type="error" visible>{mutation.error.message}</HelperText>}
         </ScrollView></Dialog.ScrollArea>
-        <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={mutation.isPending} disabled={mutation.isPending} onPress={handleSubmit((value) => mutation.mutate(value))}>Enregistrer</AppButton></Dialog.Actions>
+        <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" disabled={mutation.isPending} onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={mutation.isPending} disabled={!isValid||!isDirty||mutation.isPending} onPress={handleSubmit((value) => mutation.mutate(value))}>Enregistrer</AppButton></Dialog.Actions>
       </Dialog>
 
       <Dialog visible={!!selected} onDismiss={() => setSelected(null)}>
@@ -163,10 +166,10 @@ export default function Suppliers() {
           <TextInput mode="outlined" label="Note (facultative)" value={note} onChangeText={setNote} multiline />
           {!!paymentMutation.error && <HelperText type="error" visible>{paymentMutation.error.message}</HelperText>}
           <Text variant="titleMedium">Achats non soldés</Text>
-          {(account.data?.purchases ?? []).map((row) => <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.total))} subtitle={`${row.payment_status==='cancelled'?'Annulé':row.payment_status === 'partial' ? 'Paiement partiel' : row.payment_status==='paid'?'Payé':'À payer'} • ${new Date(row.created_at).toLocaleDateString('fr-CA')}`} />{row.cancellation_reason&&<Card.Content><Text>Motif : {row.cancellation_reason}</Text></Card.Content>}{row.payment_status!=='cancelled'&&membership?.role==='company_admin'&&<Card.Actions><AppButton mode="text" textColor="#C92A2A" icon="cancel" onPress={()=>setPurchaseToCancel(row.id)}>Annuler l’achat</AppButton></Card.Actions>}</Card>)}
+          {(account.data?.purchases ?? []).map((row) => <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.total))} subtitle={`${row.payment_status==='cancelled'?'Annulé':row.payment_status === 'partial' ? 'Paiement partiel' : row.payment_status==='paid'?'Payé':'À payer'} • ${formatDate(row.created_at)}`} />{row.cancellation_reason&&<Card.Content><Text>Motif : {row.cancellation_reason}</Text></Card.Content>}{row.payment_status!=='cancelled'&&membership?.role==='company_admin'&&<Card.Actions><AppButton mode="text" destructive icon="cancel" onPress={()=>setPurchaseToCancel(row.id)}>Annuler l’achat</AppButton></Card.Actions>}</Card>)}
           {!(account.data?.purchases ?? []).some((row) => Number(row.amount_due) > 0) && !account.isLoading && <Text>Aucune dette fournisseur.</Text>}
           <Text variant="titleMedium">Historique des règlements</Text>
-          {(account.data?.payments ?? []).map((row) => {const receipt={...receiptBranding,title:'Reçu de paiement fournisseur',party:selected?.name??'Fournisseur',amount:Number(row.amount),balanceBefore:Number(row.balance_before??0),balanceAfter:Number(row.balance_after??0),date:row.created_at,reference:`FOURN-${row.id.slice(0,8).toUpperCase()}`,note:row.note,issuedBy:row.creator?.full_name||receiptBranding.issuedBy};const printKey=`print-${row.id}`,shareKey=`share-${row.id}`;return <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.amount))} subtitle={`${paymentLabels[row.payment_method]} • ${new Date(row.created_at).toLocaleString('fr-CA')}`} />{!!row.note && <Card.Content><Text>{row.note}</Text></Card.Content>}<Card.Actions><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(receipt,formatMoney))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(receipt,formatMoney))}>Partager</AppButton></Card.Actions></Card>})}
+          {(account.data?.payments ?? []).map((row) => {const receipt={...receiptBranding,title:'Reçu de paiement fournisseur',party:selected?.name??'Fournisseur',amount:Number(row.amount),balanceBefore:Number(row.balance_before??0),balanceAfter:Number(row.balance_after??0),date:row.created_at,reference:`FOURN-${row.id.slice(0,8).toUpperCase()}`,note:row.note,issuedBy:row.creator?.full_name||receiptBranding.issuedBy};const printKey=`print-${row.id}`,shareKey=`share-${row.id}`;return <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.amount))} subtitle={`${paymentLabels[row.payment_method]} • ${formatDateTime(row.created_at)}`} />{!!row.note && <Card.Content><Text>{row.note}</Text></Card.Content>}<Card.Actions><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(receipt,formatMoney))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(receipt,formatMoney))}>Partager</AppButton></Card.Actions></Card>})}
           {!account.data?.payments.length && !account.isLoading && <Text>Aucun règlement enregistré.</Text>}
         </ScrollView></Dialog.ScrollArea>
         <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setSelected(null)}>Fermer</AppButton><AppButton icon="cash-check" loading={paymentMutation.isPending} disabled={paymentMutation.isPending || account.isLoading || !((paymentMode==='total'?(account.data?.due??0):parsedAmount)>0) || (paymentMode==='custom'&&parsedAmount > (account.data?.due ?? 0))} onPress={() => paymentMutation.mutate()}>Enregistrer</AppButton></Dialog.Actions>

@@ -8,6 +8,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { getInternalNotifications, getPersistentNotifications, markNotificationsRead } from '@/features/notifications/api';
 import { supabase } from '@/services/supabase/client';
 import { createRealtimeTopic } from '@/services/supabase/realtime';
+import { formatDateTime } from '@/utils/format';
 
 export default function NotificationsScreen() {
   const { membership } = useAuth();
@@ -34,7 +35,7 @@ export default function NotificationsScreen() {
   return <AdminPage title="Notifications" action={unread.length ? <AppButton compact mode="text" loading={mark.isPending} onPress={() => mark.mutate()}>Tout marquer comme lu</AppButton> : undefined}>
     {!!query.error && <HelperText type="error" visible>{query.error.message}</HelperText>}
     {!!persistent.error && <HelperText type="error" visible>{persistent.error.message}</HelperText>}
-    {persistent.data?.map((item) => <Card key={item.id} mode={item.read_at ? 'outlined' : 'contained'} style={{ backgroundColor: item.read_at ? undefined : theme.colors.primaryContainer }}><Card.Content style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><Icon source={icon(item.type)} size={28} color={theme.colors.primary}/><Text style={{ flex: 1 }}><Text variant="titleMedium">{item.title}</Text>{'\n'}{item.body}{'\n'}<Text variant="labelSmall">{new Date(item.created_at).toLocaleString('fr-CA')}</Text></Text>{!item.read_at && <Chip>Nouveau</Chip>}</Card.Content></Card>)}
+    {persistent.data?.map((item) => <Card key={item.id} mode={item.read_at ? 'outlined' : 'contained'} style={{ backgroundColor: item.read_at ? undefined : theme.colors.primaryContainer }}><Card.Content style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><Icon source={icon(item.type)} size={28} color={theme.colors.primary}/><Text style={{ flex: 1 }}><Text variant="titleMedium">{item.title}</Text>{'\n'}{item.body}{'\n'}<Text variant="labelSmall">{formatDateTime(item.created_at)}</Text></Text>{!item.read_at && <Chip>Nouveau</Chip>}</Card.Content></Card>)}
     {query.data?.map((item) => <Card key={`live-${item.id}`} mode="outlined"><Card.Content style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><Icon source={icon(item.type)} size={28} color={item.severity === '3' ? '#C92A2A' : item.severity === '2' ? '#E67700' : '#1971C2'}/><Text style={{ flex: 1 }}><Text variant="titleMedium">{item.title}</Text>{'\n'}{item.body}</Text><Chip>{item.severity === '3' ? 'Urgent' : 'À voir'}</Chip></Card.Content></Card>)}
     {!query.isLoading && !persistent.isLoading && !query.data?.length && !persistent.data?.length && <EmptyState icon="bell-check-outline" title="Tout va bien" message="Aucune nouvelle notification pour cette boutique."/>}
   </AdminPage>;

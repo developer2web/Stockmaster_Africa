@@ -1,5 +1,31 @@
 import { Chip, ChipProps, useTheme } from 'react-native-paper';
 
-const labels:Record<string,string>={active:'Actif',succeeded:'Payé',paid:'Payé',processing:'En attente',pending:'En attente',trialing:'Essai',expired:'Expiré',failed:'Refusé',rejected:'Refusé',inactive:'Inactif',suspended:'Suspendu',cancelled:'Annulé',canceled:'Annulé',open:'Ouvert',in_progress:'En cours',resolved:'Résolu',closed:'Fermé'};
+const labels: Record<string, string> = {
+  active: 'Actif', succeeded: 'Payé', paid: 'Payé', processing: 'En attente', pending: 'En attente',
+  trialing: 'Essai', expired: 'Expiré', failed: 'Refusé', rejected: 'Refusé', inactive: 'Inactif',
+  suspended: 'Suspendu', cancelled: 'Annulé', canceled: 'Annulé', open: 'Ouvert',
+  in_progress: 'En cours', resolved: 'Résolu', closed: 'Fermé', archived: 'Archivé',
+};
 
-export function StatusChip({status,...props}:{status:string|null|undefined}&Omit<ChipProps,'children'>){const theme=useTheme();const value=status??'inactive';const success=['active','succeeded','paid','resolved'].includes(value);const warning=['processing','pending','trialing','open','in_progress'].includes(value);const danger=['expired','failed','rejected','suspended','cancelled','canceled'].includes(value);const background=success?'#DDF6E8':warning?'#FFF0D6':danger?theme.colors.errorContainer:theme.colors.surfaceVariant;const color=success?'#11643A':warning?'#9A5700':danger?theme.colors.error:theme.colors.onSurfaceVariant;return <Chip compact {...props} icon={success?'check-circle-outline':warning?'clock-outline':danger?'alert-circle-outline':'minus-circle-outline'} style={[{backgroundColor:background},props.style]} textStyle={[{color,fontWeight:'800'},props.textStyle]}>{labels[value]??value}</Chip>}
+export function StatusChip({ status, ...props }: { status: string | null | undefined } & Omit<ChipProps, 'children'>) {
+  const theme = useTheme();
+  const original = String(status ?? 'inactive').trim();
+  const value = original.toLowerCase().replace(/[ -]+/g, '_');
+  const success = ['active', 'succeeded', 'paid', 'resolved'].includes(value);
+  const warning = ['processing', 'pending', 'trialing', 'open', 'in_progress'].includes(value);
+  const danger = ['expired', 'failed', 'rejected', 'suspended', 'cancelled', 'canceled'].includes(value);
+  const background = success ? '#DDF6E8' : warning ? '#FFF0D6' : danger ? theme.colors.errorContainer : theme.colors.surfaceVariant;
+  const color = success ? '#11643A' : warning ? '#9A5700' : danger ? theme.colors.error : theme.colors.onSurfaceVariant;
+
+  return (
+    <Chip
+      compact
+      {...props}
+      icon={success ? 'check-circle-outline' : warning ? 'clock-outline' : danger ? 'alert-circle-outline' : 'minus-circle-outline'}
+      style={[{ backgroundColor: background }, props.style]}
+      textStyle={[{ color, fontWeight: '800' }, props.textStyle]}
+    >
+      {labels[value] ?? original}
+    </Chip>
+  );
+}

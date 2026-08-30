@@ -8,6 +8,7 @@ import { StyleSheet } from 'react-native';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { FormField } from '@/components/forms/FormField';
+import { ResponsiveFormGrid } from '@/components/forms/ResponsiveFormGrid';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { saveCustomer } from '@/features/customers/api';
 import { customerSchema, type CustomerInput } from '@/schemas/customers';
@@ -34,11 +35,11 @@ export default function NewCustomer() {
   return (
     <AdminPage title="Nouveau client">
       <Card mode="outlined" style={styles.form}><Card.Title title="Identité du client" subtitle="Les champs marqués * sont obligatoires"/><Card.Content style={styles.content}><FormField control={control} name="name" label="Nom du client" required autoFocus />
-      <FormField control={control} name="phone" label="Téléphone (facultatif)" keyboardType="phone-pad" />
-      <FormField control={control} name="email" label="Email (facultatif)" autoCapitalize="none" keyboardType="email-address" />
-      <FormField control={control} name="address" label="Adresse (facultative)" />
+      <ResponsiveFormGrid><FormField control={control} name="phone" label="Téléphone (facultatif)" keyboardType="phone-pad" />
+      <FormField control={control} name="email" label="Email (facultatif)" autoCapitalize="none" keyboardType="email-address" /></ResponsiveFormGrid>
+      <ResponsiveFormGrid><FormField control={control} name="address" label="Adresse (facultative)" />
+      <FormField control={control} name="creditLimit" label={`Limite de crédit (${primaryCode}, facultative)`} keyboardType="decimal-pad" /></ResponsiveFormGrid>
       <FormField control={control} name="note" label="Note (facultative)" multiline />
-      <FormField control={control} name="creditLimit" label={`Limite de crédit (${primaryCode}, facultative)`} keyboardType="decimal-pad" />
       <Controller
         control={control}
         name="isActive"

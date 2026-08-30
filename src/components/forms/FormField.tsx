@@ -14,9 +14,9 @@ export function FormField<T extends FieldValues>({ control, name, passwordToggle
         style={[styles.input,style]}
         secureTextEntry={passwordToggle?passwordHidden:secureTextEntry}
         right={passwordToggle?<TextInput.Icon accessibilityLabel={passwordHidden?'Afficher le mot de passe':'Masquer le mot de passe'} icon={passwordHidden?'eye':'eye-off'} onPress={()=>setPasswordHidden(value=>!value)}/>:props.right}
-        error={!!fieldState.error} {...props} /><HelperText type="error" visible={!!fieldState.error}>{fieldState.error?.message}</HelperText></View>
+        error={!!fieldState.error} {...props} />{fieldState.error?.message ? <HelperText type="error" visible>{fieldState.error.message}</HelperText> : null}</View>
     )} />
   );
 }
 
-const styles=StyleSheet.create({field:{width:'100%'},input:{minHeight:48}});
+const styles=StyleSheet.create({field:{width:'100%',minWidth:0},input:{minHeight:48}});

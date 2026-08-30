@@ -16,6 +16,7 @@ import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import { useReceiptBranding } from '@/features/payments/branding';
 import { FeatureGate } from '@/components/subscriptions/FeatureGate';
+import { formatQuantity } from '@/utils/number';
 
 type Preset = 'today' | 'week' | 'month' | 'year' | 'custom';
 type ReportView = 'global' | 'sales' | 'expenses';
@@ -44,7 +45,7 @@ function MetricCard({ label, value, icon, color }: { label: string; value: strin
 function Ranking({ title, rows, valueKey = 'gross_profit' }: { title: string; rows: ReportMetricRow[]; valueKey?: 'gross_profit' | 'amount' | 'revenue' }) {
   const { formatMoney: money } = useCurrency();
   const max = Math.max(...rows.map((row) => Number(row[valueKey] ?? 0)), 1);
-  return <Card mode="outlined" style={styles.rankingCard}><Card.Title title={title} titleNumberOfLines={2} /><Card.Content style={styles.list}>{rows.length ? rows.map((row, index) => { const value = Number(row[valueKey] ?? 0); return <View key={`${row.id ?? row.name}-${index}`} style={styles.rank}><View style={styles.row}><Text style={styles.rankingLabel} numberOfLines={2}>{index + 1}. {paymentLabels[row.name] ?? row.name}</Text><Text variant="titleSmall" numberOfLines={1} style={styles.rankingAmount}>{money(value)}</Text></View><ProgressBar progress={Math.max(0, value / max)} style={styles.progress} />{row.quantity !== undefined && <Text variant="bodySmall" style={styles.rankingDetail}>{row.quantity} unité(s) · CA {money(Number(row.revenue ?? 0))}</Text>}</View>; }) : <Text>Aucune donnée sur cette période.</Text>}</Card.Content></Card>;
+  return <Card mode="outlined" style={styles.rankingCard}><Card.Title title={title} titleNumberOfLines={2} /><Card.Content style={styles.list}>{rows.length ? rows.map((row, index) => { const value = Number(row[valueKey] ?? 0); return <View key={`${row.id ?? row.name}-${index}`} style={[styles.rank,index<rows.length-1&&styles.rankSeparated]}><View style={styles.row}><Text style={styles.rankingLabel} numberOfLines={2}>{index + 1}. {paymentLabels[row.name] ?? row.name}</Text><Text variant="titleSmall" numberOfLines={1} style={styles.rankingAmount}>{money(value)}</Text></View>{row.quantity !== undefined && <Text variant="bodySmall" numberOfLines={1} style={styles.rankingDetail}>{formatQuantity(row.quantity)} unité(s) · CA {money(Number(row.revenue ?? 0))}</Text>}<ProgressBar progress={Math.max(0, value / max)} style={styles.progress} /></View>; }) : <Text>Aucune donnée sur cette période.</Text>}</Card.Content></Card>;
 }
 
 export default function ReportsScreen() {
@@ -114,7 +115,7 @@ export default function ReportsScreen() {
           {data && (
             <View style={styles.metricGrid}>
               <MetricCard label="Total des ventes" value={money(data.revenue)} icon="cart-check" color="#1971C2" />
-              <MetricCard label="Quantité vendue" value={data.quantitySold.toLocaleString('fr-FR')} icon="counter" color="#7048E8" />
+              <MetricCard label="Quantité vendue" value={formatQuantity(data.quantitySold)} icon="counter" color="#7048E8" />
               <MetricCard label="Nombre de ventes" value={String(data.saleCount)} icon="receipt-text-outline" color="#084B50" />
             </View>
           )}
@@ -146,9 +147,9 @@ export default function ReportsScreen() {
         {(report.isLoading || filters.isLoading) && <LoadingScreen label="Calcul du rapport…" />}
         {!!filters.error && <HelperText type="error" visible>{filters.error.message}</HelperText>}
         {!!report.error && <HelperText type="error" visible>{report.error.message}</HelperText>}
-        {data && !advancedReports && <View style={styles.metricGrid}><MetricCard label="Total des ventes" value={money(data.revenue)} icon="cart-check" color="#1971C2" /><MetricCard label="Nombre de ventes" value={String(data.saleCount)} icon="receipt-text-outline" color="#084B50" /><MetricCard label="Quantité vendue" value={data.quantitySold.toLocaleString('fr-FR')} icon="counter" color="#7048E8" /><MetricCard label="Dépenses" value={money(data.expenses)} icon="cash-minus" color="#C92A2A" /></View>}
+        {data && !advancedReports && <View style={styles.metricGrid}><MetricCard label="Total des ventes" value={money(data.revenue)} icon="cart-check" color="#1971C2" /><MetricCard label="Nombre de ventes" value={String(data.saleCount)} icon="receipt-text-outline" color="#084B50" /><MetricCard label="Quantité vendue" value={formatQuantity(data.quantitySold)} icon="counter" color="#7048E8" /><MetricCard label="Dépenses" value={money(data.expenses)} icon="cash-minus" color="#C92A2A" /></View>}
         {data && advancedReports && view === 'global' && <><View style={styles.metricGrid}><MetricCard label="Revenus" value={money(data.revenue)} icon="cash-multiple" color="#1971C2" /><MetricCard label="Bénéfice brut" value={money(data.grossProfit)} icon="trending-up" color="#084B50" /><MetricCard label="Dépenses" value={money(data.expenses)} icon="cash-minus" color="#C92A2A" /><MetricCard label="Bénéfice net" value={money(data.netProfit)} icon="chart-line" color={data.netProfit >= 0 ? '#084B50' : '#C92A2A'} /><MetricCard label="Valeur du stock" value={money(data.stockValue)} icon="warehouse" color="#E67700" /><MetricCard label="Solde de caisse" value={money(cashBalance)} icon="wallet-outline" color="#7048E8" /><MetricCard label="Valeur de la boutique" value={money(data.stockValue + cashBalance)} icon="store-check-outline" color="#084B50" /></View><Card mode="contained" style={{ backgroundColor: data.netProfit >= 0 ? theme.colors.primaryContainer : theme.colors.errorContainer }}><Card.Content style={styles.netProfit}><Icon source={data.netProfit >= 0 ? 'arrow-up-circle' : 'arrow-down-circle'} size={34} color={data.netProfit >= 0 ? theme.colors.primary : theme.colors.error} /><View><Text>Bénéfice net de la période</Text><Text variant="headlineMedium" style={styles.bold}>{money(data.netProfit)}</Text></View><Chip>{variation(data.netProfit, data.previous.netProfit)}</Chip></Card.Content></Card><Card mode="outlined"><Card.Content><Text style={{ color: theme.colors.onSurfaceVariant }}>Valeur de la boutique = valeur d’achat du stock restant + solde de caisse. Il s’agit d’un indicateur opérationnel, pas d’une valorisation commerciale de l’entreprise.</Text></Card.Content></Card><View style={styles.twoColumns}><Ranking title="Produits les plus rentables" rows={data.topProducts} /><Ranking title="Performance des boutiques" rows={data.stores} valueKey="revenue" /></View></>}
-        {data && advancedReports && view === 'sales' && <><View style={styles.metricGrid}><MetricCard label="Total des ventes" value={money(data.revenue)} icon="cart-check" color="#1971C2" /><MetricCard label="Coût des marchandises" value={money(data.costOfGoods)} icon="package-variant" color="#E67700" /><MetricCard label="Quantité vendue" value={data.quantitySold.toLocaleString('fr-FR')} icon="counter" color="#7048E8" /><MetricCard label="Nombre de ventes" value={String(data.saleCount)} icon="receipt-text-outline" color="#084B50" /></View><View style={styles.twoColumns}><Ranking title="Moyens de paiement" rows={data.paymentMethods} valueKey="amount" /><Ranking title="Performance des employés" rows={data.employees} valueKey="revenue" /></View></>}
+        {data && advancedReports && view === 'sales' && <><View style={styles.metricGrid}><MetricCard label="Total des ventes" value={money(data.revenue)} icon="cart-check" color="#1971C2" /><MetricCard label="Coût des marchandises" value={money(data.costOfGoods)} icon="package-variant" color="#E67700" /><MetricCard label="Quantité vendue" value={formatQuantity(data.quantitySold)} icon="counter" color="#7048E8" /><MetricCard label="Nombre de ventes" value={String(data.saleCount)} icon="receipt-text-outline" color="#084B50" /></View><View style={styles.twoColumns}><Ranking title="Moyens de paiement" rows={data.paymentMethods} valueKey="amount" /><Ranking title="Performance des employés" rows={data.employees} valueKey="revenue" /></View></>}
         {data && advancedReports && view === 'expenses' && <><View style={styles.metricGrid}><MetricCard label="Dépenses totales" value={money(data.expenses)} icon="cash-minus" color="#C92A2A" /><MetricCard label="Valeur du stock" value={money(data.stockValue)} icon="warehouse" color="#E67700" /><MetricCard label="Marge après dépenses" value={money(data.netProfit)} icon="scale-balance" color={data.netProfit >= 0 ? '#084B50' : '#C92A2A'} /></View><Card mode="outlined"><Card.Content style={styles.netProfit}><Icon source="information-outline" size={28} color={theme.colors.secondary} /><Text style={styles.grow}>Le bénéfice net correspond au bénéfice brut diminué de toutes les dépenses enregistrées sur la période.</Text></Card.Content></Card></>}
         {data && !data.saleCount && <EmptyState icon="chart-line" title="Aucune vente" message="Modifiez la période ou les filtres pour afficher un rapport." />}
       </AdminPage>
@@ -173,12 +174,13 @@ const styles = StyleSheet.create({
   exportRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   twoColumns: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   rankingCard: { flexGrow: 1, flexBasis: 360, minWidth: 0 },
-  list: { gap: 18, paddingBottom: 18 },
-  rank: { minWidth: 0 },
+  list: { paddingBottom: 10 },
+  rank: { minWidth: 0, paddingVertical: 10 },
+  rankSeparated: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#D5E2DD' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   grow: { flex: 1, minWidth: 0 },
   rankingLabel: { flex: 1, minWidth: 0, lineHeight: 21 },
   rankingAmount: { flexShrink: 0, maxWidth: '48%', textAlign: 'right' },
-  rankingDetail: { marginTop: 7, lineHeight: 18 },
+  rankingDetail: { marginTop: 5, lineHeight: 18, minHeight: 18 },
   progress: { height: 7, borderRadius: 4, marginTop: 8 },
 });
