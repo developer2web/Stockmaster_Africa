@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { paymentRequestSchema } from '../src/schemas/subscriptions';
+import { requiresRetainedBusinessChoice } from '../src/features/subscriptions/businessLimit';
 
 describe('paymentRequestSchema', () => {
   it('accepts an international Mobile Money number', () => {
@@ -34,5 +35,19 @@ describe('paymentRequestSchema', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe('subscription business limit', () => {
+  it('requires a choice when two active companies downgrade to a one-company plan', () => {
+    expect(requiresRetainedBusinessChoice(2, 1)).toBe(true);
+  });
+
+  it('does not require a choice when the target plan keeps every active company', () => {
+    expect(requiresRetainedBusinessChoice(2, 10)).toBe(false);
+  });
+
+  it('does not require a new choice after excess companies have already been archived', () => {
+    expect(requiresRetainedBusinessChoice(1, 1)).toBe(false);
   });
 });

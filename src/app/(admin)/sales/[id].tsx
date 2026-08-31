@@ -25,7 +25,7 @@ export default function SaleDetails() {
   const sale = useQuery({ queryKey: ['sale', id, employee], queryFn: () => getSale(id!, !employee), enabled: !!id });
   const receipt=useReceiptAction();
   const branding=useReceiptBranding(sale.data?.store?.name, sale.data?.store_id);
-  const money = (value: number) => formatForCurrency(value, sale.data?.currency_code ?? 'CAD');
+  const money = (value: number) => formatForCurrency(value, sale.data?.currency_code ?? 'GNF');
 
   return (
     <AdminPage title={sale.data?.reference ?? 'Détail de la vente'}>

@@ -12,6 +12,9 @@ import type { BusinessAccess, MembershipContext, StoreAccess } from '@/types/dat
 import { logger } from '@/services/observability/logger';
 import { getCurrentUserOfflineQueue } from '@/features/offline/queue';
 import { useSaleCart } from '@/stores/saleCart';
+import { clearOfflineAccessSnapshot, loadOfflineAccessSnapshot, saveOfflineAccessSnapshot } from './offlineAccess';
+import { clearOfflineCaches } from '@/features/offline/storage';
+import { isDeviceOffline } from '@/features/offline/connectivity';
 
 async function confirmSignOutWithPendingOperations(){
   const count=(await getCurrentUserOfflineQueue()).length;
@@ -19,6 +22,12 @@ async function confirmSignOutWithPendingOperations(){
   const message=`${count} opération(s) ne sont pas encore sauvegardée(s) sur le serveur. Elles resteront sur cet appareil, mais vous devez les synchroniser avec ce même compte.`;
   if(Platform.OS==='web')return typeof window!=='undefined'&&window.confirm(`${message}\n\nSe déconnecter quand même ?`);
   return new Promise<boolean>((resolve)=>Alert.alert('Opérations non synchronisées',message,[{text:'Rester connecté',style:'cancel',onPress:()=>resolve(false)},{text:'Se déconnecter',style:'destructive',onPress:()=>resolve(true)}],{cancelable:true,onDismiss:()=>resolve(false)}));
+}
+
+function canRestoreAfterError(error: unknown) {
+  const value = error as { status?: number; code?: string; message?: string } | null;
+  if (value?.status && [401, 403].includes(value.status)) return false;
+  return !/permission denied|not authorized|row.level|jwt expired|invalid jwt|PGRST301/i.test(`${value?.code ?? ''} ${value?.message ?? ''}`);
 }
 
 type AuthValue = {
@@ -33,7 +42,7 @@ type AuthValue = {
   isWorkspaceLoading: boolean;
   isSwitchingWorkspace: boolean;
   refreshMembership: () => Promise<void>;
-  selectBusiness: (companyId: string) => Promise<void>;
+  selectBusiness: (companyId: string) => Promise<StoreAccess[]>;
   selectStore: (storeId: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -51,12 +60,28 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [isLoading, setLoading] = useState(true);
   const [isWorkspaceLoading, setWorkspaceLoading] = useState(true);
   const [isSwitchingWorkspace, setSwitchingWorkspace] = useState(false);
+  const [lastServerVerification, setLastServerVerification] = useState<string | null>(null);
   const refreshSequence = useRef(0);
   const selectedCompanyId = useWorkspaceStore((state) => state.companyId);
   const selectedStoreId = useWorkspaceStore((state) => state.storeId);
   const setSelectedBusiness = useWorkspaceStore((state) => state.selectBusiness);
   const setSelectedStore = useWorkspaceStore((state) => state.selectStore);
   const clearWorkspace = useWorkspaceStore((state) => state.clear);
+
+  const restoreOfflineAccess = useCallback(async (userId: string) => {
+    const snapshot = await loadOfflineAccessSnapshot(userId);
+    if (!snapshot) return false;
+    setSelectedBusiness(snapshot.membership.companyId);
+    setSelectedStore(snapshot.membership.storeId);
+    setBusinesses(snapshot.businesses);
+    setStores(snapshot.stores);
+    setMembership(snapshot.membership);
+    setMembershipError(null);
+    setAccessBlocked(false);
+    setNeedsOnboarding(false);
+    setLastServerVerification(null);
+    return true;
+  }, [setSelectedBusiness, setSelectedStore]);
 
   const refreshMembership = useCallback(async () => {
     const sequence = ++refreshSequence.current;
@@ -67,6 +92,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const { data, error } = await retryJwtClockSkew(() => supabase.rpc('get_my_context'));
       if (sequence !== refreshSequence.current) return;
       if (error) {
+        const { data: localSession } = await supabase.auth.getSession();
+        if (canRestoreAfterError(error) && localSession.session && await restoreOfflineAccess(localSession.session.user.id)) return;
         setAccessBlocked(false);
         setMembershipError('Impossible de charger votre entreprise. Vérifiez votre connexion internet puis réessayez.');
         return;
@@ -83,9 +110,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
           roleName: row.role_name ?? row.role,
           permissions: row.permissions ?? [],
           subscriptionStatus: row.subscription_status,
-          countryCode: row.country_code ?? 'CA',
-          countryName: row.country_name ?? 'Canada',
-          defaultCurrencyCode: row.default_currency_code ?? 'CAD',
+          countryCode: row.country_code ?? 'GN',
+          countryName: row.country_name ?? 'Guinée',
+          defaultCurrencyCode: row.default_currency_code ?? 'GNF',
           secondaryCurrencyCode: row.secondary_currency_code ?? null,
           currencyLockedAt: row.currency_locked_at ?? null,
         });
@@ -134,6 +161,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
             );
             if (sequence !== refreshSequence.current) return;
             setMembership(assignedContext);
+            setLastServerVerification(new Date().toISOString());
           } else {
             setMembership(null);
           }
@@ -158,6 +186,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (context) {
         setAccessBlocked(false);
         setMembership(context);
+        setLastServerVerification(new Date().toISOString());
         return;
       }
 
@@ -179,14 +208,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
       } else {
         setAccessBlocked(false);
       }
-    } catch {
+    } catch (error) {
       if (sequence === refreshSequence.current) {
+        const { data: localSession } = await supabase.auth.getSession();
+        if (canRestoreAfterError(error) && localSession.session && await restoreOfflineAccess(localSession.session.user.id)) return;
         setMembershipError('Connexion au serveur impossible. Vérifiez votre réseau puis réessayez.');
       }
     } finally {
       if (sequence === refreshSequence.current) setWorkspaceLoading(false);
     }
-  }, [clearWorkspace, selectedCompanyId, selectedStoreId, setSelectedBusiness, setSelectedStore]);
+  }, [clearWorkspace, restoreOfflineAccess, selectedCompanyId, selectedStoreId, setSelectedBusiness, setSelectedStore]);
+
+  useEffect(() => {
+    if (!session?.user.id || !membership?.companyId || !membership.storeId || membership.role === 'super_admin' || !lastServerVerification) return;
+    void saveOfflineAccessSnapshot({
+      userId: session.user.id,
+      verifiedAt: lastServerVerification,
+      membership,
+      businesses,
+      stores,
+    }).catch((error) => logger.warning('offline_access_snapshot_failed', error));
+  }, [businesses, lastServerVerification, membership, session?.user.id, stores]);
 
   const selectBusiness = useCallback(async (companyId: string) => {
     setWorkspaceLoading(true);
@@ -195,7 +237,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     try {
       const availableStores = await getAccessibleStores(companyId);
       setStores(availableStores);
-      if (availableStores.length === 1) setSelectedStore(availableStores[0].storeId);
+      if (availableStores.length === 1) {
+        const storeId = availableStores[0].storeId;
+        const context = await getWorkspaceContext(companyId, storeId);
+        setSelectedStore(storeId);
+        setMembership(context);
+      }
+      return availableStores;
     } finally {
       setWorkspaceLoading(false);
     }
@@ -246,8 +294,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const appStateSubscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         void supabase.auth.getSession()
-          .then(({ data }) => {
-            if (data.session) void refreshMembership();
+          .then(async ({ data }) => {
+            if (data.session && !await isDeviceOffline()) void refreshMembership();
           })
           .catch((error) => logger.warning('active_session_refresh_failed', error));
       }
@@ -265,7 +313,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setNeedsOnboarding(false);
         } else if (userError) {
           setSession(data.session);
-          setMembershipError('La session existe, mais le serveur est momentanément indisponible.');
+          if (!await restoreOfflineAccess(data.session.user.id)) {
+            setMembershipError('La session existe, mais le serveur est momentanément indisponible.');
+          }
         } else {
           setSession(data.session);
           await refreshMembership();
@@ -322,8 +372,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const accessCheck = setInterval(() => {
       void supabase.auth.getSession()
-        .then(({ data: current }) => {
-          if (current.session) void refreshMembership();
+        .then(async ({ data: current }) => {
+          if (current.session && !await isDeviceOffline()) void refreshMembership();
         })
         .catch((error) => logger.warning('periodic_session_check_failed', error));
     }, 60_000);
@@ -334,7 +384,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       linkSubscription.remove();
       appStateSubscription.remove();
     };
-  }, [refreshMembership]);
+  }, [refreshMembership, restoreOfflineAccess]);
 
   useEffect(() => {
     if (!session?.user.id) return;
@@ -401,6 +451,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if(!await confirmSignOutWithPendingOperations())return;
       setLoading(true);
       try {
+        if (session?.user.id) {
+          await Promise.allSettled([clearOfflineAccessSnapshot(session.user.id), clearOfflineCaches()]);
+        }
         await supabase.auth.signOut();
       } finally {
         setSession(null);

@@ -1,41 +1,52 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Card, Dialog, HelperText, Icon, Portal, Text, TextInput } from 'react-native-paper';
 
-import { requestAccountDeletion } from '@/features/account/api';
+import { getMyAccountDeletionRequest, requestAccountDeletion } from '@/features/account/api';
 import { AppButton } from '@/components/ui/AppButton';
 
 export function AccountDeletionCard() {
+  const {width}=useWindowDimensions();
+  const compact=width<600;
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [confirmation, setConfirmation] = useState('');
+  const request = useQuery({
+    queryKey: ['my-account-deletion-request'],
+    queryFn: getMyAccountDeletionRequest,
+  });
+  const activeRequest = request.data && ['pending', 'processing'].includes(request.data.status)
+    ? request.data
+    : null;
   const deletion = useMutation({
     mutationFn: () => requestAccountDeletion(reason),
-    onSuccess: () => {
+    onSuccess: async () => {
       setOpen(false);
       setReason('');
       setConfirmation('');
+      await queryClient.invalidateQueries({ queryKey: ['my-account-deletion-request'] });
     },
   });
 
   return <>
     <Card mode="outlined">
-      <Card.Title
-        title="Suppression du compte"
-        subtitle="Demander la fermeture du compte et l’effacement des données associées"
-        left={() => <Icon source="account-remove-outline" size={28} color="#C92A2A" />}
-      />
-      <Card.Content>
-        <Text>Les données sans obligation de conservation seront supprimées ou anonymisées. Les écritures légalement nécessaires peuvent être archivées avec un accès restreint pendant la durée applicable.</Text>
+      <Card.Content style={styles.content}>
+        <View style={styles.header}><View style={styles.icon}><Icon source="account-remove-outline" size={27} color="#C92A2A" /></View><View style={styles.copy}><Text variant="titleMedium" style={styles.bold}>{activeRequest?'Demande de suppression en cours':'Suppression du compte'}</Text><Text>{activeRequest?(activeRequest.status==='processing'?'Votre demande est en cours de traitement':'Votre demande a bien été enregistrée'):'Demander la fermeture du compte et l’effacement des données associées'}</Text></View></View>
+        {activeRequest ? <>
+          <Text>Demande envoyée le {new Date(activeRequest.requestedAt).toLocaleDateString('fr-FR')}. Vous serez informé dès que son traitement sera terminé.</Text>
+          {!!activeRequest.reason && <Text>Motif : {activeRequest.reason}</Text>}
+        </> : <Text>Les données sans obligation de conservation seront supprimées ou anonymisées. Les écritures légalement nécessaires peuvent être archivées avec un accès restreint pendant la durée applicable.</Text>}
       </Card.Content>
-      <Card.Actions>
-        <AppButton mode="text" textColor="#C92A2A" onPress={() => setOpen(true)}>Demander la suppression</AppButton>
-      </Card.Actions>
+      {!activeRequest && !request.isLoading && <Card.Actions style={[styles.actions,compact&&styles.actionsCompact]}>
+        <AppButton style={compact&&styles.mobileButton} mode="text" textColor="#C92A2A" onPress={() => setOpen(true)}>Demander la suppression</AppButton>
+      </Card.Actions>}
     </Card>
-    {deletion.isSuccess && <HelperText type="info" visible>Votre demande a été enregistrée. Vous serez informé de son traitement.</HelperText>}
+    {!!request.error && <HelperText type="error" visible>Impossible de vérifier l’état de la demande : {request.error.message}</HelperText>}
 
     <Portal>
-      <Dialog visible={open} onDismiss={() => !deletion.isPending && setOpen(false)}>
+      <Dialog style={styles.dialog} visible={open} onDismiss={() => !deletion.isPending && setOpen(false)}>
         <Dialog.Title>Supprimer mon compte</Dialog.Title>
         <Dialog.Content style={{ gap: 10 }}>
           <Text>Cette demande concerne le compte et les données personnelles associées. Elle ne remplace pas l’annulation d’un abonnement géré par une boutique d’applications.</Text>
@@ -53,3 +64,4 @@ export function AccountDeletionCard() {
   </>;
 }
 
+const styles=StyleSheet.create({content:{gap:12},header:{flexDirection:'row',alignItems:'flex-start',gap:12},icon:{width:44,height:44,borderRadius:14,backgroundColor:'#FDECEC',alignItems:'center',justifyContent:'center'},copy:{flex:1,minWidth:0,gap:3},bold:{fontWeight:'800'},actions:{flexWrap:'wrap'},actionsCompact:{flexDirection:'column',alignItems:'stretch'},mobileButton:{width:'100%'},dialog:{width:'92%',maxWidth:520,alignSelf:'center'}});

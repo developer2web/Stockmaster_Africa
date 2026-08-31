@@ -16,6 +16,7 @@ import { useReceiptAction } from '@/features/payments/useReceiptAction';
 import { useReceiptBranding } from '@/features/payments/branding';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
 import { formatDateTime } from '@/utils/format';
+import { useOffline } from '@/features/offline/OfflineProvider';
 
 type TransactionType = 'deposit' | 'withdrawal';
 
@@ -24,9 +25,13 @@ export default function CashScreen() {
   const { membership } = useAuth();
   const theme = useTheme();
   const cache = useQueryClient();
+  const { refreshQueue } = useOffline();
   const companyId = membership?.companyId ?? '';
   const storeId = membership?.storeId ?? '';
   const canWrite = membership?.role === 'company_admin' || !!membership?.permissions.includes('cash_transactions.write') || !!membership?.permissions.includes('expenses.write');
+  const canOpen = membership?.role === 'company_admin'
+    || !!membership?.permissions.includes('cash.open')
+    || !!membership?.permissions.includes('cash_transactions.write');
   const query = useInfiniteQuery({
     queryKey: ['cash-transactions', companyId, storeId],
     queryFn: ({ pageParam }) => getCashTransactions(companyId, storeId, pageParam),
@@ -58,20 +63,27 @@ export default function CashScreen() {
   const balance = summary.data?.balance ?? 0;
   const mutation = useMutation({
     mutationFn: () => createCashTransaction({ companyId, storeId, type: type!, designation, amount: parseDecimal(amount) }),
-    onSuccess: async () => {
-      await cache.invalidateQueries({ queryKey: ['cash-transactions', companyId, storeId] });
-      await cache.invalidateQueries({ queryKey: ['cash-summary', companyId, storeId] });
-      await invalidateOperationalSummaries(cache, companyId, storeId);
+    onSuccess: async (result) => {
+      if (result.queued) {
+        await refreshQueue();
+      } else {
+        await cache.invalidateQueries({ queryKey: ['cash-transactions', companyId, storeId] });
+        await cache.invalidateQueries({ queryKey: ['cash-summary', companyId, storeId] });
+        await invalidateOperationalSummaries(cache, companyId, storeId);
+      }
       setType(null);
       setDesignation('');
       setAmount('');
-      setSuccessMessage(type === 'deposit' ? 'Fonds ajoutés avec succès.' : 'Dépense enregistrée avec succès.');
+      setSuccessMessage(result.queued
+        ? 'Opération conservée hors ligne. Elle sera confirmée après synchronisation.'
+        : type === 'deposit' ? 'Fonds ajoutés avec succès.' : 'Dépense enregistrée avec succès.');
     },
   });
   const valid = !!storeId && designation.trim().length >= 2 && parseDecimal(amount) > 0;
   const closure=useMutation({mutationFn:()=>closeCash(storeId,parseDecimal(countedAmount),closureNote),onSuccess:async()=>{await Promise.all([cache.invalidateQueries({queryKey:['cash-closures',companyId,storeId]}),cache.invalidateQueries({queryKey:['cash-session',companyId,storeId]})]);setClosureOpen(false);setCountedAmount('');setClosureNote('');setSuccessMessage('Caisse clôturée avec succès. Une nouvelle validation sera exigée à la reprise.');}});
   const opening=useMutation({mutationFn:()=>openCash(storeId,parseDecimal(openingAmount),openingNote),onSuccess:async()=>{await cache.invalidateQueries({queryKey:['cash-session',companyId,storeId]});setOpeningAmount('');setOpeningNote('');setSuccessMessage('Montant initial validé. La caisse est ouverte.');}});
   const requiresOpening=!!sessionStatus.data?.requiresOpening;
+  const openingDifference=(parseDecimal(openingAmount)||0)-(sessionStatus.data?.expectedInitial??0);
 
   return (
     <AdminPage title="Caisse">
@@ -84,7 +96,7 @@ export default function CashScreen() {
           </View>
         </Card.Content>
       </Card>
-      {requiresOpening&&<Card mode="contained" style={{backgroundColor:theme.colors.errorContainer}}><Card.Title title="Validation du montant initial obligatoire" subtitle={`Dernière clôture par ${sessionStatus.data?.closedByLabel??'un utilisateur'}`} left={()=><Icon source="cash-lock" size={30} color={theme.colors.error}/>}/><Card.Content style={styles.dialog}><Text>Montant transmis : {money(sessionStatus.data?.expectedInitial??0)}</Text><TextInput mode="outlined" label="Montant réellement reçu" value={openingAmount} onChangeText={setOpeningAmount} keyboardType="decimal-pad"/><TextInput mode="outlined" label="Note en cas d’écart (facultatif)" value={openingNote} onChangeText={setOpeningNote} multiline/><Text>Écart : {money((parseDecimal(openingAmount)||0)-(sessionStatus.data?.expectedInitial??0))}</Text>{!!opening.error&&<HelperText type="error" visible>{opening.error.message}</HelperText>}</Card.Content><Card.Actions><AppButton icon="cash-check" loading={opening.isPending} disabled={opening.isPending||openingAmount.trim()===''||parseDecimal(openingAmount)<0} onPress={()=>opening.mutate()}>Valider et commencer</AppButton></Card.Actions></Card>}
+      {requiresOpening&&<Card mode="outlined" style={{borderColor:theme.colors.outlineVariant}}><Card.Title title="Montant initial requis" subtitle={`Dernière clôture par ${sessionStatus.data?.closedByLabel??'un utilisateur'}`} left={()=><Icon source="cash-lock" size={30} color={theme.colors.primary}/>}/><Card.Content style={styles.dialog}>{canOpen?<><Text style={{color:theme.colors.onSurfaceVariant}}>Confirmez le montant réellement présent dans la caisse avant de commencer.</Text><Text>Montant transmis : {money(sessionStatus.data?.expectedInitial??0)}</Text><TextInput mode="outlined" label="Montant reçu" value={openingAmount} onChangeText={setOpeningAmount} keyboardType="decimal-pad"/><TextInput mode="outlined" label="Note en cas d’écart (facultatif)" value={openingNote} onChangeText={setOpeningNote} multiline/>{openingAmount.trim()!==''&&<Text style={{color:openingDifference===0?theme.colors.primary:theme.colors.error}}>Écart : {openingDifference>0?'+':''}{money(openingDifference)}</Text>}{!!opening.error&&<HelperText type="error" visible>{readableError(opening.error)}</HelperText>}</>:<HelperText type="error" visible>Un administrateur doit vous attribuer la permission « Ouvrir la caisse ».</HelperText>}</Card.Content>{canOpen&&<Card.Actions><AppButton icon="cash-check" loading={opening.isPending} disabled={opening.isPending||openingAmount.trim()===''||parseDecimal(openingAmount)<0} onPress={()=>opening.mutate()}>Valider et commencer</AppButton></Card.Actions>}</Card>}
       {canWrite && <View style={styles.actions}>
         <AppButton disabled={requiresOpening} style={styles.action} icon="cash-plus" onPress={() => setType('deposit')}>Ajouter des fonds</AppButton>
         <AppButton disabled={requiresOpening} style={styles.action} buttonColor={theme.colors.error} icon="cash-minus" onPress={() => setType('withdrawal')}>Effectuer une dépense</AppButton>
@@ -97,7 +109,8 @@ export default function CashScreen() {
       {!!closures.data?.length&&<><Text variant="titleLarge" style={styles.bold}>Dernières clôtures</Text>{closures.data.slice(0,7).map(item=>{
         const receipt={...receiptBranding,title:'Bordereau de clôture de caisse',party:membership?.storeName??receiptBranding.store??'Boutique',partyLabel:'Caisse',amount:Number(item.counted_amount),balanceBefore:0,balanceAfter:0,date:item.created_at,reference:`CLOTURE-${item.id.slice(0,8).toUpperCase()}`,issuedBy:item.closed_by_label,amountLabel:'Montant compté',note:`Montant attendu : ${money(Number(item.expected_amount))} • Écart : ${money(Number(item.difference))}${item.note?` • ${item.note}`:''}`,showBalances:false};
         const printKey=`closure-print-${item.id}`; const shareKey=`closure-share-${item.id}`;
-        return <Card key={item.id} mode="outlined"><Card.Title title={new Date(`${item.closure_date}T12:00:00`).toLocaleDateString('fr-FR')} subtitle={`Attendu ${money(Number(item.expected_amount))} • Compté ${money(Number(item.counted_amount))}`} subtitleNumberOfLines={2} right={()=><Text numberOfLines={1} style={{marginRight:16,maxWidth:'35%',color:Number(item.difference)===0?theme.colors.primary:theme.colors.error,fontWeight:'800'}}>{Number(item.difference)>0?'+':''}{money(Number(item.difference))}</Text>}/><Card.Content><Text style={styles.bold}>Clôture effectuée par : {item.closed_by_label}</Text>{item.note&&<Text>{item.note}</Text>}</Card.Content><Card.Actions><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(receipt,money))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(receipt,money))}>Partager</AppButton></Card.Actions></Card>;
+        const difference=Number(item.difference);
+        return <Card key={item.id} mode="outlined" style={styles.closureCard}><Card.Content style={styles.closureContent}><View style={styles.closureHeader}><View style={styles.grow}><Text variant="titleMedium" style={styles.bold}>{new Date(`${item.closure_date}T12:00:00`).toLocaleDateString('fr-FR')}</Text><Text style={{color:theme.colors.onSurfaceVariant}}>Attendu {money(Number(item.expected_amount))} • Compté {money(Number(item.counted_amount))}</Text></View><View style={[styles.differenceBadge,{backgroundColor:difference===0?theme.colors.primaryContainer:theme.colors.errorContainer}]}><Text style={[styles.differenceLabel,{color:difference===0?theme.colors.primary:theme.colors.error}]}>Écart</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[styles.differenceAmount,{color:difference===0?theme.colors.primary:theme.colors.error}]}>{difference>0?'+':''}{money(difference)}</Text></View></View><Text style={styles.bold}>Clôture effectuée par : {item.closed_by_label}</Text>{item.note&&<Text>{item.note}</Text>}</Card.Content><Card.Actions style={styles.closureActions}><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(receipt,money))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(receipt,money))}>Partager</AppButton></Card.Actions></Card>;
       })}</>}
       <Text variant="titleLarge" style={styles.bold}>Historique des mouvements</Text>
       {rows.map((item) => (
@@ -136,4 +149,11 @@ const styles = StyleSheet.create({
   amount: { maxWidth: '42%', textAlign: 'right' },
   transactionIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   dialog: { gap: 12 },
+  closureCard: { overflow: 'hidden' },
+  closureContent: { gap: 10, paddingTop: 16 },
+  closureHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 },
+  differenceBadge: { minWidth: 116, maxWidth: '100%', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 8, alignItems: 'flex-end' },
+  differenceLabel: { fontSize: 12, fontWeight: '700' },
+  differenceAmount: { fontWeight: '900', maxWidth: 180 },
+  closureActions: { flexWrap: 'wrap', paddingHorizontal: 12, paddingBottom: 8 },
 });

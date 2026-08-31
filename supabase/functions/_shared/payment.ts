@@ -10,6 +10,7 @@ type PaymentRequest = {
   provider?: string;
   operationId?: string;
   promoCode?: string | null;
+  keepCompanyId?: string | null;
 };
 
 type SubscriptionQuote = {
@@ -47,6 +48,14 @@ export async function handleCreatePayment(request: Request, renewalOnly = false)
       .eq('client_id', user.id)
       .maybeSingle();
     if (!ownership) throw new Error('Seul le propriétaire peut payer un forfait');
+    if (body.keepCompanyId) {
+      const { data: retainedOwnership } = await admin.from('client_businesses')
+        .select('company_id')
+        .eq('company_id', body.keepCompanyId)
+        .eq('client_id', user.id)
+        .maybeSingle();
+      if (!retainedOwnership) throw new Error('Entreprise à conserver invalide');
+    }
 
     if (renewalOnly) {
       const { data: existing } = await admin.from('subscriptions')
@@ -92,6 +101,7 @@ export async function handleCreatePayment(request: Request, renewalOnly = false)
         currency: quote.currency || plan.currency,
         phone_number: body.phoneNumber?.trim(),
         status: 'pending',
+        retained_company_id: body.keepCompanyId ?? null,
       }, { onConflict: 'client_id,operation_id', ignoreDuplicates: false })
       .select('id,status,provider_reference')
       .single();

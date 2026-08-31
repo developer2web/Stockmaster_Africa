@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Card, Icon, Text } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
@@ -7,10 +7,11 @@ import { useAuth } from '@/features/auth/AuthProvider';
 
 export default function ChooseStoreScreen() {
   const { stores, businesses, selectStore } = useAuth();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const employeeOnly = businesses.length > 0 && businesses.every((business) => business.role === 'employee');
   const choose = async (storeId: string) => {
     await selectStore(storeId);
-    router.replace('/');
+    router.replace((returnTo || '/') as never);
   };
   return <AdminPage title="Choisir une boutique">
     <Text variant="bodyLarge">Les produits, ventes, stocks, dépenses et rapports affichés seront limités à cette boutique.</Text>

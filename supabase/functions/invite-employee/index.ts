@@ -1,10 +1,17 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 type MembershipRole = { code?: string } | { code?: string }[] | null;
-type MembershipRow = { company_id: string; role: MembershipRole };
+type MembershipRow = { id?: string; company_id: string; is_active?: boolean; role: MembershipRole };
 
 function roleCode(role: MembershipRole): string | undefined {
   return Array.isArray(role) ? role[0]?.code : role?.code;
+}
+
+function createTemporaryPassword() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const random = new Uint32Array(12);
+  crypto.getRandomValues(random);
+  return `Sm!7${Array.from(random, (value) => alphabet[value % alphabet.length]).join('')}`;
 }
 
 const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
@@ -74,23 +81,67 @@ Deno.serve(async (request) => {
       : undefined;
     if (employee) {
       const { data: existingMemberships, error: membershipLookupError } = await admin
-        .from('memberships').select('company_id,role:roles(code)').eq('user_id', employee.id);
+        .from('memberships').select('id,company_id,is_active,role:roles(code)').eq('user_id', employee.id);
       if (membershipLookupError) throw membershipLookupError;
       const typedMemberships = (existingMemberships ?? []) as MembershipRow[];
       const belongsHere = typedMemberships.some((membership) => membership.company_id === current.company_id);
-      const isEmployeeHere = typedMemberships.some(
+      const employeeMembership = typedMemberships.find(
         (membership) => membership.company_id === current.company_id
           && roleCode(membership.role) === 'employee',
       );
-      if (!belongsHere || !isEmployeeHere) {
+      if (!belongsHere || !employeeMembership?.id) {
         throw new Error('Cet email existe déjà sur un autre compte.');
       }
-      throw new Error('Cet employé existe déjà. Réactivez son accès sans réinitialiser son mot de passe.');
+      if (employeeMembership.is_active) {
+        throw new Error('Cet employé est déjà actif dans cette entreprise. Ouvrez sa fiche pour modifier ses accès.');
+      }
+
+      const { error: profileError } = await admin.from('profiles').update({ full_name: fullName }).eq('id', employee.id);
+      if (profileError) throw profileError;
+      const { error: reactivationError } = await admin.from('memberships').update({
+        role_id: body.roleId,
+        store_id: body.allStores ? null : storeIds[0] ?? null,
+        all_stores: !!body.allStores,
+        is_active: true,
+      }).eq('id', employeeMembership.id);
+      if (reactivationError) throw reactivationError;
+      const { error: clearStoresError } = await admin.from('membership_stores').delete().eq('membership_id', employeeMembership.id);
+      if (clearStoresError) throw clearStoresError;
+      if (!body.allStores && storeIds.length) {
+        const { error: storesError } = await admin.from('membership_stores').insert(storeIds.map((storeId) => ({
+          company_id: current.company_id,
+          membership_id: employeeMembership.id,
+          store_id: storeId,
+          created_by: user.id,
+        })));
+        if (storesError) throw storesError;
+      }
+      await admin.from('audit_logs').insert({
+        company_id: current.company_id,
+        actor_id: user.id,
+        action: 'reactivate_employee',
+        entity_type: 'memberships',
+        entity_id: employeeMembership.id,
+        payload: { employee_id: employee.id, role_id: body.roleId, all_stores: !!body.allStores, store_ids: storeIds },
+        created_by: user.id,
+      });
+      return Response.json({
+        userId: employee.id,
+        invitationSent: false,
+        temporaryPassword: null,
+        reactivated: true,
+      }, { headers: cors });
     }
-    const redirectTo = Deno.env.get('EMPLOYEE_INVITE_REDIRECT_URL') ?? Deno.env.get('SITE_URL');
-    const { data: created, error: createError } = await admin.auth.admin.inviteUserByEmail(email, {
-      data: { full_name: fullName, invited_company_id: current.company_id },
-      ...(redirectTo ? { redirectTo } : {}),
+    const temporaryPassword = createTemporaryPassword();
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
+      email,
+      password: temporaryPassword,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName,
+        invited_company_id: current.company_id,
+        must_change_password: true,
+      },
     });
     if (createError) {
       if (createError.status === 422 || /already.*registered|already.*exists/i.test(createError.message)) {
@@ -114,7 +165,11 @@ Deno.serve(async (request) => {
       if (storesError) throw storesError;
     }
     cleanupCreatedUser = null;
-    return Response.json({ userId: employee.id, invitationSent: true }, { headers: cors });
+    return Response.json({
+      userId: employee.id,
+      invitationSent: false,
+      temporaryPassword,
+    }, { headers: cors });
   } catch (error) {
     if (cleanupCreatedUser) await cleanupCreatedUser().catch(() => undefined);
     return Response.json({ error: error instanceof Error ? error.message : 'Erreur inconnue' }, { status: 400, headers: cors });

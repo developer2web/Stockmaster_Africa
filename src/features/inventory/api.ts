@@ -1,24 +1,66 @@
 import { supabase } from '@/services/supabase/client';
-import type { StockLevel, StockMovement } from '@/types/database';
+import type { SaleStockItem, StockLevel, StockMovement } from '@/types/database';
 import type { StockMovementInput } from '@/schemas/inventory';
 import { createOperationId } from '@/utils/operationId';
 import { parseDecimal } from '@/utils/number';
+import { readOfflineCache, withOfflineCache } from '@/features/offline/storage';
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
+export type ProductCodeLookup = {
+  productId: string;
+  variantId: string | null;
+  productName: string | null;
+  storeId: string;
+  storeName: string | null;
+  isActive: boolean;
+};
+
+async function lookupCompanyProductCode(code: string, companyId: string): Promise<ProductCodeLookup | null> {
+  const normalized = code.trim();
+  const productColumns = 'id,name,store_id,is_active,store:stores(name)';
+  for (const column of ['barcode', 'qr_code', 'sku'] as const) {
+    const { data, error } = await supabase.from('products').select(productColumns).eq('company_id', companyId).eq(column, normalized).limit(1).maybeSingle();
+    if (error) fail(error);
+    if (data) {
+      const row = data as unknown as { id:string;name:string;store_id:string;is_active:boolean;store:{name:string}|null };
+      return { productId:row.id,variantId:null,productName:row.name,storeId:row.store_id,storeName:row.store?.name??null,isActive:row.is_active };
+    }
+  }
+  for (const column of ['barcode', 'sku'] as const) {
+    const { data, error } = await supabase.from('product_variants').select('id,product_id,is_active,product:products!inner(id,name,company_id,store_id,is_active,store:stores(name))').eq('company_id', companyId).eq(column, normalized).limit(1).maybeSingle();
+    if (error) fail(error);
+    if (data) {
+      const row = data as unknown as { id:string;product_id:string;is_active:boolean;product:{name:string;store_id:string;is_active:boolean;store:{name:string}|null} };
+      return { productId:row.product_id,variantId:row.id,productName:row.product.name,storeId:row.product.store_id,storeName:row.product.store?.name??null,isActive:row.is_active&&row.product.is_active };
+    }
+  }
+  return null;
+}
+
 export async function lookupProductCode(
   code: string,
   storeId: string,
-): Promise<{ productId: string; variantId: string | null } | null> {
+  companyId?: string,
+): Promise<ProductCodeLookup | null> {
   const { data, error } = await supabase.rpc('lookup_product_code', {
     p_code: code.trim(),
     p_store_id: storeId,
   });
-  fail(error);
+  if (error) {
+    if (!companyId) fail(error);
+    const cached = await readOfflineCache<SaleStockItem[]>(`sale-stock:${companyId}:${storeId}:true`, Array.isArray)
+      ?? await readOfflineCache<SaleStockItem[]>(`sale-stock:${companyId}:${storeId}:false`, Array.isArray);
+    const normalized = code.trim().toLowerCase();
+    const found = cached?.find((item) => item.lookupCodes?.some((value) => value.trim().toLowerCase() === normalized));
+    if (found) return { productId: found.productId, variantId: found.variantId, productName:found.name, storeId, storeName:null, isActive:true };
+    fail(error);
+  }
   const row = Array.isArray(data) ? data[0] : data;
-  return row ? { productId: row.product_id, variantId: row.variant_id ?? null } : null;
+  if (row) return { productId: row.product_id, variantId: row.variant_id ?? null, productName:null, storeId, storeName:null, isActive:true };
+  return companyId ? lookupCompanyProductCode(code, companyId) : null;
 }
 
 export async function getStockLevels(
@@ -26,6 +68,7 @@ export async function getStockLevels(
   productId?: string,
   storeId?: string,
 ): Promise<StockLevel[]> {
+  return withOfflineCache(`stock-levels:${companyId}:${productId??'all'}:${storeId??'all'}`, async () => {
   let query = supabase
     .from('stock_levels')
     .select('id,company_id,store_id,product_id,product_variant_id,quantity,updated_at,store:stores(name),product:products(name,sku,purchase_price,sale_price),variant:product_variants(name,sku)')
@@ -37,6 +80,7 @@ export async function getStockLevels(
   const { data, error } = await query;
   fail(error);
   return (data ?? []) as unknown as StockLevel[];
+  }, Array.isArray);
 }
 
 export async function getStockMovements(
@@ -44,6 +88,7 @@ export async function getStockMovements(
   productId?: string,
   storeId?: string,
 ): Promise<StockMovement[]> {
+  return withOfflineCache(`stock-movements:${companyId}:${productId??'all'}:${storeId??'all'}`, async () => {
   let query = supabase
     .from('stock_movements')
     .select('id,company_id,store_id,product_id,product_variant_id,quantity,previous_quantity,new_quantity,movement_type,note,created_at,store:stores(name),product:products(name,sku),variant:product_variants(name,sku)')
@@ -55,6 +100,7 @@ export async function getStockMovements(
   const { data, error } = await query;
   fail(error);
   return (data ?? []) as unknown as StockMovement[];
+  }, Array.isArray);
 }
 
 export async function recordStockMovement(

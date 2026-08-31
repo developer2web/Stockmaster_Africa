@@ -59,7 +59,7 @@ export default function AdminDashboard() {
           subtitle={compact ? undefined : `Boutique active : ${membership?.storeName ?? 'Non sélectionnée'}`}
         />
         {(businesses.length > 1 || stores.length > 1) && <Appbar.Action icon="swap-horizontal" accessibilityLabel="Changer d’espace" onPress={() => router.push('/choose-business')} />}
-        {!compact && <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" onPress={signOut} />}
+        <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" onPress={() => void signOut()} />
         <Appbar.Action icon="bell-outline" accessibilityLabel="Notifications" onPress={()=>router.push('/notifications' as never)} />
       </Appbar.Header>
       <ScrollView ref={scrollRef} contentContainerStyle={[styles.page, compact && styles.pageCompact]} showsVerticalScrollIndicator={false}>

@@ -14,7 +14,13 @@ function waitForReceiptAssets(popup: Window) {
 /** Imprime uniquement le document fourni, jamais l'écran StockMaster courant. */
 export async function printHtmlDocument(html: string, title = 'Document StockMaster') {
   if (Platform.OS !== 'web') {
-    await Print.printAsync({ html });
+    try {
+      await Print.printAsync({ html });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (/cancel/i.test(message)) return;
+      throw new Error('Impossible d’imprimer le document. Vérifiez l’imprimante ou utilisez le partage PDF, puis réessayez.');
+    }
     return;
   }
 

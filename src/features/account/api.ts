@@ -8,6 +8,32 @@ export async function requestAccountDeletion(reason: string) {
   if (error) throw new Error(userErrorMessage(error));
 }
 
+export type AccountDeletionRequest = {
+  id: string;
+  reason: string | null;
+  status: 'pending' | 'processing' | 'completed' | 'rejected' | 'cancelled';
+  requestedAt: string;
+  processedAt: string | null;
+};
+
+export async function getMyAccountDeletionRequest(): Promise<AccountDeletionRequest | null> {
+  const { data, error } = await supabase
+    .from('account_deletion_requests')
+    .select('id,reason,status,requested_at,processed_at')
+    .order('requested_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(userErrorMessage(error));
+  if (!data) return null;
+  return {
+    id: data.id,
+    reason: data.reason,
+    status: data.status,
+    requestedAt: data.requested_at,
+    processedAt: data.processed_at,
+  } as AccountDeletionRequest;
+}
+
 export async function changePasswordWithVerification(currentPassword: string, newPassword: string) {
   const { data: userResult, error: userError } = await supabase.auth.getUser();
   if (userError || !userResult.user?.email) throw new Error('Votre session doit être renouvelée. Reconnectez-vous puis réessayez.');
@@ -16,8 +42,21 @@ export async function changePasswordWithVerification(currentPassword: string, ne
     password: currentPassword,
   });
   if (verificationError) throw new Error('Le mot de passe actuel est incorrect.');
-  const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: newPassword,
+    data: { ...userResult.user.user_metadata, must_change_password: false },
+  });
   if (updateError) throw new Error(userErrorMessage(updateError));
+}
+
+export async function replaceTemporaryPassword(newPassword: string) {
+  const { data: userResult, error: userError } = await supabase.auth.getUser();
+  if (userError || !userResult.user) throw new Error('Votre session doit être renouvelée. Reconnectez-vous puis réessayez.');
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword,
+    data: { ...userResult.user.user_metadata, must_change_password: false },
+  });
+  if (error) throw new Error(userErrorMessage(error));
 }
 
 export type AdminAccessRequest = { id:string;company_name:string;store_name:string;country_code:string;status:'pending'|'approved'|'rejected'|'completed'|'cancelled';review_reason:string|null;created_at:string };

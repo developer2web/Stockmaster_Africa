@@ -1,7 +1,7 @@
 import { PropsWithChildren, ReactNode, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Appbar, Card, Icon, Menu, Text, useTheme } from 'react-native-paper';
-import { router, usePathname } from 'expo-router';
+import { router, useLocalSearchParams, usePathname } from 'expo-router';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import { AppButton } from './AppButton';
@@ -24,7 +24,10 @@ export function AdminPage({ title, description, action, backToHome = false, chil
   const insets = useSafeAreaInsets();
   const compact = width < 600;
   const [storeMenuOpen, setStoreMenuOpen] = useState(false);
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const employee = membership?.role === 'employee';
+  const toolsFallback = employee ? '/employee/more' : '/more';
+  const cameFromTools = returnTo === toolsFallback;
   const employeeHeader = '#084B50';
   const pageBackground = theme.colors.background;
   const remainingDays = subscription?.expiresAt
@@ -39,7 +42,11 @@ export function AdminPage({ title, description, action, backToHome = false, chil
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <Appbar.Header elevated style={{ backgroundColor: employee ? employeeHeader : theme.colors.surface }}>
-        <AppBackButton fallback={employee ? '/employee' : '/(admin)'} light={employee} forceFallback={backToHome} />
+        <AppBackButton
+          fallback={cameFromTools ? toolsFallback : employee ? '/employee' : '/(admin)'}
+          light={employee}
+          forceFallback={backToHome || cameFromTools}
+        />
         <Appbar.Content
           style={styles.headerContent}
           title={membership?.companyName ?? 'StockMaster'}
@@ -121,7 +128,7 @@ function EmployeeBottomNavigation() {
     { label: 'Accueil', icon: 'home-outline', path: '/employee', visible: true },
     { label: 'Vente', icon: 'cart-plus', path: '/employee/sales/new', visible: hasAnyPermission(membership, ['sales.write']) },
     { label: 'Produits', icon: 'package-variant-closed', path: '/employee/products', visible: hasAnyPermission(membership, ['products.read', 'products.write']) },
-    { label: 'Caisse', icon: 'wallet-outline', path: '/employee/cash', visible: hasAnyPermission(membership, ['cash_transactions.read', 'cash_transactions.write', 'expenses.read']) },
+    { label: 'Caisse', icon: 'wallet-outline', path: '/employee/cash', visible: hasAnyPermission(membership, ['cash.open', 'cash.reopen', 'cash_transactions.read', 'cash_transactions.write', 'expenses.read']) },
     { label: 'Plus', icon: 'dots-grid', path: '/employee/more', visible: true },
   ].filter((link) => link.visible);
   return <View style={[styles.employeeBottom, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.outlineVariant, paddingBottom: Math.max(insets.bottom, 6) }]}>{links.map(({ label, icon, path }) => {const active=path==='/employee'?pathname==='/employee':pathname.startsWith(path);return <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{selected:active}} onPress={() => router.navigate(path as never)} style={({ pressed }) => [styles.employeeBottomItem,active&&{backgroundColor:theme.colors.primaryContainer}, pressed && styles.employeeBottomPressed]}><Icon source={icon} size={22} color={active?theme.colors.onPrimaryContainer:theme.colors.primary} /><Text variant="labelSmall" numberOfLines={1} style={active&&{color:theme.colors.onPrimaryContainer,fontWeight:'800'}}>{label}</Text></Pressable>})}</View>;

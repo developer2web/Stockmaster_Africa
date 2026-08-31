@@ -9,6 +9,7 @@ import type {
   BillingSettings,
   SubscriptionQuote,
 } from './types';
+import { withOfflineCache } from '@/features/offline/storage';
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -53,15 +54,17 @@ function mapPlans(data: unknown): SubscriptionPlan[] {
 }
 
 export async function getPlans(companyId: string): Promise<SubscriptionPlan[]> {
-  const { data, error } = await supabase.rpc('company_subscription_plans', { p_company_id: companyId });
-  if (!error) {
-    const localizedPlans = mapPlans(data);
-    if (localizedPlans.length) return localizedPlans;
-  }
+  return withOfflineCache(`subscription-plans:${companyId}`, async () => {
+    const { data, error } = await supabase.rpc('company_subscription_plans', { p_company_id: companyId });
+    if (!error) {
+      const localizedPlans = mapPlans(data);
+      if (localizedPlans.length) return localizedPlans;
+    }
 
-  // Compatibilité avec les environnements Supabase où la fonction de
-  // localisation des devises n'est pas encore déployée.
-  return getCatalogPlans();
+    // Compatibilité avec les environnements Supabase où la fonction de
+    // localisation des devises n'est pas encore déployée.
+    return getCatalogPlans();
+  }, Array.isArray);
 }
 
 export async function getCatalogPlans(): Promise<SubscriptionPlan[]> {
@@ -74,28 +77,30 @@ export async function getCatalogPlans(): Promise<SubscriptionPlan[]> {
 }
 
 export async function getCurrentSubscription(companyId: string): Promise<SubscriptionContextValue | null> {
-  // La mise à jour du cycle est utile, mais ne doit jamais bloquer l'ouverture
-  // du catalogue si cette procédure n'est pas encore disponible à distance.
-  await supabase.rpc('refresh_subscription_lifecycle', { p_company_id: companyId });
-  const { data, error } = await supabase.rpc('current_subscription', { p_company_id: companyId });
-  fail(error);
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row) return null;
-  return {
-    subscriptionId: row.subscription_id,
-    planId: row.plan_id,
-    planCode: row.plan_code,
-    planName: row.plan_name,
-    status: row.status,
-    billingCycle: row.billing_cycle,
-    startsAt: row.starts_at,
-    expiresAt: row.expires_at,
-    gracePeriodEndsAt: row.grace_period_ends_at,
-    isReadOnly: row.is_read_only,
-    maxBusinesses: row.max_businesses,
-    maxStores: row.max_stores,
-    maxEmployees: row.max_employees,
-  };
+  return withOfflineCache(`subscription-context:${companyId}`, async () => {
+    // La mise à jour du cycle est utile, mais ne doit jamais bloquer l'ouverture
+    // du catalogue si cette procédure n'est pas encore disponible à distance.
+    await supabase.rpc('refresh_subscription_lifecycle', { p_company_id: companyId });
+    const { data, error } = await supabase.rpc('current_subscription', { p_company_id: companyId });
+    fail(error);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return null;
+    return {
+      subscriptionId: row.subscription_id,
+      planId: row.plan_id,
+      planCode: row.plan_code,
+      planName: row.plan_name,
+      status: row.status,
+      billingCycle: row.billing_cycle,
+      startsAt: row.starts_at,
+      expiresAt: row.expires_at,
+      gracePeriodEndsAt: row.grace_period_ends_at,
+      isReadOnly: row.is_read_only,
+      maxBusinesses: row.max_businesses,
+      maxStores: row.max_stores,
+      maxEmployees: row.max_employees,
+    } satisfies SubscriptionContextValue;
+  }, (value): value is SubscriptionContextValue => !!value && typeof value === 'object' && 'planId' in value && 'status' in value);
 }
 
 export async function canUseServerFeature(companyId: string, featureKey: string) {
@@ -147,8 +152,8 @@ export async function getSubscriptionQuote(companyId: string, planId: string, bi
   return { baseAmount: Number(row.base_amount), discountAmount: Number(row.discount_amount), finalAmount: Number(row.final_amount), promotionId: row.promotion_id, promotionName: row.promotion_name, bonusDays: Number(row.bonus_days), currency: row.currency };
 }
 
-export async function submitManualPayment(input: { companyId: string; planId: string; billingCycle: BillingCycle; reference: string; proofPath?: string | null; promoCode?: string }) {
-  const { data, error } = await supabase.rpc('submit_manual_subscription_payment', { p_company_id: input.companyId, p_plan_id: input.planId, p_billing_cycle: input.billingCycle, p_reference: input.reference.trim(), p_proof_path: input.proofPath ?? null, p_promo_code: input.promoCode?.trim() || null, p_operation_id: createOperationId() });
+export async function submitManualPayment(input: { companyId: string; planId: string; billingCycle: BillingCycle; reference: string; proofPath?: string | null; promoCode?: string; keepCompanyId?: string }) {
+  const { data, error } = await supabase.rpc('submit_manual_subscription_payment', { p_company_id: input.companyId, p_plan_id: input.planId, p_billing_cycle: input.billingCycle, p_reference: input.reference.trim(), p_proof_path: input.proofPath ?? null, p_promo_code: input.promoCode?.trim() || null, p_operation_id: createOperationId(), p_retained_company_id: input.keepCompanyId ?? null });
   fail(error);
   return data as string;
 }
@@ -159,6 +164,7 @@ export async function createPayment(input: {
   billingCycle: BillingCycle;
   phoneNumber?: string;
   provider: string;
+  keepCompanyId?: string;
 }) {
   const { data, error } = await supabase.functions.invoke('create-payment', {
     body: { ...input, operationId: createOperationId() },

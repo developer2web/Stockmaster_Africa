@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(38);
+select plan(40);
 
 insert into auth.users(id,email,aud,role)
 values
@@ -189,6 +189,16 @@ select throws_ok(
 );
 select is((select quantity from stock_levels where product_id='50000000-0000-4000-8000-000000000001'),8::numeric,'sale decrements stock once');
 select is((select count(*)::integer from cash_transactions where source='sale'),1,'sale creates one cash deposit');
+select throws_ok(
+  $$select * from create_sale_v3(
+    '30000000-0000-4000-8000-000000000001','cash',
+    '[{"productId":"50000000-0000-4000-8000-000000000001","variantId":null,"quantity":1,"discount":0,"unitPrice":9,"expectedTotal":9}]'::jsonb,
+    null,9,'70000000-0000-4000-8000-000000000099',now(),'device-offline-test'
+  )$$,
+  'Conflit de prix : un article a changé depuis la vente hors ligne. Vérifiez puis recréez cette vente',
+  'offline sale refuses a changed catalog price'
+);
+select is((select quantity from stock_levels where product_id='50000000-0000-4000-8000-000000000001'),8::numeric,'offline price conflict rolls stock back');
 
 select lives_ok(
   $$select * from create_sale_v2(

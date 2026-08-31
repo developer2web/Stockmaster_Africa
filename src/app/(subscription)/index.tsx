@@ -11,6 +11,7 @@ import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import type { BillingCycle } from '@/features/subscriptions/types';
 import { AppBackButton } from '@/components/ui/AppBackButton';
 import { formatDate } from '@/utils/format';
+import { requiresRetainedBusinessChoice } from '@/features/subscriptions/businessLimit';
 
 const featureLabels: Record<string, string> = {
   inventory: 'Produits et stock',
@@ -55,8 +56,7 @@ export default function SubscriptionScreen() {
   const choosePlan = (planId: string, targetCycle: BillingCycle) => {
     const targetPlan = plans.find((item) => item.id === planId);
     if (!targetPlan || membership?.role !== 'company_admin') return;
-    const currentLimit = subscription?.maxBusinesses ?? targetPlan.maxBusinesses;
-    const requiresCompanyChoice = !!subscription && targetPlan.maxBusinesses < currentLimit && businesses.length > 1;
+    const requiresCompanyChoice = requiresRetainedBusinessChoice(businesses.length, targetPlan.maxBusinesses);
     if (requiresCompanyChoice) {
       setKeepCompanyId(membership.companyId ?? businesses[0]?.companyId ?? null);
       setPendingDowngrade({ planId, cycle: targetCycle });
@@ -178,7 +178,7 @@ export default function SubscriptionScreen() {
           <Dialog.Title>Choisir l’entreprise à conserver</Dialog.Title>
           <Dialog.Content style={styles.dialogContent}>
             <Text>
-              Ce forfait limite le nombre d’entreprises autorisées. Choisissez celle à conserver pour continuer.
+              Ce forfait autorise {plans.find((plan) => plan.id === pendingDowngrade?.planId)?.maxBusinesses ?? 1} entreprise active. Choisissez celle à conserver. Les autres seront archivées sans supprimer leurs données.
             </Text>
             {businesses.map((business) => (
               <Card

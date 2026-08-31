@@ -14,6 +14,7 @@ function fail(error: { message: string } | null) {
 export const SALE_PAGE_SIZE = 30;
 
 export async function getSales(companyId: string, storeId: string, page = 0, withFinancials = false): Promise<Sale[]> {
+  return withOfflineCache(`sales:${companyId}:${storeId}:${page}:${withFinancials}`, async () => {
   const start = page * SALE_PAGE_SIZE;
   const { data, error } = await supabase.rpc('get_sales_history_safe',{
     p_company_id:companyId,p_store_id:storeId,p_offset:start,p_limit:SALE_PAGE_SIZE,
@@ -34,6 +35,7 @@ export async function getSales(companyId: string, storeId: string, page = 0, wit
     }
   }
   return sales;
+  }, Array.isArray);
 }
 
 export async function getSale(id: string, withFinancials = false): Promise<Sale> {
@@ -62,8 +64,8 @@ export async function getSale(id: string, withFinancials = false): Promise<Sale>
 export async function getSaleStock(companyId: string, storeId: string, includeCost = true): Promise<SaleStockItem[]> {
   return withOfflineCache(`sale-stock:${companyId}:${storeId}:${includeCost}`, async () => {
   const productColumns = includeCost
-    ? 'id,category_id,unit,name,sku,sale_price,purchase_price,image_urls,is_active,category:categories(name),product_variants(id,name,sku,sale_price,purchase_price,is_active)'
-    : 'id,category_id,unit,name,sku,sale_price,image_urls,is_active,category:categories(name),product_variants(id,name,sku,sale_price,is_active)';
+    ? 'id,category_id,unit,name,sku,barcode,qr_code,sale_price,purchase_price,image_urls,is_active,category:categories(name),product_variants(id,name,sku,barcode,sale_price,purchase_price,is_active)'
+    : 'id,category_id,unit,name,sku,barcode,qr_code,sale_price,image_urls,is_active,category:categories(name),product_variants(id,name,sku,barcode,sale_price,is_active)';
   const [levelsResult, productsResult] = await Promise.all([
     supabase.from('stock_levels').select('id,product_id,product_variant_id,quantity').eq('company_id', companyId).eq('store_id', storeId),
     supabase.from('products').select(productColumns).eq('company_id', companyId).eq('store_id',storeId).eq('is_active', true).order('name'),
@@ -74,8 +76,8 @@ export async function getSaleStock(companyId: string, storeId: string, includeCo
   const levelFor = (productId: string, variantId: string | null) => levels.find((row) => row.product_id === productId && row.product_variant_id === variantId);
 
   return ((productsResult.data ?? []) as unknown as {
-    id: string; category_id:string|null; category:{name:string}|null; unit:'piece'|'carton'|'kg'|'litre'|'sac'|'paquet'; name: string; sku: string; sale_price: number; purchase_price?: number; image_urls: string[];
-    product_variants: { id: string; name: string; sku: string; sale_price: number | null; purchase_price?: number | null; is_active: boolean }[];
+    id: string; category_id:string|null; category:{name:string}|null; unit:'piece'|'carton'|'kg'|'litre'|'sac'|'paquet'; name: string; sku: string; barcode:string|null;qr_code:string; sale_price: number; purchase_price?: number; image_urls: string[];
+    product_variants: { id: string; name: string; sku: string; barcode:string|null; sale_price: number | null; purchase_price?: number | null; is_active: boolean }[];
   }[]).flatMap((product) => {
     const variants = (product.product_variants ?? []).filter((variant) => variant.is_active);
     const entries = variants.length ? variants : [null];
@@ -90,6 +92,7 @@ export async function getSaleStock(companyId: string, storeId: string, includeCo
         unit: product.unit,
         name: variant ? `${product.name} • ${variant.name}` : product.name,
         sku: variant?.sku ?? product.sku,
+        lookupCodes: [variant?.sku, variant?.barcode, product.sku, product.barcode, product.qr_code].filter((value): value is string => !!value),
         salePrice: Number(variant?.sale_price ?? product.sale_price),
         purchasePrice: includeCost ? Number(variant?.purchase_price ?? product.purchase_price ?? 0) : 0,
         available: Number(level?.quantity ?? 0),
@@ -109,6 +112,7 @@ export async function createSale(
   amountPaid: number | null = null,
   operationId = createOperationId(),
   allowNegativeStock = false,
+  expectedTotal: number | null = null,
 ): Promise<{ saleId: string; reference: string; total: number; grossProfit: number; amountPaid:number; amountDue:number; paymentStatus:string; queued?: boolean }> {
   if (!storeId) throw new Error('Sélectionnez une boutique avant de valider la vente.');
   if (!items.length) throw new Error('Ajoutez au moins un produit au panier.');
@@ -121,7 +125,14 @@ export async function createSale(
   const payload = {
     p_store_id: storeId,
     p_payment_method: paymentMethod,
-    p_items: items.map((item) => ({ productId: item.productId, variantId: item.variantId, quantity: item.quantity, discount: item.discount })),
+    p_items: items.map((item, index) => ({
+      productId: item.productId,
+      variantId: item.variantId,
+      quantity: item.quantity,
+      discount: item.discount,
+      unitPrice: item.salePrice,
+      ...(index === 0 && expectedTotal !== null ? { expectedTotal } : {}),
+    })),
     p_customer_id: customerId,
     p_amount_paid: amountPaid,
     p_operation_id: operationId,
@@ -129,7 +140,7 @@ export async function createSale(
   if (await isDeviceOffline()) {
     const metadata=await createOfflineMetadata();
     await enqueueOfflineOperation({ id: operationId, type: 'sale', createdAt:metadata.createdAt,deviceId:metadata.deviceId,payload:{...payload,p_offline_created_at:metadata.createdAt,p_offline_device_id:metadata.deviceId} });
-    const total = items.reduce((sum, item) => sum + item.salePrice * item.quantity - item.discount, 0);
+    const total = expectedTotal ?? items.reduce((sum, item) => sum + item.salePrice * item.quantity - item.discount, 0);
     const paid = amountPaid ?? total;
     return { saleId: operationId, reference: `HORS-LIGNE-${operationId.slice(-8).toUpperCase()}`, total, grossProfit: 0, amountPaid: paid, amountDue: Math.max(0, total - paid), paymentStatus: paid >= total ? 'paid' : paid > 0 ? 'partial' : 'credit', queued: true };
   }

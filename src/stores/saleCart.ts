@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import type { SaleStockItem } from '@/types/database';
+import { addCartItem, cartKey as makeCartKey } from './saleCartLogic';
 
 export interface CartItem extends SaleStockItem {
   quantity: number;
@@ -19,8 +20,7 @@ type CartState = {
   clear: () => void;
 };
 
-const key = (item: { productId: string; variantId: string | null }) =>
-  `${item.productId}:${item.variantId ?? 'simple'}`;
+const key = makeCartKey;
 
 const protectedStorage = {
   getItem: (name:string) => Platform.OS==='web'?AsyncStorage.getItem(name):SecureStore.getItemAsync(name),
@@ -30,17 +30,7 @@ const protectedStorage = {
 
 export const useSaleCart = create<CartState>()(persist((set) => ({
   items: [],
-  add: (item,allowNegativeStock=false) => set((state) => {
-    const id = key(item);
-    const existing = state.items.find((row) => key(row) === id);
-    return {
-      items: existing
-        ? state.items.map((row) => key(row) === id
-          ? { ...row, quantity: allowNegativeStock ? row.quantity+1 : Math.min(row.quantity + 1, row.available) }
-          : row)
-        : [...state.items, { ...item, quantity: 1, discount: 0 }],
-    };
-  }),
+  add: (item,allowNegativeStock=false) => set((state) => ({ items: addCartItem(state.items,item,allowNegativeStock) })),
   setQuantity: (id, quantity, allowNegativeStock=false) => set((state) => ({
     items: state.items
       .map((item) => key(item) === id

@@ -23,7 +23,7 @@ import { readableError } from '@/utils/errors';
 
 export default function NewSale() {
   const { formatMoney } = useCurrency();
-  const { productId, variantId } = useLocalSearchParams<{ productId?: string; variantId?: string }>();
+  const { productId, variantId, scanToken } = useLocalSearchParams<{ productId?: string; variantId?: string; scanToken?: string }>();
   const { membership } = useAuth();
   const theme = useTheme();
   const { width } = useWindowDimensions();
@@ -39,7 +39,7 @@ export default function NewSale() {
   const cache = useQueryClient();
   const { refreshQueue } = useOffline();
   const { items, add, setQuantity, setDiscount, remove } = useSaleCart();
-  const scannedAdded = useRef(false);
+  const processedScan = useRef<string|null>(null);
   const operationId=useRef(createOperationId());
   const stock = useQuery({
     queryKey: ['sale-stock', company, storeId, employee],
@@ -54,14 +54,15 @@ export default function NewSale() {
   const companySettings=useQuery({queryKey:['company',company],queryFn:()=>getCompany(company),enabled:!!company});
 
   useEffect(() => {
-    if (scannedAdded.current || !productId || !stock.data) return;
+    const token=scanToken??`${productId??''}:${variantId??''}`;
+    if (processedScan.current===token || !productId || !stock.data) return;
     const found = stock.data.find((item) =>
       item.productId === productId && (!variantId || item.variantId === variantId));
     if (found && (found.available > 0 || companySettings.data?.allow_negative_stock)) {
       add(found,!!companySettings.data?.allow_negative_stock);
-      scannedAdded.current = true;
+      processedScan.current = token;
     }
-  }, [productId, variantId, stock.data, companySettings.data?.allow_negative_stock, add]);
+  }, [productId, variantId, scanToken, stock.data, companySettings.data?.allow_negative_stock, add]);
 
   const categories = Array.from(new Map((stock.data ?? []).filter(item=>item.categoryId).map(item=>[item.categoryId!,item.categoryName??'Catégorie'])).entries());
   const shown = (stock.data ?? [])
@@ -70,7 +71,7 @@ export default function NewSale() {
   const totals = useMemo(() => {
     const subtotal=items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
     const discount=items.reduce((sum,item)=>sum+item.discount,0);
-    const tax=0;
+    const tax=Math.round((subtotal-discount)*Number(companySettings.data?.tax_rate??0))/100;
     return ({
     subtotal,
     discount,
@@ -80,13 +81,13 @@ export default function NewSale() {
       (sum, item) => sum + (item.salePrice - item.purchasePrice) * item.quantity-item.discount,
       0,
     ),
-  })}, [items]);
+  })}, [companySettings.data?.tax_rate, items]);
   const discountTooHigh=items.some(item=>item.discount>item.salePrice*item.quantity*Number(companySettings.data?.max_discount_percent??100)/100);
   const save = useMutation({
-    mutationFn: () => createSale(company, storeId, payment, items, customerId, payment==='credit'?0:payment==='partial'?parseDecimal(amountPaid):totals.total,operationId.current,!!companySettings.data?.allow_negative_stock),
+    mutationFn: () => createSale(company, storeId, payment, items, customerId, payment==='credit'?0:payment==='partial'?parseDecimal(amountPaid):totals.total,operationId.current,!!companySettings.data?.allow_negative_stock,totals.total),
     onSuccess: async (result) => {
       useSaleCart.getState().clear();
-      scannedAdded.current = true;
+      processedScan.current = null;
       setCustomerId(null);
       setAmountPaid('');
       if (result.queued) {

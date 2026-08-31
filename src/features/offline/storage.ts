@@ -1,12 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CACHE_PREFIX = 'stockmaster:offline-cache:v1:';
+export const OFFLINE_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
-export async function readOfflineCache<T>(key: string, isValid?: (value: unknown) => value is T): Promise<T | null> {
+export async function readOfflineCache<T>(key: string, isValid?: (value: unknown) => value is T, now = Date.now()): Promise<T | null> {
   try {
-    const raw = await AsyncStorage.getItem(`${CACHE_PREFIX}${key}`);
+    const storageKey = `${CACHE_PREFIX}${key}`;
+    const raw = await AsyncStorage.getItem(storageKey);
     if (!raw) return null;
-    const value = (JSON.parse(raw) as { value?: unknown }).value;
+    const parsed = JSON.parse(raw) as { value?: unknown; savedAt?: string };
+    const savedAt = typeof parsed.savedAt === 'string' ? Date.parse(parsed.savedAt) : Number.NaN;
+    if (!Number.isFinite(savedAt) || now - savedAt > OFFLINE_CACHE_MAX_AGE_MS || savedAt > now + 5 * 60 * 1000) {
+      await AsyncStorage.removeItem(storageKey).catch(() => undefined);
+      return null;
+    }
+    const value = parsed.value;
     if (isValid && !isValid(value)) {
       await AsyncStorage.removeItem(`${CACHE_PREFIX}${key}`).catch(() => undefined);
       return null;
@@ -16,6 +24,12 @@ export async function readOfflineCache<T>(key: string, isValid?: (value: unknown
     await AsyncStorage.removeItem(`${CACHE_PREFIX}${key}`).catch(() => undefined);
     return null;
   }
+}
+
+export async function clearOfflineCaches() {
+  const keys = await AsyncStorage.getAllKeys();
+  const cacheKeys = keys.filter((key) => key.startsWith(CACHE_PREFIX));
+  if (cacheKeys.length) await AsyncStorage.multiRemove(cacheKeys);
 }
 
 export async function writeOfflineCache<T>(key: string, value: T) {

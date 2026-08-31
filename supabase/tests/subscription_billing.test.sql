@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(28);
+select plan(29);
 
 select is((select count(*)::integer from plans where is_active),3,'three active plans exist');
 select is((select max_businesses from plans where code='basic'),1,'Basic allows one business');
@@ -9,9 +9,15 @@ select is((select max_employees from plans where code='pro'),15,'Pro allows fift
 select is((select ai_requests_limit from plans where code='pro'),0,'Removed AI allowance stays disabled');
 select is(
   (select count(*)::integer from plan_features
-   where feature_key in ('notifications','ai_summary','ai_assistant','offline_mode')),
+   where feature_key in ('ai_summary','ai_assistant')),
   0,
-  'Unavailable features are absent from every plan'
+  'AI features are absent from every plan'
+);
+select is(
+  (select count(*)::integer from plan_features
+   where feature_key='offline_mode' and is_enabled),
+  3,
+  'Offline mode is enabled for every plan'
 );
 select isnt(
   (select is_enabled from plan_features pf join plans p on p.id=pf.plan_id

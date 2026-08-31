@@ -46,6 +46,7 @@ export async function signInForPortal(
   ]);
 
   if (businessesError || contextError) {
+    await supabase.auth.signOut({ scope: 'local' });
     return { ok: false, message: 'Impossible de vérifier le type de ce compte. Réessayez.' };
   }
 

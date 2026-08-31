@@ -17,7 +17,9 @@ export default function PaymentScreen() {
   const { plans } = useSubscription();
   const plan = plans.find((item) => item.id === params.planId);
   const cycle: BillingCycle = params.cycle === 'annual' ? 'annual' : 'monthly';
-  const companyId = membership?.companyId ?? '';
+  // A downgrade is billed on the company the owner chose to retain. This
+  // prevents creating the new subscription on a company that will be archived.
+  const companyId = params.keepCompanyId ?? membership?.companyId ?? '';
   const [method, setMethod] = useState<'orange_money' | 'stripe'>('orange_money');
   const [reference, setReference] = useState('');
   const [promoCode, setPromoCode] = useState('');
@@ -27,11 +29,11 @@ export default function PaymentScreen() {
   const quote = useQuery({ queryKey: ['subscription-quote', companyId, params.planId, cycle, appliedPromo], queryFn: () => getSubscriptionQuote(companyId, params.planId, cycle, appliedPromo), enabled: !!companyId && !!params.planId });
   const proof = useMutation({ mutationFn: () => uploadPaymentProof(companyId), onSuccess: (path) => path && setProofPath(path) });
   const manual = useMutation({
-    mutationFn: () => submitManualPayment({ companyId, planId: params.planId, billingCycle: cycle, reference, proofPath, promoCode: appliedPromo }),
+    mutationFn: () => submitManualPayment({ companyId, planId: params.planId, billingCycle: cycle, reference, proofPath, promoCode: appliedPromo, keepCompanyId: params.keepCompanyId }),
     onSuccess: (transactionId) => router.replace({ pathname: '/(subscription)/status' as never, params: { transactionId } }),
   });
   const stripe = useMutation({
-    mutationFn: () => createPayment({ companyId, planId: params.planId, billingCycle: cycle, provider: 'stripe' }),
+    mutationFn: () => createPayment({ companyId, planId: params.planId, billingCycle: cycle, provider: 'stripe', keepCompanyId: params.keepCompanyId }),
     onSuccess: async (result) => {
       if (result.authorizationUrl) await Linking.openURL(result.authorizationUrl);
       router.replace({ pathname: '/(subscription)/status' as never, params: { transactionId: result.transactionId } });
@@ -49,7 +51,8 @@ export default function PaymentScreen() {
         {!!quote.data?.discountAmount && <Text>Prix initial {money(quote.data.baseAmount)} · réduction {money(quote.data.discountAmount)}</Text>}
         {!!quote.data?.bonusDays && <Text>Avantage : {quote.data.bonusDays} jours supplémentaires</Text>}
         {!!quote.data?.promotionName && <Chip icon="ticket-percent">{quote.data.promotionName}</Chip>}
-        {!!params.keepCompanyId && <Text>Entreprise conservée : {businesses.find((item) => item.companyId === params.keepCompanyId)?.companyName ?? 'Entreprise sélectionnée'}</Text>}
+        {!!params.keepCompanyId && <Text style={styles.bold}>Entreprise conservée : {businesses.find((item) => item.companyId === params.keepCompanyId)?.companyName ?? 'Entreprise sélectionnée'}</Text>}
+        {!!params.keepCompanyId && <Text>Les autres entreprises seront archivées uniquement après confirmation du paiement. Leurs données ne seront pas supprimées.</Text>}
       </Card.Content></Card>
 
       <Card mode="outlined"><Card.Title title="Code promotionnel" /><Card.Content style={styles.row}>

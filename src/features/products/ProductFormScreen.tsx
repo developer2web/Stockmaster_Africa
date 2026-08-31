@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Card, Dialog, HelperText, Icon, Portal, Switch, Text, TextInput } from 'react-native-paper';
+import { Card, Dialog, HelperText, Icon, Portal, Switch, Text } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -32,7 +32,7 @@ const unitOptions = [
   { label:'Sac', value:'sac' }, { label:'Paquet', value:'paquet' },
 ] as const;
 
-export function ProductFormScreen({ id,initialBarcode,basePath='/products' }: { id?: string;initialBarcode?:string;basePath?:string }) {
+export function ProductFormScreen({ id,initialBarcode,basePath='/products',returnTo }: { id?: string;initialBarcode?:string;basePath?:string;returnTo?:string }) {
   const { formatMoney,primaryCode } = useCurrency();
   const { membership } = useAuth();
   const company = membership?.companyId ?? '';
@@ -47,7 +47,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products' }: { 
 
   useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? 'SKU-AUTO', barcode:product.data.barcode??'', categoryId:product.data.category_id, supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:String(product.data.purchase_price), salePrice:String(product.data.sale_price), initialQuantity:'0', lowStockThreshold:String(product.data.low_stock_threshold), isActive:product.data.is_active }); }, [product.data,reset]);
 
-  const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onSuccess:async(saved)=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['employee-products',company,store]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]}),invalidateOperationalSummaries(qc,company,store)]); router.replace(basePath as never); } });
+  const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onSuccess:async(saved)=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['employee-products',company,store]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace(basePath as never); } });
   const [confirm,setConfirm] = useState(false);
   const [adjust,setAdjust] = useState<'in'|'out'|null>(null);
   const remove = useMutation({ mutationFn:()=>deleteProduct(id!), onSuccess:async()=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company]}),qc.invalidateQueries({queryKey:['employee-products',company]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company]})]); router.replace(basePath as never); } });
@@ -82,7 +82,7 @@ const styles=StyleSheet.create({form:{width:'100%',maxWidth:720,alignSelf:'cente
 
 function Variants({ productId, companyId, variants, refresh }: { productId:string; companyId:string; variants:ProductVariant[]; refresh:()=>Promise<unknown> }) {
   const [open,setOpen]=useState(false); const [editing,setEditing]=useState<ProductVariant|null>(null); const [deleting,setDeleting]=useState<ProductVariant|null>(null);
-  const { control,handleSubmit,reset,formState:{errors} }=useForm<VariantInput>({resolver:zodResolver(variantSchema),defaultValues:{name:'',sku:'SKU-AUTO',barcode:'',purchasePrice:'',salePrice:'',isActive:true}});
+  const { control,handleSubmit,reset }=useForm<VariantInput>({resolver:zodResolver(variantSchema),defaultValues:{name:'',sku:'SKU-AUTO',barcode:'',purchasePrice:'',salePrice:'',isActive:true}});
   useEffect(()=>reset(editing?{name:editing.name,sku:editing.sku,barcode:editing.barcode??'',purchasePrice:editing.purchase_price==null?'':String(editing.purchase_price),salePrice:editing.sale_price==null?'':String(editing.sale_price),isActive:editing.is_active}:{name:'',sku:'SKU-AUTO',barcode:'',purchasePrice:'',salePrice:'',isActive:true}),[editing,reset]);
   const save=useMutation({mutationFn:(v:VariantInput)=>saveVariant(companyId,productId,v,editing?.id),onSuccess:async()=>{await refresh();setOpen(false);setEditing(null)}});
   const remove=useMutation({mutationFn:()=>deleteVariant(deleting!.id),onSuccess:async()=>{await refresh();setDeleting(null)}});
