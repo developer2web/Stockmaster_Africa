@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Appbar, Card, Chip, Dialog, Portal, SegmentedButtons, Text, useTheme } from 'react-native-paper';
+import { Appbar, Card, Chip, Dialog, HelperText, Portal, SegmentedButtons, Text, useTheme } from 'react-native-paper';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -12,6 +12,7 @@ import type { BillingCycle } from '@/features/subscriptions/types';
 import { AppBackButton } from '@/components/ui/AppBackButton';
 import { formatDate } from '@/utils/format';
 import { requiresRetainedBusinessChoice } from '@/features/subscriptions/businessLimit';
+import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 
 const featureLabels: Record<string, string> = {
   inventory: 'Produits et stock',
@@ -51,26 +52,29 @@ export default function SubscriptionScreen() {
   const [cycle, setCycle] = useState<BillingCycle>('monthly');
   const [pendingDowngrade, setPendingDowngrade] = useState<{ planId: string; cycle: BillingCycle } | null>(null);
   const [keepCompanyId, setKeepCompanyId] = useState<string | null>(membership?.companyId ?? null);
+  const [openingAccount, setOpeningAccount] = useState(false);
+  const [accountError, setAccountError] = useState('');
   const statusLabels:Record<string,string>={trialing:'Essai gratuit',active:'Actif',past_due:'Période de grâce',expired:'Expiré',canceled:'Annulé',cancelled:'Annulé',pending:'Paiement en attente',suspended:'Suspendu'};
 
   const choosePlan = (planId: string, targetCycle: BillingCycle) => {
     const targetPlan = plans.find((item) => item.id === planId);
-    if (!targetPlan || membership?.role !== 'company_admin') return;
+    if (!targetPlan || membership?.role !== 'company_admin' || !membership.companyId) return;
     const requiresCompanyChoice = requiresRetainedBusinessChoice(businesses.length, targetPlan.maxBusinesses);
     if (requiresCompanyChoice) {
       setKeepCompanyId(membership.companyId ?? businesses[0]?.companyId ?? null);
       setPendingDowngrade({ planId, cycle: targetCycle });
       return;
     }
-    router.push({ pathname: '/(subscription)/payment' as never, params: { planId, cycle: targetCycle } });
+    setOpeningAccount(true);
+    setAccountError('');
+    void openAccountPortal(membership.companyId).catch((error) => setAccountError(error.message)).finally(() => setOpeningAccount(false));
   };
 
   const proceedWithDowngrade = () => {
     if (!pendingDowngrade || !keepCompanyId) return;
-    router.push({
-      pathname: '/(subscription)/payment' as never,
-      params: { planId: pendingDowngrade.planId, cycle: pendingDowngrade.cycle, keepCompanyId },
-    });
+    setOpeningAccount(true);
+    setAccountError('');
+    void openAccountPortal(keepCompanyId).catch((error) => setAccountError(error.message)).finally(() => setOpeningAccount(false));
     setPendingDowngrade(null);
   };
 
@@ -87,6 +91,7 @@ export default function SubscriptionScreen() {
         )}
       </Appbar.Header>
       <ScrollView contentContainerStyle={styles.page}>
+        {!!accountError && <HelperText type="error" visible>{accountError}</HelperText>}
         {subscription && (
           <Card mode="contained">
             <Card.Title
@@ -147,6 +152,7 @@ export default function SubscriptionScreen() {
                   ))}
                   {membership?.role === 'company_admin' && (
                     <AppButton
+                      loading={openingAccount}
                       disabled={active && !subscription?.isReadOnly}
                       onPress={() => choosePlan(plan.id, cycle)}
                     >

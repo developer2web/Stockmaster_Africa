@@ -8,6 +8,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { AccountDeletionCard } from '@/components/legal/AccountDeletionCard';
 import { changePasswordWithVerification } from '@/features/account/api';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -21,6 +22,7 @@ export default function SettingsScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordValidation, setPasswordValidation] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [accountError, setAccountError] = useState('');
 
   const passwordMutation = useMutation({
     mutationFn: () => changePasswordWithVerification(currentPassword, newPassword),
@@ -51,7 +53,8 @@ export default function SettingsScreen() {
       <SettingsLink title="Informations et règles de vente" subtitle="Coordonnées, devise, taxes, reçus, remises et crédit" icon="office-building-cog-outline" onPress={() => router.push('/company' as never)}/>
       <SettingsLink title="Boutiques" subtitle="Adresses et organisation des points de vente" icon="store-cog-outline" onPress={() => router.push('/stores' as never)}/>
       <SettingsLink title="Employés et permissions" subtitle="Comptes, rôles et accès aux boutiques" icon="account-key-outline" onPress={() => router.push('/employees' as never)}/>
-      <SettingsLink title="Abonnement" subtitle="Forfait, renouvellement et historique" icon="credit-card-cog-outline" onPress={() => router.push('/(subscription)' as never)}/>
+      <SettingsLink title="Abonnement" subtitle="Forfait, renouvellement et historique sur Account" icon="credit-card-cog-outline" onPress={() => { setAccountError(''); void openAccountPortal(membership?.companyId ?? '').catch((error) => setAccountError(error.message)); }}/>
+      {!!accountError && <HelperText type="error" visible>{accountError}</HelperText>}
     </>}
 
     <Text variant="titleMedium">Compte et sécurité</Text>

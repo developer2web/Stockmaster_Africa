@@ -16,6 +16,7 @@ import { supportedCountries } from '@/constants/countries';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import { createBusiness } from '@/features/workspace/api';
+import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 
 const schema = z.object({
   companyName: z.string().trim().min(2, 'Nom de l’entreprise requis').max(100),
@@ -62,14 +63,7 @@ export default function ChooseBusinessScreen() {
     setOpeningPlans(true);
     setNavigationError('');
     try {
-      const availableStores = await selectBusiness(billingBusiness.companyId);
-      if (!availableStores.length) {
-        setNavigationError('Ajoutez d’abord une boutique à cette entreprise pour gérer son forfait.');
-      } else if (availableStores.length > 1) {
-        router.push({ pathname: '/choose-store', params: { returnTo: '/(subscription)' } });
-      } else {
-        router.push('/(subscription)' as never);
-      }
+      await openAccountPortal(billingBusiness.companyId);
     } catch (error) {
       setNavigationError(error instanceof Error ? error.message : 'Impossible d’ouvrir les forfaits.');
     } finally {

@@ -442,6 +442,33 @@ body {
 .adminApp .sessionFacts dd { margin: 0; color: var(--sm-text); font-size: 9px; font-weight: 750; text-align: right; }
 .adminApp .securityFeedback { position: static; margin: 13px 0 0; }
 
+.adminApp .incidentSeverity { display:inline-flex;align-items:center;min-height:25px;padding:4px 9px;border-radius:999px;font-size:9px;font-weight:900;text-transform:uppercase;white-space:nowrap;background:#e8f0ee;color:#50635f; }
+.adminApp .incidentSeverity.warning,.adminApp .incidentSeverity.info { background:#fff4d9;color:#9a5b00; }
+.adminApp .incidentSeverity.error,.adminApp .incidentSeverity.critical { background:#ffe7e4;color:#b42318; }
+.adminApp .incidentSeverity.fatal { background:#7a1712;color:#fff; }
+.adminApp .incidentMessage { display:grid;gap:4px;min-width:260px;max-width:560px; }
+.adminApp .incidentMessage > span { color:var(--sm-muted);line-height:1.45;overflow-wrap:anywhere; }
+.adminApp .incidentMessage details { margin-top:4px; }
+.adminApp .incidentMessage summary { color:var(--sm-primary);font-size:9px;font-weight:800;cursor:pointer; }
+.adminApp .incidentMessage pre { max-width:520px;max-height:220px;overflow:auto;padding:10px;border-radius:9px;background:#092e31;color:#dff6ed;font-size:9px;white-space:pre-wrap; }
+.adminApp .cellNote { display:block;margin-top:4px;color:var(--sm-muted);font-size:9px; }
+.adminApp .monitoringEmpty { display:grid;justify-items:center;gap:7px;padding:42px 20px;color:var(--sm-muted);text-align:center; }
+.adminApp .monitoringEmpty i { display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#dff4eb;color:#087459;font-size:20px;font-style:normal; }
+.adminApp .monitoringEmpty b { color:var(--sm-text);font-size:14px; }
+.adminApp .warningGrid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px; }
+.adminApp .warningCard { display:flex;flex-direction:column;min-width:0;padding:18px;border:1px solid var(--sm-border);border-left:4px solid #7d918c;border-radius:14px;background:#fff;box-shadow:0 8px 24px rgba(3,70,74,.04); }
+.adminApp .warningCard.warning { border-left-color:#e89a16; }
+.adminApp .warningCard.critical { border-left-color:#ce3e35; }
+.adminApp .warningCard header,.adminApp .warningCard footer { display:flex;align-items:center;justify-content:space-between;gap:10px; }
+.adminApp .warningCard header small,.adminApp .warningCard time { color:var(--sm-muted);font-size:9px; }
+.adminApp .warningCard h2 { margin:14px 0 5px;color:var(--sm-text);font-size:16px; }
+.adminApp .warningCard p { margin:0 0 13px;color:var(--sm-muted);font-size:11px;line-height:1.55; }
+.adminApp .warningCompanies { display:flex;flex-wrap:wrap;gap:6px;margin-bottom:13px; }
+.adminApp .warningCompanies span { padding:5px 8px;border-radius:8px;background:var(--sm-primary-soft);color:var(--sm-primary);font-size:9px;font-weight:800; }
+.adminApp .warningCard blockquote { margin:0 0 13px;padding:9px 11px;border-left:3px solid var(--sm-border);background:#f7faf9;color:var(--sm-muted);font-size:10px; }
+.adminApp .warningCard footer { margin-top:auto;padding-top:13px;border-top:1px solid var(--sm-border); }
+.adminApp .warningCard footer div { display:flex;flex-wrap:wrap;gap:7px; }
+
 @media (max-width: 1120px) {
   .adminApp .content { padding-inline: 22px; }
   .adminApp .commandRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -473,7 +500,7 @@ body {
   .adminApp .side nav button:nth-child(2),
   .adminApp .side nav button:nth-child(3),
   .adminApp .side nav button:nth-child(5),
-  .adminApp .side nav button:nth-child(9) { display: flex; }
+  .adminApp .side nav button:nth-child(11) { display: flex; }
   .adminApp .side nav button i { flex-basis: 23px; width: 23px; height: 23px; margin: 0; }
   .adminApp .mobileHead { position: sticky; top: 8px; z-index: 40; display: flex; margin: 0 0 14px; }
   .adminApp .pageTitle { align-items: flex-start; min-height: 0; }
@@ -517,6 +544,7 @@ body {
   .adminApp .paymentReviewAmount { grid-template-columns: 1fr; }
   .adminApp .paymentReviewAmount .badge { grid-column: 1; grid-row: auto; justify-self: start; }
   .adminApp .providerGrid, .adminApp .securityOverview { grid-template-columns: 1fr; }
+  .adminApp .warningGrid { grid-template-columns:1fr; }
   .adminApp .mfaSetupPanel, .adminApp .mfaEnrollment { grid-template-columns: 1fr; }
   .adminApp .mfaEnrollment { justify-items: start; }
   .adminApp .settingsFormGroup label, .adminApp .securityFields label { grid-template-columns: 1fr; gap: 6px; }

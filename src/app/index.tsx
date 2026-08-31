@@ -25,7 +25,7 @@ export default function Index() {
   if (!membership && businesses.length) {
     const employeeOnly = businesses.every((business) => business.role === 'employee');
     if (employeeOnly) {
-      if (stores.length > 1) return <Redirect href="/choose-store" />;
+      if (stores.length) return <Redirect href="/choose-store" />;
       return (
         <ErrorState
           title="Aucune boutique accessible"

@@ -37,6 +37,9 @@ additional_redirect_urls = [
 [functions.invite-employee]
 verify_jwt = true
 
+[functions.account-portal-link]
+verify_jwt = true
+
 [functions.bootstrap-super-admin]
 verify_jwt = false
 

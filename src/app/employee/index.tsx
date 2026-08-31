@@ -184,6 +184,7 @@ function EmployeeLogin() {
       />
       {!!error && <HelperText type="error" visible>{error}</HelperText>}
       <AppButton loading={loading} disabled={loading || !email.trim() || password.length < 8} onPress={login}>Se connecter</AppButton>
+      <AppButton mode="text" icon="lock-question" onPress={() => router.push({ pathname: '/(auth)/forgot-password', params: { returnTo: '/employee' } })}>Mot de passe oublié ?</AppButton>
       <AppBackButton fallback="/(auth)/login" />
     </AuthScreen>
   );

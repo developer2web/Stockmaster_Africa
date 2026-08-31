@@ -177,6 +177,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setStores(availableStores);
       const store = availableStores.find((item) => item.storeId === selectedStoreId);
       if (!store) {
+        if (availableStores.length === 1) {
+          const assignedStore = availableStores[0];
+          setSelectedStore(assignedStore.storeId);
+          const assignedContext = await getWorkspaceContext(business.companyId, assignedStore.storeId);
+          if (sequence !== refreshSequence.current) return;
+          setMembership(assignedContext);
+          if (assignedContext) {
+            setAccessBlocked(false);
+            setLastServerVerification(new Date().toISOString());
+          }
+          return;
+        }
         setMembership(null);
         if (selectedStoreId) setSelectedStore(null);
         return;

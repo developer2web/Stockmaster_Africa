@@ -1,5 +1,5 @@
 import { PropsWithChildren, ReactNode, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Appbar, Card, Icon, Menu, Text, useTheme } from 'react-native-paper';
 import { router, useLocalSearchParams, usePathname } from 'expo-router';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { hasAnyPermission } from '@/features/auth/permissions';
 import { PageIntro } from './PageIntro';
 import { design } from '@/constants/design';
+import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 
 const descriptions:Record<string,string>={
   Produits:'Consultez, recherchez et gérez le catalogue de la boutique.',Stock:'Suivez les quantités disponibles dans la boutique sélectionnée.',Ventes:'Consultez les ventes et ouvrez leur détail.','Nouvelle vente':'Ajoutez les produits, choisissez le client puis encaissez.',Clients:'Gérez les clients, leurs achats et leurs crédits.',Caisse:'Suivez le solde, les mouvements et les clôtures.',Rapports:'Analysez les ventes, les dépenses et la performance.',Fournisseurs:'Gérez les fournisseurs, achats, dettes et règlements.',Employés:'Gérez les comptes, rôles et accès aux boutiques.',Boutiques:'Gérez les points de vente de l’entreprise.',Support:'Créez et suivez les demandes d’assistance.',Notifications:'Consultez les informations qui nécessitent votre attention.',
@@ -24,6 +25,7 @@ export function AdminPage({ title, description, action, backToHome = false, chil
   const insets = useSafeAreaInsets();
   const compact = width < 600;
   const [storeMenuOpen, setStoreMenuOpen] = useState(false);
+  const [openingAccount, setOpeningAccount] = useState(false);
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const employee = membership?.role === 'employee';
   const toolsFallback = employee ? '/employee/more' : '/more';
@@ -105,7 +107,7 @@ export function AdminPage({ title, description, action, backToHome = false, chil
                 </Text>
               </View>
               {membership?.role === 'company_admin' && (
-                <AppButton onPress={() => router.push('/(subscription)' as never)}>
+                <AppButton loading={openingAccount} disabled={openingAccount} onPress={() => { setOpeningAccount(true); void openAccountPortal(membership?.companyId ?? '').catch((error) => Alert.alert('Portail Account', error.message)).finally(() => setOpeningAccount(false)); }}>
                   Renouveler
                 </AppButton>
               )}

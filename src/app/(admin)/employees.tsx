@@ -14,10 +14,10 @@ import { deleteEmployee, getEmployees, getRoles, getStores, inviteEmployee, upda
 import { employeeSchema, EmployeeInput } from '@/schemas/organization';
 import type { Employee } from '@/types/database';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
-import { router } from 'expo-router';
 import { StatusChip } from '@/components/ui/StatusChip';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import * as Clipboard from 'expo-clipboard';
+import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 
 const inviteDefaults: EmployeeInput = { fullName:'', email:'', roleId:'', storeIds:[], allStores:false };
 
@@ -55,7 +55,7 @@ export default function EmployeesScreen() {
   const openInvite=()=>{reset({...inviteDefaults,roleId:roleOptions[0]?.value??''});invite.reset();setInviteOpen(true)};
   const openEmployee=(employee:Employee)=>{setEditRole(employee.roleId);setEditStores(employee.storeIds);setEditAllStores(employee.allStores);setEditActive(employee.isActive);update.reset();remove.reset();setEditing(employee)};
 
-  return <AdminPage title="Employés" action={<AppButton icon={canInvite?'account-plus':'lock-outline'} onPress={()=>canInvite?openInvite():router.push('/(subscription)' as never)}>{canInvite?'Ajouter':'Forfait requis'}</AppButton>}>
+  return <AdminPage title="Employés" action={<AppButton icon={canInvite?'account-plus':'lock-outline'} onPress={()=>canInvite?openInvite():void openAccountPortal(companyId).catch(()=>undefined)}>{canInvite?'Ajouter':'Forfait requis'}</AppButton>}>
     <Card mode="outlined"><Card.Content><Text variant="titleMedium">Accès temporaire sécurisé</Text><Text>StockMaster affiche le mot de passe provisoire une seule fois après la création. Transmettez-le directement à l’employé : il devra le remplacer à sa première connexion.</Text></Card.Content></Card>
     {!!successMessage&&<HelperText type="info" visible>{successMessage}</HelperText>}
     {!subscriptionLoading&&<HelperText type={canInvite?'info':'error'} visible>{activeEmployeeCount}/{employeeLimit} employé(s) actif(s) autorisé(s) par le forfait.</HelperText>}

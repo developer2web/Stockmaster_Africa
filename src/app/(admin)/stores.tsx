@@ -17,7 +17,7 @@ import { getStores, saveStore } from '@/features/employees/api';
 import { storeSchema, type StoreInput } from '@/schemas/organization';
 import type { Store } from '@/types/database';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
-import { router } from 'expo-router';
+import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 
 const emptyStore: StoreInput = {
   name: '', address: '', isActive: true, receiptDisplayName: '', receiptAddress: '',
@@ -66,7 +66,7 @@ export default function StoresScreen() {
   const requestClose=()=>{if(save.isPending)return;if(isDirty)setDiscard(true);else close()};
 
   return (
-    <AdminPage title="Boutiques" action={<AppButton icon={canAddStore?'plus':'lock-outline'} onPress={() => canAddStore ? show() : router.push('/(subscription)' as never)}>{canAddStore?'Ajouter':'Forfait requis'}</AppButton>}>
+    <AdminPage title="Boutiques" action={<AppButton icon={canAddStore?'plus':'lock-outline'} onPress={() => canAddStore ? show() : void openAccountPortal(companyId).catch(()=>undefined)}>{canAddStore?'Ajouter':'Forfait requis'}</AppButton>}>
       <Card mode="contained" style={{ backgroundColor: theme.colors.primaryContainer }}>
         <Card.Content style={styles.intro}>
           <Icon source="receipt-text-edit-outline" size={30} color={theme.colors.primary} />

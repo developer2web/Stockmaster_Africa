@@ -65,8 +65,8 @@ function Brand() {
   return <div className="accountBrand"><span>S<i>↗</i><b>▰</b></span><strong>Stock<em>Master</em></strong></div>;
 }
 
-function Login({ ready }: { ready: (businesses: BusinessAccess[]) => void }) {
-  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [show, setShow] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
+function Login({ ready, initialError = '' }: { ready: (businesses: BusinessAccess[]) => void; initialError?: string }) {
+  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [show, setShow] = useState(false); const [error, setError] = useState(initialError); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
   async function submit(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError(''); setNotice('');
     try { await signIn(email, password); const businesses = (await getAccessibleBusinesses()).filter(item => item.role === 'company_admin'); if (!businesses.length) { await supabase.auth.signOut(); throw new Error('Ce portail est réservé au propriétaire ou administrateur de l’entreprise.'); } ready(businesses); }
@@ -80,8 +80,30 @@ function Login({ ready }: { ready: (businesses: BusinessAccess[]) => void }) {
   return <main className="loginPage"><section className="loginVisual"><Brand/><div><span>PORTAIL COMPTE CLIENT</span><h1>Votre activité.<br/>Votre abonnement.<br/><em>Un seul espace.</em></h1><p>Gérez votre forfait, vos paiements, vos utilisateurs et la sécurité de votre entreprise.</p></div><div className="loginPreview"><i>SM</i><div><small>Abonnement actuel</small><b>StockMaster Pro</b><span>Actif · sécurisé</span></div></div></section><form className="loginForm" onSubmit={submit}><span className="eyebrow">Heureux de vous revoir</span><h2>Connexion à votre compte</h2><p>Utilisez vos identifiants administrateur StockMaster.</p>{!configured && <div className="alert danger">La configuration Supabase est absente.</div>}<label>Email<input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="vous@entreprise.com" required/></label><label>Mot de passe<div className="passwordInput"><input type={show ? 'text' : 'password'} value={password} onChange={event => setPassword(event.target.value)} placeholder="Votre mot de passe" required/><button type="button" onClick={() => setShow(value => !value)}>{show ? 'Masquer' : 'Voir'}</button></div></label><button type="button" className="textButton right" onClick={() => void reset()}>Mot de passe oublié ?</button>{error && <div className="alert danger">{error}</div>}{notice && <div className="alert success">{notice}</div>}<button className="primaryButton" disabled={busy || !configured}>{busy ? 'Connexion en cours…' : 'Se connecter →'}</button><a className="backMarketing" href={marketingUrl()}>← Retour au site StockMaster</a></form></main>;
 }
 
+function PasswordRecovery({ complete }: { complete: () => void }) {
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function submit(event: React.FormEvent) {
+    event.preventDefault(); setError('');
+    if (password.length < 10) { setError('Le mot de passe doit contenir au moins 10 caractères.'); return; }
+    if (password !== confirmation) { setError('Les mots de passe ne correspondent pas.'); return; }
+    setBusy(true);
+    const result = await supabase.auth.updateUser({ password });
+    setBusy(false);
+    if (result.error) { setError(message(result.error)); return; }
+    await supabase.auth.signOut();
+    history.replaceState(null, '', location.pathname);
+    complete();
+  }
+  return <main className="loginPage"><section className="loginVisual"><Brand/><div><span>SÉCURITÉ DU COMPTE</span><h1>Choisissez un<br/><em>nouveau mot de passe.</em></h1><p>Le lien reçu par email ne peut être utilisé que pour ce compte.</p></div></section><form className="loginForm" onSubmit={submit}><span className="eyebrow">Récupération sécurisée</span><h2>Nouveau mot de passe</h2><p>Utilisez au moins 10 caractères avec une majuscule, une minuscule, un chiffre et un symbole.</p>{error && <div className="alert danger">{error}</div>}<label>Nouveau mot de passe<div className="passwordInput"><input type={show ? 'text' : 'password'} value={password} onChange={event => setPassword(event.target.value)} required autoFocus/><button type="button" onClick={() => setShow(value => !value)}>{show ? 'Masquer' : 'Voir'}</button></div></label><label>Confirmer le mot de passe<input type={show ? 'text' : 'password'} value={confirmation} onChange={event => setConfirmation(event.target.value)} required/></label><button className="primaryButton" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer le mot de passe'}</button></form></main>;
+}
+
 function App() {
-  const [context, setContext] = useState<UserContext | null>(null); const [opening, setOpening] = useState(true); const [section, setSection] = useState<Section>('Tableau de bord');
+  const [recovering, setRecovering] = useState(() => /(?:^|[&#?])type=recovery(?:&|$)/.test(`${location.hash}${location.search}`));
+  const [context, setContext] = useState<UserContext | null>(null); const [opening, setOpening] = useState(true); const [section, setSection] = useState<Section>(() => new URLSearchParams(location.search).get('portal') === 'subscription' ? 'Abonnement' : 'Tableau de bord');
   const [businesses, setBusinesses] = useState<BusinessAccess[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null); const [plans, setPlans] = useState<Plan[]>([]); const [payments, setPayments] = useState<Payment[]>([]); const [company, setCompany] = useState<Company>({ name: '', email: '', phone: '', address: '', default_currency_code: 'GNF' });
   const [events, setEvents] = useState<SecurityEvent[]>([]); const [employees, setEmployees] = useState<Employee[]>([]); const [roles, setRoles] = useState<Role[]>([]); const [stores, setStores] = useState<Store[]>([]); const [tickets, setTickets] = useState<Ticket[]>([]); const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -90,7 +112,50 @@ function App() {
   const [status, setStatus] = useState('all'); const [period, setPeriod] = useState('all'); const [loading, setLoading] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [warnings, setWarnings] = useState<string[]>([]); const [mobileMenu, setMobileMenu] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false); const [ticketOpen, setTicketOpen] = useState(false); const [profileOpen, setProfileOpen] = useState(false);
 
-  useEffect(() => { supabase.auth.getSession().then(async ({ data }) => { if (data.session) { setFullName(String(data.session.user.user_metadata?.full_name ?? '')); setUserEmail(data.session.user.email ?? ''); const available = (await getAccessibleBusinesses().catch(() => [])).filter(item => item.role === 'company_admin'); setBusinesses(available); if (available.length === 1) setContext(businessContext(available[0])); } setOpening(false); }); }, []);
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    void (async () => {
+      const params = new URLSearchParams(location.search);
+      const handoff = params.get('handoff');
+      const requestedCompanyId = params.get('companyId');
+      const requestedPortal = params.get('portal');
+      if (handoff) {
+        params.delete('handoff');
+        history.replaceState(null, '', `${location.pathname}${params.size ? `?${params.toString()}` : ''}`);
+        const verified = await supabase.auth.verifyOtp({ token_hash: handoff, type: 'magiclink' });
+        if (verified.error) {
+          await supabase.auth.signOut({ scope: 'local' });
+          if (mounted) {
+            setError('Ce lien Account a expiré ou a déjà été utilisé. Ouvrez de nouveau Forfaits depuis StockMaster.');
+            setOpening(false);
+          }
+          return;
+        }
+      }
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      if (data.session) {
+        setFullName(String(data.session.user.user_metadata?.full_name ?? ''));
+        setUserEmail(data.session.user.email ?? '');
+        const available = (await getAccessibleBusinesses().catch(() => [])).filter(item => item.role === 'company_admin');
+        if (!mounted) return;
+        setBusinesses(available);
+        const requested = available.find(item => item.company_id === requestedCompanyId);
+        if (requested) setContext(businessContext(requested));
+        else if (available.length === 1) setContext(businessContext(available[0]));
+        if (requestedPortal === 'subscription') setSection('Abonnement');
+      }
+      setOpening(false);
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const load = useCallback(async () => {
     if (!context?.company_id) return; setLoading(true); setError(''); setWarnings([]);
@@ -159,9 +224,10 @@ function App() {
   async function logoutAll() { if (!confirm('Déconnecter tous les appareils de ce compte ?')) return; await supabase.rpc('record_security_event', { p_event_type: 'global_logout', p_device_label: navigator.userAgent.slice(0, 120) }); await supabase.auth.signOut({ scope: 'global' }); setContext(null); }
   async function markNotifications() { if (!context?.company_id) return; const result = await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('company_id', context.company_id).is('read_at', null); if (result.error) setError(result.error.message); else { setNotifications(items => items.map(item => ({ ...item, read_at: item.read_at ?? new Date().toISOString() }))); setNotice('Toutes les notifications sont marquées comme lues.'); } }
 
+  if (recovering) return <PasswordRecovery complete={() => { setRecovering(false); setOpening(false); }} />;
   if (opening) return <main className="opening"><Brand/><span>Ouverture de votre compte…</span></main>;
   if (!context && businesses.length > 1) return <BusinessPicker businesses={businesses} select={chooseBusiness} signOut={signOut}/>;
-  if (!context) return <Login ready={acceptBusinesses}/>;
+  if (!context) return <Login ready={acceptBusinesses} initialError={error}/>;
 
   return <div className="accountApp">
     <aside className={mobileMenu ? 'sidebar open' : 'sidebar'}><div className="sidebarHead"><Brand/><button onClick={() => setMobileMenu(false)}>×</button></div><nav>{navItems.map(item => <button className={section === item.section || (item.section === 'Paiements' && section === 'Historique') ? 'active' : ''} key={item.section} onClick={() => navigate(item.section)}><i>{item.icon}</i><span>{item.section}</span></button>)}</nav><div className="sidebarBottom"><button onClick={() => navigate('Profil')}><i className="avatar">{initials}</i><span><b>{fullName || 'Administrateur'}</b><small>Gérer mon profil</small></span></button><button className="logout" onClick={() => void signOut()}>↪ <span>Déconnexion</span></button></div></aside>
