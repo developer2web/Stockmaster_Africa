@@ -6,8 +6,9 @@ import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { supabase } from '@/services/supabase/client';
 
 export default function Index() {
-  const { session, membership, businesses, stores, membershipError, isAccessBlocked, needsOnboarding, isWorkspaceLoading, refreshMembership, signOut } = useAuth();
-  const billingOnboarding=useQuery({queryKey:['billing-onboarding',membership?.companyId],queryFn:async()=>{const{data,error}=await supabase.rpc('billing_onboarding_required',{p_company_id:membership!.companyId});if(error)throw error;return!!data},enabled:!!session&&membership?.role==='company_admin'&&!!membership.companyId});
+  const { session, membership, businesses, stores, membershipError, isAccessBlocked, needsOnboarding, isWorkspaceLoading, offlineUnlockRequired, offlineAuthenticated, refreshMembership, signOut } = useAuth();
+  const billingOnboarding=useQuery({queryKey:['billing-onboarding',membership?.companyId],queryFn:async()=>{const{data,error}=await supabase.rpc('billing_onboarding_required',{p_company_id:membership!.companyId});if(error)throw error;return!!data},enabled:!!session&&!offlineAuthenticated&&membership?.role==='company_admin'&&!!membership.companyId});
+  if (offlineUnlockRequired) return <Redirect href="/(auth)/offline-login" />;
   if (!session) return <Redirect href="/(auth)/login" />;
   if (session.user.user_metadata?.must_change_password === true) return <Redirect href="/(auth)/change-temporary-password" />;
   if (!membership && isWorkspaceLoading) return <LoadingScreen label="Chargement de vos boutiques…" />;

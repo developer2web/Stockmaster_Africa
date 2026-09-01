@@ -24,7 +24,7 @@ import { readableError } from '@/utils/errors';
 export default function NewSale() {
   const { formatMoney } = useCurrency();
   const { productId, variantId, scanToken } = useLocalSearchParams<{ productId?: string; variantId?: string; scanToken?: string }>();
-  const { membership } = useAuth();
+  const { membership, offlineAuthenticated } = useAuth();
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const desktop = width >= 1100;
@@ -87,11 +87,16 @@ export default function NewSale() {
     mutationFn: () => createSale(company, storeId, payment, items, customerId, payment==='credit'?0:payment==='partial'?parseDecimal(amountPaid):totals.total,operationId.current,!!companySettings.data?.allow_negative_stock,totals.total),
     onSuccess: async (result) => {
       useSaleCart.getState().clear();
+      operationId.current = createOperationId();
       processedScan.current = null;
       setCustomerId(null);
       setAmountPaid('');
       if (result.queued) {
         await refreshQueue();
+        if (offlineAuthenticated) {
+          router.replace((employee ? '/employee/sales/new' : '/sales/new') as never);
+          return;
+        }
         router.replace({pathname:(employee ? '/employee/sales' : '/sales') as never,params:{notice:'Vente enregistrée hors ligne'}});
         return;
       }
@@ -113,6 +118,7 @@ export default function NewSale() {
       title="Nouvelle vente"
       action={<AppButton mode="outlined" icon="barcode-scan" onPress={() => router.push({ pathname: (employee ? '/employee/scanner' : '/scanner') as never, params: { mode: 'sale' } })}>Scanner</AppButton>}
     >
+      {offlineAuthenticated && <Card mode="contained" style={{ backgroundColor: theme.colors.primaryContainer }}><Card.Content style={styles.notice}><Chip icon="wifi-off">Vente hors ligne</Chip><Text style={{ color: theme.colors.onPrimaryContainer }}>{membership?.companyName} · {membership?.storeName ?? 'Boutique'} · Produits, prix, stock et clients préchargés</Text></Card.Content></Card>}
       <View style={[styles.workspace, desktop && styles.workspaceDesktop]}>
       <View style={styles.catalogPane}>
       <Card mode="outlined" style={{ borderColor: theme.colors.primary }}>

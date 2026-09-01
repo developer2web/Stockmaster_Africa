@@ -3,12 +3,16 @@ import { createContext, PropsWithChildren, useCallback, useContext, useEffect, u
 import { getCurrentUserOfflineQueue, synchronizeOfflineQueue } from './queue';
 import { useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/services/observability/logger';
+import { useAuth } from '@/features/auth/AuthProvider';
+import { getOfflineAccessSummary, markOfflineAccessSynchronized } from '@/features/auth/offlineAccess';
+import { probeBackendAccess } from './connectivity';
 
 type OfflineContextValue = {
   isOnline: boolean;
   isSynchronizing: boolean;
   pendingCount: number;
   lastSyncedCount: number;
+  lastSynchronizedAt: string | null;
   refreshQueue: () => Promise<void>;
   synchronize: () => Promise<void>;
 };
@@ -17,11 +21,13 @@ const OfflineContext = createContext<OfflineContextValue | null>(null);
 
 export function OfflineProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
+  const { revalidateBeforeSynchronization } = useAuth();
   const [isOnline, setOnline] = useState(true);
   const [isSynchronizing, setSynchronizing] = useState(false);
   const synchronizingRef = useRef(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [lastSyncedCount,setLastSyncedCount]=useState(0);
+  const [lastSynchronizedAt,setLastSynchronizedAt]=useState<string|null>(null);
   const refreshQueue = useCallback(async () => {
     setPendingCount((await getCurrentUserOfflineQueue()).length);
   }, []);
@@ -30,7 +36,11 @@ export function OfflineProvider({ children }: PropsWithChildren) {
     synchronizingRef.current = true;
     setSynchronizing(true);
     try {
+      if (!await revalidateBeforeSynchronization()) return;
       const result = await synchronizeOfflineQueue();
+      const synchronizedAt = new Date().toISOString();
+      setLastSynchronizedAt(synchronizedAt);
+      await markOfflineAccessSynchronized(synchronizedAt).catch(() => undefined);
       if (result.synced) {
         setLastSyncedCount(result.synced);
         setTimeout(()=>setLastSyncedCount(0),5000);
@@ -58,18 +68,30 @@ export function OfflineProvider({ children }: PropsWithChildren) {
         await logger.warning('offline_queue_refresh_failed', error);
       }
     }
-  }, [queryClient, refreshQueue]);
+  }, [queryClient, refreshQueue, revalidateBeforeSynchronization]);
 
   useEffect(() => {
     void refreshQueue().catch((error) => logger.warning('offline_queue_boot_failed', error));
-    return NetInfo.addEventListener((state) => {
-      const online = state.isConnected !== false && state.isInternetReachable !== false;
-      setOnline(online);
-      if (online) void synchronize();
+    void getOfflineAccessSummary().then((summary) => setLastSynchronizedAt(summary?.lastSynchronizedAt ?? null));
+    const checkBackend = async () => {
+      const probe = await probeBackendAccess(true);
+      setOnline(probe.reachable);
+      if (probe.reachable && probe.authenticated) await synchronize();
+    };
+    void checkBackend();
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const networkAvailable = state.isConnected !== false && state.isInternetReachable !== false;
+      if (!networkAvailable) {
+        setOnline(false);
+        return;
+      }
+      void checkBackend();
     });
+    const interval = setInterval(() => { void checkBackend(); }, 30_000);
+    return () => { unsubscribe(); clearInterval(interval); };
   }, [refreshQueue, synchronize]);
 
-  const value = useMemo(() => ({ isOnline, isSynchronizing, pendingCount,lastSyncedCount, refreshQueue, synchronize }), [isOnline, isSynchronizing, pendingCount,lastSyncedCount, refreshQueue, synchronize]);
+  const value = useMemo(() => ({ isOnline, isSynchronizing, pendingCount,lastSyncedCount,lastSynchronizedAt, refreshQueue, synchronize }), [isOnline, isSynchronizing, pendingCount,lastSyncedCount,lastSynchronizedAt, refreshQueue, synchronize]);
   return <OfflineContext.Provider value={value}>{children}</OfflineContext.Provider>;
 }
 

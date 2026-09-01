@@ -6,6 +6,7 @@ import { Card, Dialog, HelperText, Icon, Portal, Text, TextInput, useTheme } fro
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { AccountDeletionCard } from '@/components/legal/AccountDeletionCard';
+import { OfflineAccessCard } from '@/components/security/OfflineAccessCard';
 import { changePasswordWithVerification } from '@/features/account/api';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { openAccountPortal } from '@/features/subscriptions/accountPortal';
@@ -58,6 +59,7 @@ export default function SettingsScreen() {
     </>}
 
     <Text variant="titleMedium">Compte et sécurité</Text>
+    <OfflineAccessCard />
     <SettingsLink title="Sécurité et 2FA" subtitle="Double authentification, codes QR et sessions actives" icon="shield-key-outline" onPress={() => router.push('/(settings)/security' as never)}/>
     <SettingsLink title="Journal des connexions" subtitle="Historique récent des accès au compte" icon="history" onPress={() => router.push('/(settings)/security-history' as never)}/>
     <SettingsLink title="Synchronisation hors ligne" subtitle="Opérations en attente et conflits de stock" icon="cloud-sync-outline" onPress={() => router.push('/(settings)/offline' as never)}/>

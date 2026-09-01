@@ -6,7 +6,8 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 
 export function RoleGuard({ roles, children, requireActiveSubscription = true }: PropsWithChildren<{ roles: AppRole[]; requireActiveSubscription?: boolean }>) {
-  const { session, membership, businesses, stores, membershipError, isAccessBlocked, isWorkspaceLoading, isSwitchingWorkspace, refreshMembership, signOut } = useAuth();
+  const { session, membership, businesses, stores, membershipError, isAccessBlocked, isWorkspaceLoading, isSwitchingWorkspace, offlineUnlockRequired, refreshMembership, signOut } = useAuth();
+  if (offlineUnlockRequired) return <Redirect href="/(auth)/offline-login" />;
   if (!session) return <Redirect href="/(auth)/login" />;
   if (isSwitchingWorkspace || (!membership && isWorkspaceLoading)) return <LoadingScreen label={isSwitchingWorkspace ? 'Changement de boutique…' : 'Chargement de vos boutiques…'} />;
   if (membershipError) {

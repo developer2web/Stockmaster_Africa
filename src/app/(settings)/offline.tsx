@@ -12,7 +12,7 @@ export default function OfflineOperationsScreen() {
   const theme=useTheme();
   const {width}=useWindowDimensions();
   const compact=width<600;
-  const { isOnline, isSynchronizing, synchronize, refreshQueue } = useOffline();
+  const { isOnline, isSynchronizing, lastSynchronizedAt, synchronize, refreshQueue } = useOffline();
   const [operations, setOperations] = useState<OfflineOperation[]>([]);
   const [removing, setRemoving] = useState<OfflineOperation | null>(null);
   const load = useCallback(async () => setOperations(await getCurrentUserOfflineQueue()), []);
@@ -27,7 +27,7 @@ export default function OfflineOperationsScreen() {
 
   return <AdminPage title="Synchronisation">
     <Card mode="contained">
-      <Card.Content style={styles.statusRow}><View style={[styles.statusIcon,{backgroundColor:theme.colors.primaryContainer}]}><Icon source={isOnline?'cloud-check-outline':'cloud-off-outline'} size={28} color={theme.colors.primary}/></View><View style={styles.copy}><Text variant="titleMedium" style={styles.bold}>{isOnline?'Connexion disponible':'Mode hors ligne'}</Text><Text style={{color:theme.colors.onSurfaceVariant}}>{operations.length} opération(s) en attente</Text></View></Card.Content>
+      <Card.Content style={styles.statusRow}><View style={[styles.statusIcon,{backgroundColor:theme.colors.primaryContainer}]}><Icon source={isOnline?'cloud-check-outline':'cloud-off-outline'} size={28} color={theme.colors.primary}/></View><View style={styles.copy}><Text variant="titleMedium" style={styles.bold}>{isOnline?'Connexion disponible':'Mode hors ligne'}</Text><Text style={{color:theme.colors.onSurfaceVariant}}>{operations.length} opération(s) en attente</Text><Text style={{color:theme.colors.onSurfaceVariant}}>Dernière synchronisation : {lastSynchronizedAt ? new Date(lastSynchronizedAt).toLocaleString('fr-FR') : 'jamais'}</Text></View></Card.Content>
       <Card.Actions style={[styles.actions,compact&&styles.actionsCompact]}><AppButton style={compact&&styles.mobileButton} icon="sync" disabled={!isOnline || isSynchronizing || !operations.length} loading={isSynchronizing} onPress={() => void synchronize()}>Synchroniser maintenant</AppButton></Card.Actions>
     </Card>
     {operations.map((operation) => {

@@ -1,7 +1,7 @@
 import 'react-native-url-polyfill/auto';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { Redirect, Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useMemo } from 'react';
 import { Platform, useColorScheme, View } from 'react-native';
@@ -26,7 +26,8 @@ const queryClient = new QueryClient({
 });
 
 function RootNavigator() {
-  const { isLoading } = useAuth();
+  const { isLoading, membership, offlineAuthenticated } = useAuth();
+  const pathname = usePathname().replace(/\/+$/, '') || '/';
 
   useEffect(() => {
     if (typeof document !== 'undefined') document.getElementById('web-boot-status')?.remove();
@@ -34,6 +35,13 @@ function RootNavigator() {
   }, [isLoading]);
 
   if (isLoading) return <LoadingScreen label="Ouverture de StockMaster…" />;
+
+  if (offlineAuthenticated) {
+    const employee = membership?.role === 'employee';
+    const salePath = employee ? '/employee/sales/new' : '/sales/new';
+    const scannerPath = employee ? '/employee/scanner' : '/scanner';
+    if (pathname !== salePath && pathname !== scannerPath) return <Redirect href={salePath as never} />;
+  }
 
   return (
     <View style={{ flex: 1 }}>

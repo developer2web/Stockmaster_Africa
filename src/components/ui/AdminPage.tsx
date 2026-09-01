@@ -18,7 +18,7 @@ const descriptions:Record<string,string>={
 
 export function AdminPage({ title, description, action, backToHome = false, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; backToHome?: boolean }>) {
   const theme = useTheme();
-  const { session, membership, stores, selectStore } = useAuth();
+  const { session, membership, stores, offlineAuthenticated, lockOfflineSession, selectStore } = useAuth();
   const employeeName = String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
   const { subscription } = useSubscription();
   const { width } = useWindowDimensions();
@@ -44,11 +44,11 @@ export function AdminPage({ title, description, action, backToHome = false, chil
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <Appbar.Header elevated style={{ backgroundColor: employee ? employeeHeader : theme.colors.surface }}>
-        <AppBackButton
+        {!offlineAuthenticated && <AppBackButton
           fallback={cameFromTools ? toolsFallback : employee ? '/employee' : '/(admin)'}
           light={employee}
           forceFallback={backToHome || cameFromTools}
-        />
+        />}
         <Appbar.Content
           style={styles.headerContent}
           title={membership?.companyName ?? 'StockMaster'}
@@ -60,7 +60,7 @@ export function AdminPage({ title, description, action, backToHome = false, chil
           }
           subtitleStyle={employee ? styles.employeeSubtitle : styles.storeSubtitle}
         />
-        {membership?.role !== 'super_admin' && stores.length > 1 && (
+        {!offlineAuthenticated && membership?.role !== 'super_admin' && stores.length > 1 && (
           <Menu
             visible={storeMenuOpen}
             onDismiss={() => setStoreMenuOpen(false)}
@@ -86,6 +86,7 @@ export function AdminPage({ title, description, action, backToHome = false, chil
             ))}
           </Menu>
         )}
+        {offlineAuthenticated && <Appbar.Action icon="lock-outline" color={employee ? '#FFFFFF' : undefined} accessibilityLabel="Verrouiller l’accès hors ligne" onPress={lockOfflineSession} />}
       </Appbar.Header>
       <ScrollView
         nestedScrollEnabled
@@ -95,7 +96,7 @@ export function AdminPage({ title, description, action, backToHome = false, chil
         showsVerticalScrollIndicator={false}
       >
         <PageIntro title={title} description={description??descriptions[title]??'Gérez cette partie de StockMaster.'} action={action}/>
-        {showRenewalWarning && (
+        {!offlineAuthenticated && showRenewalWarning && (
           <Card mode="contained" style={{ backgroundColor: theme.colors.errorContainer }}>
             <Card.Content style={styles.subscriptionWarning}>
               <View style={styles.grow}>
@@ -116,7 +117,7 @@ export function AdminPage({ title, description, action, backToHome = false, chil
         )}
         {children}
       </ScrollView>
-      {employee && compact && <EmployeeBottomNavigation />}
+      {employee && compact && !offlineAuthenticated && <EmployeeBottomNavigation />}
     </KeyboardAvoidingView>
   );
 }
