@@ -58,6 +58,13 @@
           "cameraPermission": "Autoriser StockMaster à photographier les produits",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
       ]
     ],
     "experiments": {

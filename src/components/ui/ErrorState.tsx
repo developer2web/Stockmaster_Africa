@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { Card, Icon, Text } from 'react-native-paper';
 import { AppButton } from './AppButton';
+import { userErrorMessage } from '@/utils/errors';
 
 export function ErrorState({
   title = 'Une erreur est survenue',
@@ -21,7 +22,7 @@ export function ErrorState({
         <Card.Content style={styles.content}>
           <View style={styles.icon}><Icon source="alert-circle-outline" size={36} color="#C92A2A" /></View>
           <Text variant="titleLarge">{title}</Text>
-          <Text style={styles.message}>{message}</Text>
+          <Text style={styles.message}>{userErrorMessage(message)}</Text>
           {onRetry && <AppButton icon="refresh" onPress={onRetry}>{retryLabel}</AppButton>}
           {onCancel && <AppButton mode="text" onPress={onCancel}>Se déconnecter</AppButton>}
         </Card.Content>

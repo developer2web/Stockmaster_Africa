@@ -20,6 +20,7 @@ import { AppSearchBar } from '@/components/ui/AppSearchBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { createOperationId } from '@/utils/operationId';
 import { readableError } from '@/utils/errors';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 export default function NewSale() {
   const { formatMoney } = useCurrency();
@@ -32,6 +33,7 @@ export default function NewSale() {
   const employee = membership?.role === 'employee';
   const storeId = membership?.storeId ?? '';
   const [search, setSearch] = useState('');
+  const debouncedSearch=useDebouncedValue(search,120);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [payment, setPayment] = useState('cash');
   const [amountPaid, setAmountPaid] = useState('');
@@ -64,10 +66,11 @@ export default function NewSale() {
     }
   }, [productId, variantId, scanToken, stock.data, companySettings.data?.allow_negative_stock, add]);
 
-  const categories = Array.from(new Map((stock.data ?? []).filter(item=>item.categoryId).map(item=>[item.categoryId!,item.categoryName??'Catégorie'])).entries());
-  const shown = (stock.data ?? [])
-    .filter((item) => (!categoryId || item.categoryId===categoryId) && item.name.toLowerCase().includes(search.trim().toLowerCase()))
-    .slice(0, 30);
+  const categories = useMemo(()=>Array.from(new Map((stock.data ?? []).filter(item=>item.categoryId).map(item=>[item.categoryId!,item.categoryName??'Catégorie'])).entries()),[stock.data]);
+  const shown = useMemo(()=>{
+    const term=debouncedSearch.trim().toLocaleLowerCase('fr');
+    return (stock.data ?? []).filter(item=>(!categoryId||item.categoryId===categoryId)&&(!term||item.name.toLocaleLowerCase('fr').includes(term)||item.lookupCodes?.some(code=>code.toLocaleLowerCase('fr').includes(term)))).slice(0,30);
+  },[categoryId,debouncedSearch,stock.data]);
   const totals = useMemo(() => {
     const subtotal=items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
     const discount=items.reduce((sum,item)=>sum+item.discount,0);
@@ -112,11 +115,13 @@ export default function NewSale() {
       router.replace({pathname:(employee ? `/employee/sales/${result.saleId}` : `/sales/${result.saleId}`) as never,params:{notice:'Vente enregistrée'}});
     },
   });
+  const checkoutDisabled=!items.length || !storeId || save.isPending || discountTooHigh || ((payment==='credit'||payment==='partial')&&!customerId) || (payment==='partial'&&(!(parseDecimal(amountPaid)>0)||parseDecimal(amountPaid)>=totals.total));
 
   return (
     <AdminPage
       title="Nouvelle vente"
       action={<AppButton mode="outlined" icon="barcode-scan" onPress={() => router.push({ pathname: (employee ? '/employee/scanner' : '/scanner') as never, params: { mode: 'sale' } })}>Scanner</AppButton>}
+      floatingAction={<AppButton icon="cash-register" loading={save.isPending} disabled={checkoutDisabled} onPress={() => save.mutate()}>{save.isPending ? 'Enregistrement…' : `Encaisser · ${formatMoney(totals.total)}`}</AppButton>}
     >
       {offlineAuthenticated && <Card mode="contained" style={{ backgroundColor: theme.colors.primaryContainer }}><Card.Content style={styles.notice}><Chip icon="wifi-off">Vente hors ligne</Chip><Text style={{ color: theme.colors.onPrimaryContainer }}>{membership?.companyName} · {membership?.storeName ?? 'Boutique'} · Produits, prix, stock et clients préchargés</Text></Card.Content></Card>}
       <View style={[styles.workspace, desktop && styles.workspaceDesktop]}>
@@ -129,9 +134,9 @@ export default function NewSale() {
           </Text>
         </Card.Content>
       </Card>
-      <AppSearchBar placeholder="Rechercher un produit" value={search} onChangeText={setSearch} />
+      <AppSearchBar placeholder="Nom ou code-barres" value={search} onChangeText={setSearch} loading={search!==debouncedSearch} />
       <View style={styles.categoryFilters}><Chip selected={!categoryId} onPress={()=>setCategoryId(null)}>Tous</Chip>{categories.map(([id,name])=><Chip key={id} selected={categoryId===id} onPress={()=>setCategoryId(id)}>{name}</Chip>)}</View>
-      {!!stock.error && <HelperText type="error" visible>{stock.error.message}</HelperText>}
+      {!!stock.error && <HelperText type="error" visible>{readableError(stock.error)}</HelperText>}
       <View style={styles.list}>
         {shown.map((item) => {
           const available = item.available > 0 || !!companySettings.data?.allow_negative_stock;
@@ -199,8 +204,8 @@ export default function NewSale() {
       </Card>
       {!!save.error && <HelperText type="error" visible>{readableError(save.error)}</HelperText>}
       {discountTooHigh&&<HelperText type="error" visible>Une remise dépasse la limite de {Number(companySettings.data?.max_discount_percent??100)} % définie par l’administrateur.</HelperText>}
-      <AppButton icon="check" loading={save.isPending} disabled={!items.length || !storeId || save.isPending || discountTooHigh || ((payment==='credit'||payment==='partial')&&!customerId) || (payment==='partial'&&(!(parseDecimal(amountPaid)>0)||parseDecimal(amountPaid)>=totals.total))} onPress={() => save.mutate()}>
-        Enregistrer la vente
+      <AppButton icon="cash-register" loading={save.isPending} disabled={checkoutDisabled} onPress={() => save.mutate()}>
+        {save.isPending ? 'Enregistrement…' : 'Encaisser'}
       </AppButton>
       </View>
       </View>

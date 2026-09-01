@@ -21,17 +21,17 @@ export type ProductCodeLookup = {
 async function lookupCompanyProductCode(code: string, companyId: string): Promise<ProductCodeLookup | null> {
   const normalized = code.trim();
   const productColumns = 'id,name,store_id,is_active,store:stores(name)';
-  for (const column of ['barcode', 'qr_code', 'sku'] as const) {
-    const { data, error } = await supabase.from('products').select(productColumns).eq('company_id', companyId).eq(column, normalized).limit(1).maybeSingle();
-    if (error) fail(error);
+  const productResults=await Promise.all((['barcode','qr_code','sku'] as const).map(column=>supabase.from('products').select(productColumns).eq('company_id',companyId).eq(column,normalized).limit(1).maybeSingle()));
+  for (const {data,error} of productResults) {
+    fail(error);
     if (data) {
       const row = data as unknown as { id:string;name:string;store_id:string;is_active:boolean;store:{name:string}|null };
       return { productId:row.id,variantId:null,productName:row.name,storeId:row.store_id,storeName:row.store?.name??null,isActive:row.is_active };
     }
   }
-  for (const column of ['barcode', 'sku'] as const) {
-    const { data, error } = await supabase.from('product_variants').select('id,product_id,is_active,product:products!inner(id,name,company_id,store_id,is_active,store:stores(name))').eq('company_id', companyId).eq(column, normalized).limit(1).maybeSingle();
-    if (error) fail(error);
+  const variantResults=await Promise.all((['barcode','sku'] as const).map(column=>supabase.from('product_variants').select('id,product_id,is_active,product:products!inner(id,name,company_id,store_id,is_active,store:stores(name))').eq('company_id',companyId).eq(column,normalized).limit(1).maybeSingle()));
+  for (const {data,error} of variantResults) {
+    fail(error);
     if (data) {
       const row = data as unknown as { id:string;product_id:string;is_active:boolean;product:{name:string;store_id:string;is_active:boolean;store:{name:string}|null} };
       return { productId:row.product_id,variantId:row.id,productName:row.product.name,storeId:row.product.store_id,storeName:row.product.store?.name??null,isActive:row.is_active&&row.product.is_active };

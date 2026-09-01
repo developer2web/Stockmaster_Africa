@@ -66,16 +66,28 @@ export async function getSaleStock(companyId: string, storeId: string, includeCo
   const productColumns = includeCost
     ? 'id,category_id,unit,name,sku,barcode,qr_code,sale_price,purchase_price,image_urls,is_active,category:categories(name),product_variants(id,name,sku,barcode,sale_price,purchase_price,is_active)'
     : 'id,category_id,unit,name,sku,barcode,qr_code,sale_price,image_urls,is_active,category:categories(name),product_variants(id,name,sku,barcode,sale_price,is_active)';
-  const [levelsResult, productsResult] = await Promise.all([
-    supabase.from('stock_levels').select('id,product_id,product_variant_id,quantity').eq('company_id', companyId).eq('store_id', storeId),
-    supabase.from('products').select(productColumns).eq('company_id', companyId).eq('store_id',storeId).eq('is_active', true).order('name'),
-  ]);
-  fail(levelsResult.error);
-  fail(productsResult.error);
-  const levels = (levelsResult.data ?? []) as { id: string; product_id: string; product_variant_id: string | null; quantity: number }[];
-  const levelFor = (productId: string, variantId: string | null) => levels.find((row) => row.product_id === productId && row.product_variant_id === variantId);
+  const pageSize=1000;
+  const loadLevels=async()=>{
+    const rows:{id:string;product_id:string;product_variant_id:string|null;quantity:number}[]=[];
+    for(let from=0;;from+=pageSize){
+      const {data,error}=await supabase.from('stock_levels').select('id,product_id,product_variant_id,quantity').eq('company_id',companyId).eq('store_id',storeId).range(from,from+pageSize-1);
+      fail(error);const page=(data??[]) as typeof rows;rows.push(...page);if(page.length<pageSize)break;
+    }
+    return rows;
+  };
+  const loadProducts=async()=>{
+    const rows:unknown[]=[];
+    for(let from=0;;from+=pageSize){
+      const {data,error}=await supabase.from('products').select(productColumns).eq('company_id',companyId).eq('store_id',storeId).eq('is_active',true).order('name').range(from,from+pageSize-1);
+      fail(error);const page=data??[];rows.push(...page);if(page.length<pageSize)break;
+    }
+    return rows;
+  };
+  const [levels,productRows]=await Promise.all([loadLevels(),loadProducts()]);
+  const levelMap=new Map(levels.map(row=>[`${row.product_id}:${row.product_variant_id??''}`,row]));
+  const levelFor = (productId: string, variantId: string | null) => levelMap.get(`${productId}:${variantId??''}`);
 
-  return ((productsResult.data ?? []) as unknown as {
+  return (productRows as {
     id: string; category_id:string|null; category:{name:string}|null; unit:'piece'|'carton'|'kg'|'litre'|'sac'|'paquet'; name: string; sku: string; barcode:string|null;qr_code:string; sale_price: number; purchase_price?: number; image_urls: string[];
     product_variants: { id: string; name: string; sku: string; barcode:string|null; sale_price: number | null; purchase_price?: number | null; is_active: boolean }[];
   }[]).flatMap((product) => {

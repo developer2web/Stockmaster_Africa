@@ -13,3 +13,11 @@ function technicalMessage(error:unknown){return error instanceof Error?error.mes
 const rawTechnical=/\b(?:uncaught|typeerror|syntaxerror|referenceerror|invalid key|stack trace|schema cache|postgres|postgrest|sqlstate|error|failed|cannot|could not|undefined|promise)\b|\brelation\s+\S+\s+does not exist|\bfunction\s+\S+\s+.*schema/i;
 export function userErrorMessage(error:unknown,fallback='Le serveur est momentanément indisponible. Réessayez.'){const technical=technicalMessage(error).trim();for(const[pattern,message]of rules){const match=technical.match(pattern);if(match)return message(technical,match)}return !technical||rawTechnical.test(technical)?fallback:technical}
 export const readableError=userErrorMessage;
+export function sanitizeErrorInPlace(error:unknown,fallback?:string){
+  const message=userErrorMessage(error,fallback);
+  if(error instanceof Error)error.message=message;
+  else if(error&&typeof error==='object'&&'message'in error){
+    try{(error as {message:unknown}).message=message;}catch{/* objet d'erreur non modifiable */}
+  }
+  return message;
+}

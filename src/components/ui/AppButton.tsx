@@ -1,9 +1,9 @@
 import { StyleSheet } from 'react-native';
 import { Button, ButtonProps, useTheme } from 'react-native-paper';
 
-type Props = ButtonProps & { destructive?: boolean };
+type Props = ButtonProps & { destructive?: boolean; loadingLabel?: string };
 
-export function AppButton({contentStyle,labelStyle,style,destructive=false,disabled,loading,...props}: Props) {
+export function AppButton({contentStyle,labelStyle,style,destructive=false,disabled,loading,loadingLabel,children,...props}: Props) {
   const theme=useTheme();
   const mode=props.mode??'contained';
   return <Button
@@ -16,7 +16,7 @@ export function AppButton({contentStyle,labelStyle,style,destructive=false,disab
     style={[styles.button,style]}
     contentStyle={[styles.content,contentStyle]}
     labelStyle={[styles.label,labelStyle]}
-  />;
+  >{loading?(loadingLabel??'Traitement…'):children}</Button>;
 }
 
 const styles=StyleSheet.create({

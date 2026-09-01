@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Card, Chip, HelperText, Menu, Text, useTheme } from 'react-native-paper';
@@ -17,16 +17,22 @@ import { getProducts, PRODUCT_PAGE_SIZE } from '@/features/products/api';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { shareProductsExport } from '@/features/products/excel';
 import { shareProductCatalog } from '@/features/products/catalog';
+import { useProductListView } from '@/stores/productListView';
+import { readableError } from '@/utils/errors';
 
 export default function ProductsScreen() {
+  const {notice}=useLocalSearchParams<{notice?:string}>();
   const { formatMoney } = useCurrency();
   const { membership } = useAuth();
   const theme = useTheme();
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? '';
-  const [search, setSearch] = useState('');
+  const listScope=`${company}:${store}:admin`;
+  const search=useProductListView(state=>state.searches[listScope]??'');
+  const setSearchValue=useProductListView(state=>state.setSearch);
   const [actionsOpen,setActionsOpen]=useState(false);
   const [actionError,setActionError]=useState('');
+  const [feedback,setFeedback]=useState(notice??'');
   const debounced = useDebouncedValue(search);
   const products = useInfiniteQuery({
     queryKey: ['products', company, store, debounced],
@@ -36,7 +42,7 @@ export default function ProductsScreen() {
     enabled: !!company && !!store,
   });
   const rows = products.data?.pages.flat() ?? [];
-  const runAction=async(action:()=>Promise<void>)=>{setActionsOpen(false);setActionError('');try{await action()}catch(error){setActionError(error instanceof Error?error.message:'Action impossible')}};
+  const runAction=async(action:()=>Promise<void>)=>{setActionsOpen(false);setActionError('');try{await action()}catch(error){setActionError(readableError(error,'Action impossible. Réessayez.'))}};
 
   return (
     <AdminPage
@@ -46,10 +52,10 @@ export default function ProductsScreen() {
       <AppSearchBar
         placeholder="Nom ou code-barres"
         value={search}
-        onChangeText={setSearch}
+        onChangeText={value=>setSearchValue(listScope,value)}
         loading={search !== debounced}
       />
-      {!!products.error && <HelperText type="error" visible>{products.error.message}</HelperText>}
+      {!!products.error && <HelperText type="error" visible>{readableError(products.error)}</HelperText>}
       <View style={styles.filters}>
         <Chip icon="package-variant">{rows.length} produit(s)</Chip>
         <Chip icon="store-outline">{membership?.storeName ?? 'Boutique active'}</Chip>
@@ -83,6 +89,7 @@ export default function ProductsScreen() {
         />
       )}
       <AppFeedback message={actionError} type="error" onDismiss={()=>setActionError('')}/>
+      <AppFeedback message={feedback} onDismiss={()=>setFeedback('')}/>
     </AdminPage>
   );
 }

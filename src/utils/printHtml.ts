@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { logger } from '@/services/observability/logger';
 
 function waitForReceiptAssets(popup: Window) {
   const images = Array.from(popup.document.images);
@@ -33,4 +35,23 @@ export async function printHtmlDocument(html: string, title = 'Document StockMas
   await waitForReceiptAssets(popup);
   popup.focus();
   popup.print();
+}
+
+/** Produit un PDF natif puis ouvre le partage. Sur le web, ouvre l'impression avec « Enregistrer au format PDF ». */
+export async function shareHtmlAsPdf(html:string,title='Document StockMaster'){
+  if(Platform.OS==='web'){
+    await printHtmlDocument(html,title);
+    return;
+  }
+  try{
+    const file=await Print.printToFileAsync({html});
+    if(!file?.uri)throw new Error('PDF file URI missing');
+    if(!(await Sharing.isAvailableAsync()))throw new Error('Sharing is not available');
+    await Sharing.shareAsync(file.uri,{mimeType:'application/pdf',dialogTitle:title,UTI:'com.adobe.pdf'});
+  }catch(error){
+    await logger.error('receipt_pdf_share_failed',error,{title});
+    const message=error instanceof Error?error.message:'';
+    if(/cancel/i.test(message))return;
+    throw new Error('Impossible de préparer le PDF. Réessayez ou utilisez Imprimer.');
+  }
 }

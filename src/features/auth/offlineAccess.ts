@@ -7,6 +7,7 @@ import { getOfflineDeviceId } from '@/features/offline/device';
 import type { BusinessAccess, MembershipContext, StoreAccess } from '@/types/database';
 
 const PROFILE_KEY = 'stockmaster:offline-access-profile:v2';
+const PROFILE_CONTEXT_KEY = 'stockmaster:offline-access-context:v3';
 const LEGACY_ACCESS_PREFIX = 'stockmaster:verified-access:v1:';
 export const OFFLINE_ACCESS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export const OFFLINE_PIN_LOCK_MS = 15 * 60 * 1000;
@@ -54,6 +55,9 @@ type EnableOfflineAccessInput = {
 };
 
 type RefreshOfflineAccessInput = Omit<EnableOfflineAccessInput, 'pin'>;
+type OfflineProfileSecrets = Pick<OfflineAccessProfile,'deviceBindingId'|'pinSalt'|'pinVerifier'>;
+type OfflineProfileContext = Omit<OfflineAccessProfile,keyof OfflineProfileSecrets>;
+type OfflineProfileEnvelope = OfflineProfileSecrets & {version:3;contextDigest:string};
 
 function isProfile(value: unknown): value is OfflineAccessProfile {
   if (!value || typeof value !== 'object') return false;
@@ -82,17 +86,41 @@ function hasFreshValidation(profile: OfflineAccessProfile, now = Date.now()) {
     && now - verifiedAt <= OFFLINE_ACCESS_MAX_AGE_MS;
 }
 
+function isEnvelope(value:unknown):value is OfflineProfileEnvelope{
+  if(!value||typeof value!=='object')return false;
+  const row=value as Partial<OfflineProfileEnvelope>;
+  return row.version===3&&typeof row.deviceBindingId==='string'&&typeof row.pinSalt==='string'&&typeof row.pinVerifier==='string'&&typeof row.contextDigest==='string';
+}
+
+async function digest(value:string){return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256,value);}
+
+function splitProfile(profile:OfflineAccessProfile){
+  const {deviceBindingId,pinSalt,pinVerifier,...context}=profile;
+  return {context,secrets:{deviceBindingId,pinSalt,pinVerifier}};
+}
+
+async function clearStoredProfile(){
+  await Promise.allSettled([SecureStore.deleteItemAsync(PROFILE_KEY),AsyncStorage.removeItem(PROFILE_CONTEXT_KEY)]);
+}
+
 async function readProfile(): Promise<OfflineAccessProfile | null> {
   if (Platform.OS === 'web') return null;
   try {
     const raw = await SecureStore.getItemAsync(PROFILE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    if (!isProfile(parsed)) {
-      await SecureStore.deleteItemAsync(PROFILE_KEY).catch(() => undefined);
-      return null;
+    if(isProfile(parsed)){
+      // Migration transparente de l'ancien enregistrement monolithique.
+      await saveProfile(parsed).catch(()=>undefined);
+      return parsed;
     }
-    return parsed;
+    if(!isEnvelope(parsed)){await clearStoredProfile();return null;}
+    const contextRaw=await AsyncStorage.getItem(PROFILE_CONTEXT_KEY);
+    if(!contextRaw||await digest(contextRaw)!==parsed.contextDigest){await clearStoredProfile();return null;}
+    const context=JSON.parse(contextRaw) as OfflineProfileContext;
+    const profile={...context,deviceBindingId:parsed.deviceBindingId,pinSalt:parsed.pinSalt,pinVerifier:parsed.pinVerifier};
+    if(!isProfile(profile)){await clearStoredProfile();return null;}
+    return profile;
   } catch {
     return null;
   }
@@ -100,7 +128,18 @@ async function readProfile(): Promise<OfflineAccessProfile | null> {
 
 async function saveProfile(profile: OfflineAccessProfile) {
   if (Platform.OS === 'web') throw new Error('L’accès hors ligne sécurisé est disponible uniquement sur mobile.');
-  await SecureStore.setItemAsync(PROFILE_KEY, JSON.stringify(profile));
+  const {context,secrets}=splitProfile(profile);
+  const contextRaw=JSON.stringify(context);
+  const envelope:OfflineProfileEnvelope={version:3,...secrets,contextDigest:await digest(contextRaw)};
+  const previousContext=await AsyncStorage.getItem(PROFILE_CONTEXT_KEY);
+  try{
+    await AsyncStorage.setItem(PROFILE_CONTEXT_KEY,contextRaw);
+    await SecureStore.setItemAsync(PROFILE_KEY,JSON.stringify(envelope));
+  }catch{
+    if(previousContext===null)await AsyncStorage.removeItem(PROFILE_CONTEXT_KEY).catch(()=>undefined);
+    else await AsyncStorage.setItem(PROFILE_CONTEXT_KEY,previousContext).catch(()=>undefined);
+    throw new Error('Impossible d’enregistrer le PIN sur cet appareil. Vérifiez le verrouillage sécurisé du téléphone puis réessayez.');
+  }
 }
 
 async function clearLegacyAccessSnapshots() {
@@ -279,6 +318,7 @@ export async function disableOfflineAccess() {
   if (Platform.OS === 'web') return;
   await Promise.allSettled([
     SecureStore.deleteItemAsync(PROFILE_KEY),
+    AsyncStorage.removeItem(PROFILE_CONTEXT_KEY),
     clearLegacyAccessSnapshots(),
   ]);
 }

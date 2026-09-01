@@ -1,6 +1,6 @@
 import 'react-native-url-polyfill/auto';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Redirect, Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useMemo } from 'react';
@@ -15,6 +15,8 @@ import { CurrencyProvider } from '@/features/currency/CurrencyProvider';
 import { SubscriptionProvider } from '@/features/subscriptions/SubscriptionProvider';
 import { OfflineProvider } from '@/features/offline/OfflineProvider';
 import { OfflineStatus } from '@/features/offline/OfflineStatus';
+import { logger } from '@/services/observability/logger';
+import { sanitizeErrorInPlace } from '@/utils/errors';
 
 if (Platform.OS !== 'web') {
   void SplashScreen.preventAutoHideAsync();
@@ -22,6 +24,18 @@ if (Platform.OS !== 'web') {
 }
 
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      void logger.error('query_failed', error, { queryKey: query.queryKey });
+      sanitizeErrorInPlace(error);
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error, _variables, _context, mutation) => {
+      void logger.error('mutation_failed', error, { mutationKey: mutation.options.mutationKey });
+      sanitizeErrorInPlace(error, 'Impossible de terminer cette action. Réessayez.');
+    },
+  }),
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
 

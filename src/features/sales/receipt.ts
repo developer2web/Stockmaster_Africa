@@ -1,9 +1,7 @@
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import type { Sale } from '@/types/database';
 import { formatQuantity } from '@/utils/number';
 import type { ReceiptBranding } from '@/features/payments/branding';
-import { printHtmlDocument } from '@/utils/printHtml';
+import { printHtmlDocument, shareHtmlAsPdf } from '@/utils/printHtml';
 import { formatDateTime } from '@/utils/format';
 
 const escape=(value:unknown)=>String(value??'').replace(/[&<>"']/g,(character)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[character]!);
@@ -22,4 +20,4 @@ function receiptHtml(sale:Sale,branding:ReceiptBranding,money:(value:number)=>st
 }
 
 export async function printReceipt(sale:Sale,branding:ReceiptBranding,money:(value:number)=>string){await printHtmlDocument(receiptHtml(sale,branding,money),`Reçu ${sale.reference??sale.id}`)}
-export async function shareReceipt(sale:Sale,branding:ReceiptBranding,money:(value:number)=>string){const file=await Print.printToFileAsync({html:receiptHtml(sale,branding,money)});if(!(await Sharing.isAvailableAsync()))throw new Error('Le partage de fichiers n’est pas disponible sur cet appareil.');await Sharing.shareAsync(file.uri,{mimeType:'application/pdf',dialogTitle:`Reçu ${sale.reference??''}`})}
+export async function shareReceipt(sale:Sale,branding:ReceiptBranding,money:(value:number)=>string){await shareHtmlAsPdf(receiptHtml(sale,branding,money),`Reçu ${sale.reference??sale.id}`)}

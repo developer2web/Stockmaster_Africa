@@ -1,4 +1,5 @@
 import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
+import { useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Linking, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -8,6 +9,9 @@ import { AppButton } from '@/components/ui/AppButton';
 import { lookupProductCode, type ProductCodeLookup } from '@/features/inventory/api';
 import { userErrorMessage } from '@/utils/errors';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { getSaleStock } from '@/features/sales/api';
+import { useSaleCart } from '@/stores/saleCart';
+import { emitScanFeedback } from '@/utils/scanFeedback';
 
 export default function ScannerScreen() {
   const { mode, inventoryId } = useLocalSearchParams<{ mode?: string; inventoryId?: string }>();
@@ -22,28 +26,42 @@ export default function ScannerScreen() {
   const [conflict, setConflict] = useState<ProductCodeLookup|null>(null);
   const [manual, setManual] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const lastScan = useRef({ code: '', at: 0 });
+  const lockedRef = useRef(false);
+  const addToCart = useSaleCart(state => state.add);
+  const saleStock = useQuery({
+    queryKey: ['sale-stock', membership?.companyId ?? '', membership?.storeId ?? '', employee],
+    queryFn: () => getSaleStock(membership?.companyId ?? '', membership?.storeId ?? '', !employee),
+    enabled: mode === 'sale' && !!membership?.companyId && !!membership?.storeId,
+    staleTime: 60_000,
+  });
 
+  const unlock=useCallback(()=>{lockedRef.current=false;setLocked(false);},[]);
   const reset = useCallback(() => {
     setMissing('');
     setConflict(null);
     setError('');
+    setSuccess('');
     lastScan.current = { code: '', at: 0 };
-    setTimeout(() => setLocked(false), 250);
-  }, []);
+    setTimeout(unlock, 250);
+  }, [unlock]);
 
   const find = useCallback(async (rawCode: string) => {
     const code = rawCode.trim();
     const now = Date.now();
-    if (!code || locked || (lastScan.current.code === code && now - lastScan.current.at < 1800)) return;
+    if (!code || lockedRef.current || (lastScan.current.code === code && now - lastScan.current.at < 1800)) return;
     if (code.length > 160) {
       setError('Ce code est trop long ou invalide.');
+      lockedRef.current=true;
       setLocked(true);
       return;
     }
     lastScan.current = { code, at: now };
+    lockedRef.current=true;
     setLocked(true);
     setError('');
+    setSuccess('');
     setMissing('');
     setConflict(null);
     try {
@@ -53,16 +71,42 @@ export default function ScannerScreen() {
           setConflict(found);
           return;
         }
-        if (mode === 'sale') router.replace({ pathname: (employee?'/employee/sales/new':'/sales/new') as never, params: { productId: found.productId, variantId: found.variantId ?? '', scanToken:String(Date.now()) } });
+        if (mode === 'sale') {
+          const item = saleStock.data?.find(row => row.productId === found.productId && row.variantId === found.variantId);
+          if (!item) {
+            setError(saleStock.isLoading ? 'Chargement du catalogue… Réessayez dans un instant.' : 'Produit trouvé, mais indisponible dans cette boutique.');
+            emitScanFeedback('error', 'Produit indisponible');
+            setTimeout(unlock, 900);
+            return;
+          }
+          if (item.available <= 0) {
+            setError('Produit trouvé, mais le stock est épuisé.');
+            emitScanFeedback('error', 'Stock épuisé');
+            setTimeout(unlock, 900);
+            return;
+          }
+          addToCart(item);
+          setManual('');
+          setSuccess(`Produit trouvé · ${item.name} ajouté au panier`);
+          emitScanFeedback('success', `${item.name} ajouté au panier`);
+          setTimeout(() => {
+            unlock();
+            setSuccess('Prêt pour le produit suivant');
+          }, 650);
+          return;
+        }
         else if(mode==='inventory')router.replace({pathname:'/inventory-count' as never,params:{inventoryId:inventoryId??'',productId:found.productId}});
         else router.replace(`/products/${found.productId}` as never);
+        emitScanFeedback('success', 'Produit trouvé');
         return;
       }
       setMissing(code);
+      emitScanFeedback('error', 'Produit introuvable');
     } catch (scanError) {
       setError(userErrorMessage(scanError, 'Recherche impossible. Réessayez.'));
+      emitScanFeedback('error', 'Recherche impossible');
     }
-  }, [employee, inventoryId, locked, membership?.companyId, membership?.storeId, mode]);
+  }, [addToCart, inventoryId, membership?.companyId, membership?.storeId, mode, saleStock.data, saleStock.isLoading, unlock]);
 
   const openExisting = useCallback(async () => {
     if (!conflict) return;
@@ -100,10 +144,12 @@ export default function ScannerScreen() {
         style={styles.torch}
         onPress={() => setTorch(value => !value)}
       />
-      <View style={styles.status}><Text style={styles.statusText}>{locked ? 'Scan en pause' : 'Placez le code dans le cadre'}</Text></View>
+      <View style={[styles.status, !!success && styles.statusSuccess, (!!error || !!missing) && styles.statusError]}><Text style={styles.statusText}>{success || (missing ? 'Produit introuvable' : error) || (locked ? 'Lecture en cours…' : 'Placez le code dans le cadre')}</Text></View>
     </View>}
     <TextInput mode="outlined" label={Platform.OS === 'web' ? 'Scanner USB ou saisie du code-barres' : 'Saisir le code-barres'} value={manual} onChangeText={setManual} autoCapitalize="characters" maxLength={160} autoFocus={Platform.OS === 'web'} blurOnSubmit={false} onSubmitEditing={() => void find(manual)} />
     <AppButton mode="outlined" loading={locked && !missing && !error} disabled={!manual.trim() || locked} onPress={() => void find(manual)}>Rechercher</AppButton>
+    {mode === 'sale' && <AppButton icon="cart-check" onPress={() => router.replace((employee ? '/employee/sales/new' : '/sales/new') as never)}>Retour au panier</AppButton>}
+    {!!success && <HelperText type="info" visible>{success}</HelperText>}
     {!!error && <><HelperText type="error" visible>{error}</HelperText><AppButton icon="refresh" onPress={reset}>Recommencer</AppButton></>}
     {!!conflict && <Card mode="outlined"><Card.Content style={styles.unknown}>
       <Text variant="titleMedium">Ce code-barres est déjà enregistré</Text>
@@ -134,6 +180,8 @@ const styles = StyleSheet.create({
   frameLocked: { borderColor: '#FFD43B' },
   torch: { position: 'absolute', right: 12, top: 12 },
   status: { position: 'absolute', bottom: 14, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.62)', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8 },
+  statusSuccess: { backgroundColor: 'rgba(17,100,58,0.94)' },
+  statusError: { backgroundColor: 'rgba(180,35,24,0.94)' },
   statusText: { color: '#fff' },
   unknown: { gap: 10 },
 });

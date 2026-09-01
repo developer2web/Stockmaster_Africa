@@ -18,6 +18,7 @@ import { probeBackendAccess } from '@/features/offline/connectivity';
 import { getSaleStock } from '@/features/sales/api';
 import { getCustomers } from '@/features/customers/api';
 import { getCompany } from '@/features/employees/api';
+import { readableError } from '@/utils/errors';
 
 const queryKey = ['offline-access-summary'];
 
@@ -70,8 +71,7 @@ export function OfflineAccessCard() {
       const pinError = validateOfflinePin(pin);
       if (pinError) throw new Error(pinError);
       if (pin !== confirmPin) throw new Error('Les deux PIN ne correspondent pas.');
-      const backend = await probeBackendAccess(true);
-      if (!backend.reachable || !backend.authenticated) throw new Error('Internet est nécessaire pour valider ce PIN.');
+      if (!/^SM-\d{5}$/.test(preparedId)) throw new Error('L’ID hors ligne est absent. Relancez l’activation.');
       return enableOfflineAccess({
         userId: session.user.id,
         email: session.user.email ?? '',
@@ -91,6 +91,7 @@ export function OfflineAccessCard() {
       setFormError('');
       await cache.invalidateQueries({ queryKey });
     },
+    onError:(error)=>setFormError(readableError(error,'Impossible de valider le PIN. Réessayez.')),
   });
 
   const deactivate = useMutation({
@@ -103,7 +104,24 @@ export function OfflineAccessCard() {
     },
   });
 
-  if (Platform.OS === 'web' || membership?.role === 'super_admin') return null;
+  if (membership?.role === 'super_admin') return null;
+  if (Platform.OS === 'web') {
+    return <Card mode="outlined">
+      <Card.Content style={styles.stack}>
+        <View style={styles.header}>
+          <View style={[styles.icon, { backgroundColor: theme.colors.primaryContainer }]}>
+            <Icon source="cellphone-key" size={28} color={theme.colors.primary} />
+          </View>
+          <View style={styles.copy}>
+            <Text variant="titleMedium" style={styles.bold}>Accès hors ligne sur cet appareil</Text>
+            <Text style={{ color: theme.colors.onSurfaceVariant }}>L’activation sécurisée ID + PIN est disponible dans l’application StockMaster sur Android et iPhone.</Text>
+          </View>
+          <Chip icon="cellphone">Mobile</Chip>
+        </View>
+        <HelperText type="info" visible>Ouvrez Paramètres depuis l’application mobile pour générer l’ID et valider le PIN.</HelperText>
+      </Card.Content>
+    </Card>;
+  }
   const active = !!summary.data;
   const displayedId = preparedId || summary.data?.offlineId || '';
 
@@ -163,15 +181,14 @@ export function OfflineAccessCard() {
           <TextInput mode="outlined" label="PIN à 6 chiffres" value={pin} onChangeText={(value) => setPin(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" secureTextEntry maxLength={6} />
           <TextInput mode="outlined" label="Confirmer le PIN" value={confirmPin} onChangeText={(value) => setConfirmPin(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" secureTextEntry maxLength={6} />
           {!!formError && <HelperText type="error" visible>{formError}</HelperText>}
-          {!!activate.error && <HelperText type="error" visible>{activate.error.message}</HelperText>}
           <View style={styles.actions}>
             <AppButton mode="text" disabled={activate.isPending} onPress={() => { setSetupOpen(false); setPreparedId(''); }}>Annuler</AppButton>
-            <AppButton icon="check" loading={activate.isPending} disabled={activate.isPending || pin.length !== 6 || confirmPin.length !== 6} onPress={submit}>Valider le PIN</AppButton>
+            <AppButton icon="check" loading={activate.isPending} disabled={activate.isPending} onPress={submit}>{activate.isPending?'Validation…':'Valider le PIN'}</AppButton>
           </View>
         </View>}
 
         <HelperText type="info" visible>Ce PIN sert uniquement sur cet appareil lorsque StockMaster est indisponible. Ce n’est pas la 2FA et il ne l’active jamais.</HelperText>
-        {!!prepare.error && <HelperText type="error" visible>{prepare.error.message}</HelperText>}
+        {!!prepare.error && <HelperText type="error" visible>{readableError(prepare.error)}</HelperText>}
       </Card.Content>
       {!setupOpen && <Card.Actions style={styles.actions}>
         {active

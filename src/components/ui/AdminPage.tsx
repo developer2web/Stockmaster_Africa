@@ -1,4 +1,4 @@
-import { PropsWithChildren, ReactNode, useState } from 'react';
+import { PropsWithChildren, ReactNode, useCallback, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Appbar, Card, Icon, Menu, Text, useTheme } from 'react-native-paper';
 import { router, useLocalSearchParams, usePathname } from 'expo-router';
@@ -11,12 +11,15 @@ import { hasAnyPermission } from '@/features/auth/permissions';
 import { PageIntro } from './PageIntro';
 import { design } from '@/constants/design';
 import { openAccountPortal } from '@/features/subscriptions/accountPortal';
+import { useFocusEffect } from '@react-navigation/native';
+
+const scrollPositions = new Map<string, number>();
 
 const descriptions:Record<string,string>={
   Produits:'Consultez, recherchez et gérez le catalogue de la boutique.',Stock:'Suivez les quantités disponibles dans la boutique sélectionnée.',Ventes:'Consultez les ventes et ouvrez leur détail.','Nouvelle vente':'Ajoutez les produits, choisissez le client puis encaissez.',Clients:'Gérez les clients, leurs achats et leurs crédits.',Caisse:'Suivez le solde, les mouvements et les clôtures.',Rapports:'Analysez les ventes, les dépenses et la performance.',Fournisseurs:'Gérez les fournisseurs, achats, dettes et règlements.',Employés:'Gérez les comptes, rôles et accès aux boutiques.',Boutiques:'Gérez les points de vente de l’entreprise.',Support:'Créez et suivez les demandes d’assistance.',Notifications:'Consultez les informations qui nécessitent votre attention.',
 };
 
-export function AdminPage({ title, description, action, backToHome = false, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; backToHome?: boolean }>) {
+export function AdminPage({ title, description, action, floatingAction, backToHome = false, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean }>) {
   const theme = useTheme();
   const { session, membership, stores, offlineAuthenticated, lockOfflineSession, selectStore } = useAuth();
   const employeeName = String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
@@ -28,6 +31,13 @@ export function AdminPage({ title, description, action, backToHome = false, chil
   const [openingAccount, setOpeningAccount] = useState(false);
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const employee = membership?.role === 'employee';
+  const pathname = usePathname();
+  const scrollRef = useRef<ScrollView>(null);
+  const restoredFor = useRef('');
+  useFocusEffect(useCallback(() => {
+    restoredFor.current = '';
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: scrollPositions.get(pathname) ?? 0, animated: false }));
+  }, [pathname]));
   const toolsFallback = employee ? '/employee/more' : '/more';
   const cameFromTools = returnTo === toolsFallback;
   const employeeHeader = '#084B50';
@@ -89,11 +99,19 @@ export function AdminPage({ title, description, action, backToHome = false, chil
         {offlineAuthenticated && <Appbar.Action icon="lock-outline" color={employee ? '#FFFFFF' : undefined} accessibilityLabel="Verrouiller l’accès hors ligne" onPress={lockOfflineSession} />}
       </Appbar.Header>
       <ScrollView
+        ref={scrollRef}
         nestedScrollEnabled
-        contentContainerStyle={[styles.page, employee && styles.employeePage, compact && styles.compactPage, employee && compact && { paddingBottom: 92 + insets.bottom }]}
+        contentContainerStyle={[styles.page, employee && styles.employeePage, compact && styles.compactPage, !!floatingAction && { paddingBottom: 112 + insets.bottom }, employee && compact && { paddingBottom: 92 + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={80}
+        onScroll={(event) => scrollPositions.set(pathname, event.nativeEvent.contentOffset.y)}
+        onContentSizeChange={() => {
+          if (restoredFor.current === pathname) return;
+          restoredFor.current = pathname;
+          scrollRef.current?.scrollTo({ y: scrollPositions.get(pathname) ?? 0, animated: false });
+        }}
       >
         <PageIntro title={title} description={description??descriptions[title]??'Gérez cette partie de StockMaster.'} action={action}/>
         {!offlineAuthenticated && showRenewalWarning && (
@@ -117,6 +135,7 @@ export function AdminPage({ title, description, action, backToHome = false, chil
         )}
         {children}
       </ScrollView>
+      {!!floatingAction && <View pointerEvents="box-none" style={[styles.floatingAction, { bottom: (employee && compact ? 62 : 10) + insets.bottom }]}>{floatingAction}</View>}
       {employee && compact && !offlineAuthenticated && <EmployeeBottomNavigation />}
     </KeyboardAvoidingView>
   );
@@ -152,4 +171,5 @@ const styles = StyleSheet.create({
   employeeBottom: { flexDirection: 'row', borderTopWidth: 1, paddingTop: 5, paddingHorizontal: 4 },
   employeeBottomItem: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: 2, borderRadius: 12 },
   employeeBottomPressed: { opacity: 0.65 },
+  floatingAction: { position: 'absolute', right: 14, left: 14, alignItems: 'flex-end' },
 });
