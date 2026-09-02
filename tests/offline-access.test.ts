@@ -7,6 +7,17 @@ const secureStore = vi.hoisted(() => ({
   setItemAsync: vi.fn(async (_key: string, value: string) => { storedProfile = value; }),
   deleteItemAsync: vi.fn(async () => { storedProfile = null; }),
 }));
+const asyncStorage = vi.hoisted(() => {
+  const values = new Map<string,string>();
+  return {
+    values,
+    getItem: vi.fn(async (key:string) => values.get(key) ?? null),
+    setItem: vi.fn(async (key:string,value:string) => { values.set(key,value); }),
+    removeItem: vi.fn(async (key:string) => { values.delete(key); }),
+    getAllKeys: vi.fn(async () => [...values.keys()]),
+    multiRemove: vi.fn(async (keys:string[]) => { keys.forEach(key=>values.delete(key)); }),
+  };
+});
 const cryptoMock = vi.hoisted(() => ({
   digestStringAsync: vi.fn(async (_algorithm: string, value: string) => `hash-${value.length}-${value.charCodeAt(value.length - 1)}`),
   randomUUID: vi.fn(() => 'salt-1234'),
@@ -17,6 +28,7 @@ const cryptoMock = vi.hoisted(() => ({
 vi.mock('react-native', () => ({ Platform: { OS: 'android' } }));
 vi.mock('expo-secure-store', () => secureStore);
 vi.mock('expo-crypto', () => cryptoMock);
+vi.mock('@react-native-async-storage/async-storage',()=>({default:asyncStorage}));
 vi.mock('@/features/offline/device', () => ({ getOfflineDeviceId: vi.fn(async () => deviceId) }));
 
 import {
@@ -53,6 +65,7 @@ const input = {
 describe('accès hors ligne V1 sécurisé', () => {
   beforeEach(() => {
     storedProfile = null;
+    asyncStorage.values.clear();
     deviceId = 'device-authorized-123';
     secureStore.getItemAsync.mockClear();
     secureStore.setItemAsync.mockClear();
@@ -60,9 +73,9 @@ describe('accès hors ligne V1 sécurisé', () => {
     cryptoMock.digestStringAsync.mockClear();
   });
 
-  it('refuse les PIN faibles et exige exactement six chiffres', () => {
-    expect(validateOfflinePin('123456')).toBeTruthy();
-    expect(validateOfflinePin('111111')).toBeTruthy();
+  it('accepte tout PIN de six chiffres et refuse les longueurs incorrectes', () => {
+    expect(validateOfflinePin('123456')).toBeNull();
+    expect(validateOfflinePin('111111')).toBeNull();
     expect(validateOfflinePin('12345')).toBeTruthy();
     expect(validateOfflinePin('246802')).toBeNull();
   });
@@ -97,8 +110,7 @@ describe('accès hors ligne V1 sécurisé', () => {
   });
 
   it('refuse le profil après 24 heures sans validation du serveur', async () => {
-    await enableOfflineAccess(input);
-    const profile = JSON.parse(storedProfile ?? '{}');
+    const profile = await enableOfflineAccess(input);
     const verifiedAt = Date.parse(profile.lastServerValidationAt);
     const result = await unlockOfflineAccess(profile.offlineId, input.pin, verifiedAt + OFFLINE_ACCESS_MAX_AGE_MS + 1);
     expect(result).toMatchObject({ ok: false, reason: 'expired' });

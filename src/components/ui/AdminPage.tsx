@@ -11,6 +11,7 @@ import { hasAnyPermission } from '@/features/auth/permissions';
 import { PageIntro } from './PageIntro';
 import { design } from '@/constants/design';
 import { openAccountPortal } from '@/features/subscriptions/accountPortal';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { useFocusEffect } from '@react-navigation/native';
 
 const scrollPositions = new Map<string, number>();
@@ -70,6 +71,7 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
           }
           subtitleStyle={employee ? styles.employeeSubtitle : styles.storeSubtitle}
         />
+        {!offlineAuthenticated && !employee && <NotificationBell />}
         {!offlineAuthenticated && membership?.role !== 'super_admin' && stores.length > 1 && (
           <Menu
             visible={storeMenuOpen}

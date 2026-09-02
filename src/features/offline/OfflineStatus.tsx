@@ -6,12 +6,14 @@ import { Pressable, StyleSheet, View } from 'react-native';
 export function OfflineStatus() {
   const theme=useTheme();
   const { isOnline, isSynchronizing, pendingCount,lastSyncedCount, synchronize } = useOffline();
+  const visible=!isOnline||isSynchronizing||pendingCount>0||lastSyncedCount>0;
   const message = !isOnline
     ? `Mode hors ligne${pendingCount ? ` • ${pendingCount} opération(s) en attente` : ''}`
     : isSynchronizing
       ? 'Synchronisation en cours…'
       : pendingCount?`${pendingCount} opération(s) à synchroniser`:`${lastSyncedCount} opération(s) sauvegardée(s) sur le serveur`;
-  const label = (!isOnline || isSynchronizing || pendingCount || lastSyncedCount) ? message : 'En ligne · données à jour';
+  if(!visible)return null;
+  const label = message;
   const color=!isOnline?theme.colors.error:isSynchronizing||pendingCount?'#9A5700':theme.colors.primary;
   return <Pressable accessibilityRole="button" accessibilityLabel={`${label}. Ouvrir la synchronisation`} onPress={()=>router.push('/(settings)/offline' as never)} style={[styles.bar,{backgroundColor:theme.colors.surface,borderBottomColor:theme.colors.outlineVariant}]}>
     <View style={styles.row}><Icon source={!isOnline?'wifi-off':isSynchronizing?'sync':'cloud-check-outline'} size={16} color={color}/><Text variant="labelSmall" numberOfLines={1} style={[styles.label,{color}]}>{label}</Text></View>

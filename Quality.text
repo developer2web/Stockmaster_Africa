@@ -1,0 +1,560 @@
+STOCKMASTER V1 — RAPPORT QUALITÉ ET PRÉPARATION À LA PRODUCTION
+Date de l’audit : 2 septembre 2026
+Rôle : Senior QA Engineer / Release Engineer
+Projet : StockMaster_Africa
+Branche auditée : dev
+Commit de départ : a5a9bb4 (origin/dev)
+
+======================================================================
+1. VERDICT EXÉCUTIF
+======================================================================
+
+VERDICT : NO-GO — NE PAS PUBLIER STOCKMASTER V1 EN PRODUCTION EN L’ÉTAT.
+
+Le code applicatif est dans un état avancé : lint, TypeScript, 66 tests unitaires,
+les trois builds web, Expo Doctor, les exports Android et iOS ainsi que le contrôle
+Deno des fonctions Edge réussissent. Les migrations locales et distantes Supabase
+sont parfaitement alignées. Un test anonyme des politiques RLS n’a révélé aucune
+donnée sensible sur onze tables.
+
+Cependant, plusieurs conditions obligatoires de lancement ne sont pas remplies :
+
+1. Les secrets personnalisés des fonctions Edge ne sont pas configurés sur le
+   projet Supabase distant. Les emails transactionnels et les webhooks de paiement
+   ne peuvent donc pas fonctionner correctement en production.
+2. Aucun build EAS de production actuel n’existe. Le seul build distant trouvé est
+   un ancien APK Android de développement, expiré et construit avec Expo SDK 57,
+   alors que le dépôt actuel utilise Expo SDK 54.
+3. Aucun build iOS EAS n’existe et aucun binaire signé actuel n’a été testé sur un
+   appareil Android ou iPhone réel.
+4. Les tests SQL/RLS authentifiés présents dans le dépôt n’ont pas été exécutés
+   pendant cet audit : Docker n’est pas démarré localement et aucune exécution
+   GitHub Actions n’existe sur le dépôt distant.
+5. L’identité juridique et les coordonnées légales de production sont absentes.
+   L’application afficherait des textes « à compléter avant publication ».
+6. Le travail audité contient des modifications non commitéees et n’a donc pas été
+   validé par une CI distante reproductible.
+
+Score de préparation estimé : 72/100.
+
+Ce score signifie « version de préproduction avancée », pas « prête à publier ».
+
+======================================================================
+2. PÉRIMÈTRE CONTRÔLÉ
+======================================================================
+
+Contrôlé pendant cet audit :
+
+- application Expo / React Native ;
+- site public web ;
+- site Account ;
+- site Super Admin ;
+- dépendances Expo et npm ;
+- compilation TypeScript et lint ;
+- tests Vitest ;
+- exports Expo Web, Android/Hermes et iOS/Hermes ;
+- builds Vite des trois sites ;
+- migrations Supabase locales et distantes ;
+- lint de la base distante ;
+- contrôle statique Deno des fonctions Edge ;
+- fonctions Edge déployées et secrets requis ;
+- protection RLS en accès anonyme ;
+- configuration Git, CI GitHub et EAS ;
+- configuration légale et environnement de production ;
+- couverture des tests de parcours critiques.
+
+Non vérifiable sur cette machine pendant l’audit :
+
+- test caméra avec un vrai code UPC/EAN ;
+- impression sur une vraie imprimante ;
+- partage PDF sur appareils physiques ;
+- test complet hors ligne puis resynchronisation sur appareil ;
+- comportement responsive visuel dans un navigateur contrôlé ;
+- tests E2E Maestro, car Maestro n’est pas installé ;
+- tests SQL locaux, car le moteur Docker n’est pas démarré ;
+- publication App Store / Play Store ;
+- achats réels Stripe et Orange Money ;
+- réception réelle d’emails via Resend.
+
+======================================================================
+3. RÉSULTATS AUTOMATISÉS
+======================================================================
+
+[PASS] ESLint
+Commande : npm run lint
+Résultat : aucune erreur.
+
+[PASS] TypeScript
+Commande : npm run typecheck
+Résultat : aucune erreur de type.
+
+[PASS] Tests Vitest
+Commande : npm test -- --run
+Résultat : 14 fichiers sur 14 réussis, 66 tests sur 66 réussis.
+Durée observée : 1,33 seconde.
+
+Domaines couverts par ces tests :
+- portail Account ;
+- abonnements ;
+- schémas de validation ;
+- panier de vente ;
+- messages du portail ;
+- identifiants d’opérations/idempotence ;
+- stockage et file hors ligne ;
+- accès hors ligne et PIN ;
+- formatage des nombres ;
+- finances ;
+- messages d’erreur ;
+- devises ;
+- recherche code-barres.
+
+[PASS] Expo Doctor
+Premier passage : 17/18, échec sur la dépendance native expo-asset requise par
+expo-audio.
+Correctif minimal appliqué : installation de expo-asset ~12.0.13 et ajout du plugin
+Expo correspondant.
+Second passage : 18/18, aucune anomalie détectée.
+
+[PASS] Build Vite Super Admin
+Sortie : dist/admin-web
+JavaScript : 472,82 kB, gzip 130,66 kB.
+
+[PASS] Build Vite Account
+Sortie : dist/account-web
+JavaScript : 450,19 kB, gzip 127,32 kB.
+
+[PASS] Build Vite Site public
+Sortie : dist/public-web
+JavaScript : 418,96 kB, gzip 118,87 kB.
+
+[PASS] Export Expo Web
+Artefact généré dans .tmp/qa-web : 138 fichiers, environ 9,37 MB.
+
+[PASS] Export Expo Android/Hermes
+Bundle généré : 7,37 MB ; export complet réussi.
+
+[PASS] Export Expo iOS/Hermes
+Bundle généré : 7,37 MB ; export complet réussi.
+
+[PASS] Contrôle Deno des fonctions Edge
+Commande : deno check supabase/functions/*/index.ts
+Résultat : les huit fonctions contrôlées passent le typage Deno.
+
+[PASS] Build web complet après le correctif expo-asset
+Les trois builds Vite ont été relancés avec succès.
+
+======================================================================
+4. SUPABASE, DONNÉES ET RLS
+======================================================================
+
+[PASS] Parité des migrations
+Les 97 migrations listées dans le dépôt existent sur le projet Supabase distant,
+de 202607200001 à 202608310003. Aucun décalage local/distant n’a été détecté.
+
+[PASS AVEC AVERTISSEMENT] Lint de la base distante
+Le lint distant ne remonte aucune erreur bloquante. Un avertissement mineur existe
+dans public.get_business_report_with_financials : les variables v_member_store et
+v_can_all_stores ne sont jamais lues. Cela doit être nettoyé mais ne bloque pas le
+lancement à lui seul.
+
+[PASS] Test RLS anonyme
+Un client utilisant uniquement la clé publique anonyme a interrogé en lecture seule
+les tables suivantes :
+
+- companies ;
+- profiles ;
+- memberships ;
+- stores ;
+- products ;
+- sales ;
+- sale_items ;
+- payment_transactions ;
+- subscriptions ;
+- notifications ;
+- app_error_events.
+
+Résultat : HTTP 200 avec zéro ligne visible pour les onze tables. Aucune fuite de
+données anonyme n’a été observée.
+
+[NON PROUVÉ — BLOQUANT] RLS authentifiée Admin/Employé
+Le dépôt possède 78 assertions SQL pgTAP :
+
+- finance_rls.test.sql : 40 assertions ;
+- subscription_billing.test.sql : 29 assertions ;
+- subscription_currency.test.sql : 9 assertions.
+
+Ces tests couvrent notamment la séparation des entreprises, les permissions,
+l’idempotence des ventes, le stock, la caisse et les abonnements. Ils n’ont toutefois
+pas pu être exécutés pendant cet audit, car Docker n’est pas démarré et aucune CI
+GitHub distante n’a été exécutée. La présence du fichier de test n’est pas une preuve
+de réussite.
+
+Action obligatoire : démarrer Docker puis exécuter :
+
+  npm run db:reset
+  npm run test:supabase
+
+ou pousser une branche/PR afin de laisser GitHub Actions exécuter les deux jobs CI.
+
+======================================================================
+5. FONCTIONS EDGE ET EMAILS
+======================================================================
+
+[PASS] Fonctions Edge actives sur le projet distant
+
+- invite-employee ;
+- bootstrap-super-admin ;
+- check-payment-status ;
+- create-payment ;
+- payment-webhook ;
+- renew-subscription ;
+- notification-email ;
+- account-portal-link.
+
+[PASS] Protection de base observée dans le code
+
+- invite-employee, paiements et portail Account exigent un JWT ;
+- le webhook Stripe vérifie la signature HMAC et une fenêtre temporelle de 5 minutes ;
+- le webhook générique vérifie une signature HMAC ;
+- notification-email vérifie un secret côté base ;
+- bootstrap-super-admin exige un secret et refuse la création si un Super Admin
+  existe déjà ;
+- l’envoi d’email emploie une clé d’idempotence et une file avec tentatives.
+
+[FAIL — P0] Secrets personnalisés absents
+La liste distante contient uniquement les secrets Supabase générés par la plateforme.
+Les secrets personnalisés requis par le code n’apparaissent pas :
+
+- RESEND_API_KEY ;
+- NOTIFICATION_FROM_EMAIL ;
+- STRIPE_WEBHOOK_SECRET ;
+- PAYMENT_WEBHOOK_SECRET ;
+- STRIPE_SECRET_KEY ;
+- STRIPE_SUCCESS_URL ;
+- STRIPE_CANCEL_URL ;
+- PAYMENT_PROVIDER_URL ;
+- PAYMENT_PROVIDER_API_KEY ;
+- PAYMENT_WEBHOOK_URL ;
+- PAYMENT_SANDBOX, à définir explicitement selon l’environnement ;
+- SUPER_ADMIN_BOOTSTRAP_SECRET ;
+- ACCOUNT_WEB_URL ;
+- ALLOWED_ORIGINS.
+
+La variable publique EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY existe dans le fichier local
+mais sa valeur est vide pendant cet audit.
+
+Conséquences :
+
+- les emails de tickets et notifications ne peuvent pas être envoyés par Resend ;
+- la création d’un paiement Stripe ne peut pas fonctionner sans clé serveur ni URLs
+  de retour ;
+- le prestataire Mobile Money réel ne peut pas être appelé sans URL ni clé API ;
+- les webhooks de paiement rejetteront les requêtes faute de secret ;
+- les retours de paiement ne pourront pas confirmer correctement les abonnements ;
+- le portail Account utilisera une URL locale par défaut si ACCOUNT_WEB_URL manque ;
+- la politique CORS peut retomber sur une valeur trop permissive ;
+- la fonction de bootstrap Super Admin restera inutilisable tant que son secret manque.
+
+Action obligatoire : configurer les secrets distants, redéployer les fonctions, puis
+effectuer des tests bout en bout avec des événements de test Stripe/Orange Money et
+un email reçu dans une vraie boîte de réception.
+
+======================================================================
+6. RELEASE MOBILE ET EAS
+======================================================================
+
+[PASS] Configuration EAS présente
+Les profils development, preview et production existent. La production utilise
+autoIncrement et les identifiants Android/iOS sont configurés.
+
+[PASS] Bundles locaux Android et iOS
+Les exports Hermes réussissent avec le code actuel Expo SDK 54.
+
+[FAIL — P0] Aucun build de production actuel
+L’historique EAS contient un seul build :
+
+- plateforme : Android ;
+- profil : development ;
+- distribution : internal ;
+- SDK : 57 ;
+- statut : terminé ;
+- artefact : expiré depuis le 3 août 2026.
+
+Il n’existe aucun build Android production actuel et aucun build iOS. Le build
+historique ne correspond pas au SDK 54 du dépôt actuel et ne peut pas servir de
+candidat de release.
+
+[FAIL — P0] Domaines de production absents
+Vérification DNS et HTTPS réalisée le 2 septembre 2026 :
+
+- app.stockmaster.com : nom DNS inexistant ;
+- account.stockmaster.com : nom DNS inexistant ;
+- admin.stockmaster.com : nom DNS inexistant.
+
+Le lien « Forfait » utilise notamment le portail Account en production. Tant que les
+domaines, certificats HTTPS et variables d’URL ne sont pas publiés, les parcours web,
+Account et Super Admin ne peuvent pas être considérés comme disponibles.
+
+Actions obligatoires :
+
+1. créer un build preview Android et iOS depuis le commit de release ;
+2. exécuter la recette sur appareils physiques ;
+3. corriger uniquement les bugs bloquants ;
+4. créer les builds production signés ;
+5. effectuer un test d’installation propre et de mise à jour ;
+6. conserver les liens, numéros de build et résultats dans la checklist de release.
+
+======================================================================
+7. GIT, CI ET REPRODUCTIBILITÉ
+======================================================================
+
+[FAIL — P1] Travail non sécurisé dans Git
+La branche auditée est dev au commit a5a9bb4, mais plusieurs fichiers sont modifiés
+ou nouveaux, notamment la dépendance expo-asset, les notifications et le mode hors
+ligne. Ces changements ne sont ni commités ni poussés.
+
+[FAIL — P1] Aucune exécution GitHub Actions distante
+Les fichiers ci.yml et release-readiness.yml sont présents localement. Ils prévoient
+Node 20, npm ci, lint, TypeScript, tests, builds web, Deno, Supabase local et EAS.
+Cependant, une interrogation explicite du dépôt developer2web/Stockmaster_Africa ne
+retourne aucun workflow actif ni aucun run. La CI n’a donc
+pas prouvé que le commit de release est reproductible dans un environnement propre.
+
+[FAIL — P1] Version Node locale incorrecte
+Le projet exige Node >=20.19.0 <21 et .nvmrc contient 20.19.4. L’audit s’est exécuté
+avec Node 24.18.0 et npm 12.0.2. npm affiche EBADENGINE. Les tests réussissent malgré
+cela, mais ce n’est pas l’environnement officiellement supporté.
+
+Action obligatoire : activer Node 20.19.4, exécuter npm ci puis toute la suite QA,
+commiter les résultats, pousser une PR et exiger la CI verte avant fusion.
+
+======================================================================
+8. DÉPENDANCES ET VULNÉRABILITÉS
+======================================================================
+
+[PASS] Aucun paquet racine manquant après ajout de expo-asset.
+
+[FAIL — REVUE SÉCURITÉ REQUISE] npm audit production
+Résultat : 30 vulnérabilités transitives, dont 20 modérées et 10 élevées, zéro
+critique. Elles sont principalement dans l’outillage et la chaîne Expo/Metro/Router.
+La correction proposée par npm force un passage majeur vers Expo 57.
+
+Décision QA : ne pas lancer npm audit fix --force avant la release, car cela créerait
+une migration majeure non testée. Il faut :
+
+1. documenter les avis CVE réellement applicables au binaire et aux serveurs ;
+2. accepter temporairement les risques non exploitables en production, avec preuve ;
+3. planifier une migration Expo contrôlée après V1 ou appliquer les correctifs
+   compatibles SDK 54 lorsqu’ils existent.
+
+======================================================================
+9. PARCOURS MÉTIER ET COUVERTURE E2E
+======================================================================
+
+[PASS PARTIEL] Tests unitaires des éléments sensibles
+
+- anti-double opération/idempotence ;
+- panier de vente ;
+- lookup code-barres ;
+- stockage/file hors ligne ;
+- PIN hors ligne, limite de cinq essais, verrouillage 15 minutes, expiration 24 h,
+  liaison à l’appareil et retrait des permissions ;
+- abonnements, devises et finances au niveau unitaire.
+
+[FAIL — COUVERTURE INSUFFISANTE] E2E mobile
+Le seul scénario Maestro existant lance l’application et vérifie que StockMaster,
+Administrateur et Employé sont visibles. Il ne teste aucun parcours métier.
+
+Parcours obligatoires non prouvés de bout en bout :
+
+- connexion Admin et Employé ;
+- isolation de deux entreprises avec deux comptes ;
+- création produit puis vente ;
+- double scan et double clic ;
+- stock insuffisant ;
+- paiement espèces/mobile et historique ;
+- ouverture, validation initiale et clôtures multiples de caisse ;
+- reçu personnalisé, impression, PDF et partage ;
+- fournisseur, règlement total/personnalisé et reçu ;
+- mode hors ligne, vente locale, redémarrage et synchronisation ;
+- conflits de stock et prix pendant la synchronisation ;
+- permissions employé et menus masqués ;
+- downgrade multi-entreprises ;
+- abonnement expiré, grâce et renouvellement ;
+- ticket support, email Super Admin et notification propriétaire ;
+- responsive petit iPhone, grand iPhone, Android, tablette et desktop.
+
+Action obligatoire : étendre Maestro ou réaliser une recette manuelle tracée avec
+captures, données attendues et résultats PASS/FAIL sur appareils réels.
+
+======================================================================
+10. ERREURS UTILISATEUR ET OBSERVABILITÉ
+======================================================================
+
+[PASS PARTIEL] Application mobile
+Un normaliseur transforme de nombreuses erreurs réseau, JWT, permission, stock,
+doublon, impression et partage en messages compréhensibles. React Query journalise
+les erreurs et les assainit avant affichage. Une table app_error_events et une vue
+Super Admin existent pour le suivi.
+
+[FAIL — P1] Risque d’erreurs techniques encore visibles
+Plusieurs écrans mobiles affichent directement query.error.message ou
+mutation.error.message. Le hook global React Query les assainit généralement, mais
+cette protection dépend de la mutabilité de l’objet Error et n’est pas une garantie
+à chaque chemin.
+
+Les sites Account et public réutilisent encore directement des messages Supabase
+dans plusieurs actions (connexion, devis, mot de passe, MFA, support et employé).
+Un message interne peut donc encore atteindre l’utilisateur.
+
+Action obligatoire : faire passer toutes les erreurs des trois sites web et tous les
+chemins hors React Query par un normaliseur partagé, puis tester avec des erreurs
+RLS, réseau, doublon et fonction RPC absente.
+
+[RISQUE] Aucun service externe spécialisé de crash reporting n’a été détecté.
+La table Supabase interne est utile, mais il faut vérifier qu’une erreur de connexion
+à Supabase elle-même reste observable et qu’aucune donnée sensible n’est stockée.
+
+[RISQUE P1 À CLARIFIER] Protection des colonnes financières
+Le fichier todo.txt indique encore que le lot SQL de protection fine de champs
+financiers sensibles est conservé dans un stash et non déployé. Les politiques RLS
+existantes sont positives, mais cette note interne doit être fermée par un test
+Admin/Employé prouvant qu’un employé non autorisé ne peut jamais lire le prix d’achat,
+la marge ou d’autres champs financiers sensibles.
+
+======================================================================
+11. LÉGAL ET PRODUCTION WEB
+======================================================================
+
+[PASS PARTIEL] Pages présentes
+Conditions d’utilisation, confidentialité, mentions légales et suppression de compte
+existent, et l’inscription exige l’acceptation des documents.
+
+[FAIL — P0 BUSINESS/LEGAL] Identité non configurée
+Le fichier .env utilisé pendant l’audit ne contient aucune des variables suivantes :
+
+- EXPO_PUBLIC_LEGAL_ENTITY_NAME ;
+- EXPO_PUBLIC_LEGAL_REGISTRATION_NUMBER ;
+- EXPO_PUBLIC_LEGAL_ADDRESS ;
+- EXPO_PUBLIC_PRIVACY_EMAIL ;
+- EXPO_PUBLIC_SUPPORT_EMAIL ;
+- équivalents VITE pour le site public.
+
+Les valeurs de repli disent explicitement « à compléter avant publication » et le
+pied de page public affiche également que les informations légales sont à compléter.
+
+Action obligatoire : fournir l’identité réelle de l’éditeur, le numéro légal,
+l’adresse, les emails support/confidentialité, faire valider les textes par un
+professionnel compétent et reconstruire les quatre clients.
+
+======================================================================
+12. LISTE DES BLOQUANTS PAR PRIORITÉ
+======================================================================
+
+P0 — interdiction de publier :
+
+1. Configurer tous les secrets Edge personnalisés et tester emails/webhooks réels.
+2. Renseigner et faire valider l’identité et les textes légaux de production.
+3. Produire des builds EAS preview puis production Android et iOS depuis SDK 54.
+4. Tester les binaires signés sur appareils physiques.
+5. Exécuter et réussir les 78 assertions SQL/RLS.
+6. Publier les domaines app/account/admin avec HTTPS et configurer toutes les URLs.
+
+P1 — à terminer avant lancement public :
+
+1. Passer la machine et la CI de release sur Node 20.19.4.
+2. Committer/pousser tous les changements et obtenir une CI distante verte.
+3. Tester tous les parcours E2E listés dans la section 9.
+4. Supprimer tout affichage possible d’erreurs techniques brutes.
+5. Qualifier ou accepter formellement les 30 alertes npm audit.
+6. Vérifier réception d’emails, idempotence et rejouabilité des webhooks.
+7. Vérifier sauvegarde/restauration Supabase et procédure de rollback.
+8. Fermer la vérification des colonnes financières sensibles pour les employés.
+
+P2 — amélioration post-stabilisation :
+
+1. Nettoyer les deux variables SQL inutilisées signalées par db lint.
+2. Ajouter des seuils de couverture automatisés.
+3. Ajouter une vraie suite Maestro et l’exécuter en CI sur émulateur/appareil.
+4. Ajouter une surveillance externe des crashes et indisponibilités.
+
+======================================================================
+13. CHECKLIST GO / NO-GO
+======================================================================
+
+[x] Lint réussi
+[x] TypeScript réussi
+[x] 66/66 tests Vitest réussis
+[x] Expo Doctor 18/18
+[x] Builds web public, Account et Super Admin réussis
+[x] Exports Expo Web, Android et iOS réussis
+[x] Migrations locales et distantes alignées
+[x] Lint base distante sans erreur bloquante
+[x] Fonctions Edge actives et Deno check réussi
+[x] Test RLS anonyme sans fuite sur 11 tables
+[ ] Secrets Edge de production configurés
+[ ] Domaines app/account/admin publiés en HTTPS
+[ ] Emails réels reçus et prouvés
+[ ] Webhooks Stripe/Orange Money testés bout en bout
+[ ] 78 tests SQL/RLS exécutés et réussis
+[ ] CI GitHub distante verte
+[ ] Dépôt propre et commit de release identifié
+[ ] Node 20.19.4 utilisé pour la validation finale
+[ ] Build EAS preview Android actuel
+[ ] Build EAS preview iOS actuel
+[ ] Recette appareils Android/iPhone/tablette réussie
+[ ] Scanner UPC/EAN réel validé
+[ ] Impression/PDF/partage réels validés
+[ ] Offline complet et resynchronisation validés
+[ ] Parcours Admin/Employé et multi-entreprises validés
+[ ] Identité légale de production configurée
+[ ] Build EAS production signé
+[ ] Plan de rollback et sauvegarde testé
+
+Règle de décision : le GO ne peut être accordé que lorsque tous les éléments P0 et
+P1 sont fermés, qu’un commit immuable a une CI verte et que les mêmes sources ont
+produit les binaires signés testés.
+
+======================================================================
+14. ORDRE RECOMMANDÉ POUR TERMINER LA RELEASE
+======================================================================
+
+1. Activer Node 20.19.4 et repartir d’un npm ci propre.
+2. Configurer les variables légales et les secrets Supabase distants.
+3. Relancer lint, typecheck, Vitest, builds web, Expo Doctor et Deno check.
+4. Démarrer Docker et exécuter db reset, db lint et les 78 tests SQL.
+5. Corriger les erreurs techniques brutes restantes sans ajouter de fonctionnalité.
+6. Committer sur une branche de release et ouvrir une PR.
+7. Exiger la CI GitHub entièrement verte.
+8. Générer les builds EAS preview Android et iOS.
+9. Exécuter la recette fonctionnelle complète sur appareils réels.
+10. Tester paiements, emails, reçus, scanner et offline avec preuves.
+11. Corriger uniquement les défauts P0/P1 puis refaire toute la régression.
+12. Générer les builds production depuis le commit validé et donner le GO final.
+
+======================================================================
+15. CONCLUSION
+======================================================================
+
+StockMaster V1 n’est pas un projet cassé : son socle technique compile, ses tests
+unitaires passent et sa base distante est synchronisée. Mais un lancement réel ne
+peut pas être déclaré sur la seule base de compilations locales. Les intégrations
+serveur indispensables, les preuves RLS authentifiées, les binaires signés, les tests
+sur appareils et les informations légales manquent encore.
+
+Décision finale de cet audit : NO-GO.
+
+Prochaine porte de validation : fermer les P0, obtenir une CI verte sur un commit de
+release et fournir les résultats de recette des builds EAS preview Android et iOS.
+
+======================================================================
+16. CONTRE-AUDIT INDÉPENDANT
+======================================================================
+
+Deux contrôles QA/Release ont été lancés en parallèle. Le premier agent a d’abord été
+interrompu par une limite d’utilisation, puis a terminé après relance. Le second agent
+a contrôlé séparément la sécurité et la préparation de release. Les deux concluent
+indépendamment à NO-GO et confirment les mêmes causes principales : secrets et
+domaines absents, aucun build EAS production actuel, aucune CI distante, RLS
+authentifiée non exécutée, dépôt non propre, Node incorrect, tests appareils absents
+et informations légales incomplètes.

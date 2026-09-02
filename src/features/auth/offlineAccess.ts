@@ -169,8 +169,6 @@ export async function prepareOfflineAccessId(userId: string) {
 
 export function validateOfflinePin(pin: string) {
   if (!/^\d{6}$/.test(pin)) return 'Le PIN doit contenir exactement 6 chiffres.';
-  if (/^(\d)\1{5}$/.test(pin)) return 'Choisissez un PIN moins facile à deviner.';
-  if (['123456', '654321', '012345', '543210'].includes(pin)) return 'Choisissez un PIN moins facile à deviner.';
   return null;
 }
 

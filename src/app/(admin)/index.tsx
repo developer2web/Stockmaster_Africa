@@ -13,6 +13,7 @@ import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { getCashSummary } from '@/features/cash/api';
 import { getSales } from '@/features/sales/api';
 import { formatDateTime } from '@/utils/format';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 const iso = (date: Date) => date.toISOString().slice(0, 10);
 
 export default function AdminDashboard() {
@@ -60,7 +61,7 @@ export default function AdminDashboard() {
         />
         {(businesses.length > 1 || stores.length > 1) && <Appbar.Action icon="swap-horizontal" accessibilityLabel="Changer d’espace" onPress={() => router.push('/choose-business')} />}
         <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" onPress={() => void signOut()} />
-        <Appbar.Action icon="bell-outline" accessibilityLabel="Notifications" onPress={()=>router.push('/notifications' as never)} />
+        <NotificationBell />
       </Appbar.Header>
       <ScrollView ref={scrollRef} contentContainerStyle={[styles.page, compact && styles.pageCompact]} showsVerticalScrollIndicator={false}>
         {report.error && (

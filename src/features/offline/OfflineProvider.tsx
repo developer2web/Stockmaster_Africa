@@ -76,7 +76,9 @@ export function OfflineProvider({ children }: PropsWithChildren) {
     const checkBackend = async () => {
       const probe = await probeBackendAccess(true);
       setOnline(probe.reachable);
-      if (probe.reachable && probe.authenticated) await synchronize();
+      const queued=await getCurrentUserOfflineQueue().catch(()=>[]);
+      setPendingCount(queued.length);
+      if (probe.reachable && probe.authenticated && queued.length>0) await synchronize();
     };
     void checkBackend();
     const unsubscribe = NetInfo.addEventListener((state) => {

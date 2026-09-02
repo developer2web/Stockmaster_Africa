@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { View } from 'react-native';
 import { Card, Chip, HelperText, Icon, Text, useTheme } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
@@ -32,7 +33,7 @@ export default function NotificationsScreen() {
   }, [cache, company]);
 
   const icon = (type: string) => type === 'stock_out' ? 'alert-octagon' : type === 'low_stock' ? 'alert-outline' : type === 'customer_debt' ? 'account-cash-outline' : type === 'supplier_debt' ? 'truck-alert-outline' : type === 'cash_unclosed' ? 'cash-register' : type.startsWith('support_') ? 'lifebuoy' : type.startsWith('subscription_') ? 'credit-card-check-outline' : 'bell-outline';
-  return <AdminPage title="Notifications" action={unread.length ? <AppButton compact mode="text" loading={mark.isPending} onPress={() => mark.mutate()}>Tout marquer comme lu</AppButton> : undefined}>
+  return <AdminPage title="Notifications" action={unread.length ? <View style={{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:8}}><Chip icon="bell-badge-outline">{unread.length} non lue{unread.length>1?'s':''}</Chip><AppButton compact mode="text" loading={mark.isPending} onPress={() => mark.mutate()}>Tout marquer comme lu</AppButton></View> : undefined}>
     {!!query.error && <HelperText type="error" visible>{query.error.message}</HelperText>}
     {!!persistent.error && <HelperText type="error" visible>{persistent.error.message}</HelperText>}
     {persistent.data?.map((item) => <Card key={item.id} mode={item.read_at ? 'outlined' : 'contained'} style={{ backgroundColor: item.read_at ? undefined : theme.colors.primaryContainer }}><Card.Content style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><Icon source={icon(item.type)} size={28} color={theme.colors.primary}/><Text style={{ flex: 1 }}><Text variant="titleMedium">{item.title}</Text>{'\n'}{item.body}{'\n'}<Text variant="labelSmall">{formatDateTime(item.created_at)}</Text></Text>{!item.read_at && <Chip>Nouveau</Chip>}</Card.Content></Card>)}
