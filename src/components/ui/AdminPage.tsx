@@ -1,6 +1,6 @@
 import { PropsWithChildren, ReactNode, useCallback, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Appbar, Card, Icon, Menu, Text, useTheme } from 'react-native-paper';
+import { Appbar, Card, Icon, Text, useTheme } from 'react-native-paper';
 import { router, useLocalSearchParams, usePathname } from 'expo-router';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
@@ -22,13 +22,12 @@ const descriptions:Record<string,string>={
 
 export function AdminPage({ title, description, action, floatingAction, backToHome = false, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean }>) {
   const theme = useTheme();
-  const { session, membership, stores, offlineAuthenticated, lockOfflineSession, selectStore } = useAuth();
+  const { session, membership, offlineAuthenticated, lockOfflineSession } = useAuth();
   const employeeName = String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
   const { subscription } = useSubscription();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const compact = width < 600;
-  const [storeMenuOpen, setStoreMenuOpen] = useState(false);
   const [openingAccount, setOpeningAccount] = useState(false);
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const employee = membership?.role === 'employee';
@@ -72,32 +71,6 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
           subtitleStyle={employee ? styles.employeeSubtitle : styles.storeSubtitle}
         />
         {!offlineAuthenticated && !employee && <NotificationBell />}
-        {!offlineAuthenticated && membership?.role !== 'super_admin' && stores.length > 1 && (
-          <Menu
-            visible={storeMenuOpen}
-            onDismiss={() => setStoreMenuOpen(false)}
-            anchor={
-              <Appbar.Action
-                icon="store-cog-outline"
-                color={employee ? '#FFFFFF' : undefined}
-                accessibilityLabel="Changer de boutique"
-                onPress={() => setStoreMenuOpen(true)}
-              />
-            }
-          >
-            {stores.map((store) => (
-              <Menu.Item
-                key={store.storeId}
-                title={store.storeName}
-                leadingIcon={store.storeId === membership?.storeId ? 'check-circle' : 'store-outline'}
-                onPress={() => {
-                  setStoreMenuOpen(false);
-                  void selectStore(store.storeId);
-                }}
-              />
-            ))}
-          </Menu>
-        )}
         {offlineAuthenticated && <Appbar.Action icon="lock-outline" color={employee ? '#FFFFFF' : undefined} accessibilityLabel="Verrouiller l’accès hors ligne" onPress={lockOfflineSession} />}
       </Appbar.Header>
       <ScrollView

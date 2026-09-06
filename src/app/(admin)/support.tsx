@@ -65,6 +65,7 @@ export default function SupportScreen() {
   const [priority, setPriority] = useState<string | null>('normal');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved' | 'closed'>('all');
   const [faqCategory, setFaqCategory] = useState<FaqCategory>('Paiement');
+  const [faqSearch, setFaqSearch] = useState('');
   const [expandedQuestion, setExpandedQuestion] = useState(0);
   const [notice, setNotice] = useState('');
   const query = useQuery({ queryKey: ['my-support-tickets', company], queryFn: () => getMyTickets(company), enabled: !!company });
@@ -98,7 +99,8 @@ export default function SupportScreen() {
         ))}
       </View>
       <View>
-        {faq[faqCategory].map(([question, answer], index) => (
+        <TextInput mode="outlined" label="Rechercher dans l’aide" value={faqSearch} onChangeText={setFaqSearch} left={<TextInput.Icon icon="magnify" />} />
+        {faq[faqCategory].filter(([question, answer]) => `${question} ${answer}`.toLowerCase().includes(faqSearch.trim().toLowerCase())).map(([question, answer], index) => (
           <List.Accordion
             key={question}
             title={question}
@@ -110,6 +112,7 @@ export default function SupportScreen() {
             <List.Item title={answer} titleNumberOfLines={8} titleStyle={{ lineHeight: 21 }} />
           </List.Accordion>
         ))}
+        {!!faqSearch.trim() && !faq[faqCategory].some(([question, answer]) => `${question} ${answer}`.toLowerCase().includes(faqSearch.trim().toLowerCase())) && <Text style={{ color: '#526B68' }}>Aucune réponse trouvée dans cette catégorie.</Text>}
       </View>
       <Text variant="titleMedium" style={{ marginTop: 8 }}>Mes demandes</Text>
       <SelectField label="Filtrer par statut" value={statusFilter} onChange={(value) => setStatusFilter((value as typeof statusFilter) ?? 'all')} options={[{ label: 'Tous', value: 'all' }, { label: 'Ouvert', value: 'open' }, { label: 'En cours', value: 'in_progress' }, { label: 'Résolu', value: 'resolved' }, { label: 'Fermé', value: 'closed' }]} />

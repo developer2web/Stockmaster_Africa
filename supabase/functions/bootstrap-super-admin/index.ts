@@ -30,8 +30,8 @@ Deno.serve(async (request) => {
     );
     const { count, error: countError } = await admin.from('profiles').select('id', { count: 'exact', head: true }).eq('is_super_admin', true);
     if (countError) throw countError;
-    if ((count ?? 0) > 0) {
-      return Response.json({ error: 'Le Super Administrateur unique existe déjà.' }, { status: 409, headers: cors });
+    if ((count ?? 0) >= 3) {
+      return Response.json({ error: 'La limite de 3 Super Administrateurs est atteinte.' }, { status: 409, headers: cors });
     }
 
     const { data, error } = await admin.auth.admin.createUser({

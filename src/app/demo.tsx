@@ -1,0 +1,12 @@
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Card, Chip, Icon, Text } from 'react-native-paper';
+import { router } from 'expo-router';
+import { AppButton } from '@/components/ui/AppButton';
+
+const stats = [['Ventes du jour', '2 006 000 FG', 'trending-up'], ['Produits actifs', '1 284', 'package-variant'], ['Stock faible', '12', 'alert-outline'], ['Solde de caisse', '4 850 000 FG', 'cash-register']];
+
+export default function DemoScreen() {
+  return <ScrollView contentContainerStyle={styles.page}><View style={styles.header}><Text variant="headlineMedium" style={styles.title}>StockMaster en action</Text><Text style={styles.subtitle}>Explorez un aperçu sans créer de compte. Les données sont fictives et aucune modification n’est enregistrée.</Text><AppButton mode="outlined" icon="arrow-left" onPress={() => router.back()}>Retour</AppButton></View><View style={styles.grid}>{stats.map(([label, value, icon]) => <Card key={label} mode="outlined" style={styles.stat}><Card.Content><Icon source={icon} size={28} color="#084B50"/><Text style={styles.label}>{label}</Text><Text variant="titleLarge" style={styles.value}>{value}</Text></Card.Content></Card>)}</View><Card mode="contained"><Card.Title title="Activité récente" subtitle="Une vue simple pour décider rapidement"/><Card.Content style={styles.list}>{['Vente #4821 · 325 000 FG', 'Paiement reçu · 180 000 FG', 'Stock faible · 12 produits', 'Caisse ouverte · Boutique principale'].map(item => <View key={item} style={styles.row}><Chip icon="check">Aujourd’hui</Chip><Text style={styles.rowText}>{item}</Text></View>)}</Card.Content></Card><AppButton icon="account-plus" onPress={() => router.push('/(auth)/register')}>Créer mon espace</AppButton></ScrollView>;
+}
+
+const styles = StyleSheet.create({ page: { padding: 20, gap: 16, maxWidth: 900, width: '100%', alignSelf: 'center' }, header: { gap: 10 }, title: { color: '#084B50', fontWeight: '900' }, subtitle: { lineHeight: 22 }, grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, stat: { flexGrow: 1, flexBasis: '44%', minWidth: 155 }, label: { marginTop: 12 }, value: { color: '#084B50', fontWeight: '800', marginTop: 4 }, list: { gap: 12 }, row: { flexDirection: 'row', alignItems: 'center', gap: 10 }, rowText: { flex: 1 } });

@@ -3,13 +3,11 @@ import * as Linking from 'expo-linking';
 import { Link, router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { Card, Checkbox, HelperText, Icon, Text } from 'react-native-paper';
 
-import { SelectField } from '@/components/forms/SelectField';
 import { FormField } from '@/components/forms/FormField';
 import { AppButton } from '@/components/ui/AppButton';
-import { supportedCountries } from '@/constants/countries';
 import { AuthScreen } from '@/features/auth/AuthScreen';
 import { registerSchema, type RegisterInput } from '@/schemas/auth';
 import { supabase } from '@/services/supabase/client';
@@ -30,9 +28,6 @@ export default function RegisterScreen() {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       fullName: '',
-      companyName: '',
-      storeName: '',
-      countryCode: 'GN',
       email: '',
       password: '',
       confirmPassword: '',
@@ -58,9 +53,6 @@ export default function RegisterScreen() {
           emailRedirectTo: Linking.createURL('/(auth)/complete-profile'),
           data: {
             full_name: values.fullName,
-            company_name: values.companyName,
-            store_name: values.storeName,
-            country_code: values.countryCode,
           },
         },
       });
@@ -88,16 +80,7 @@ export default function RegisterScreen() {
       if(data.user?.identities?.length===0){setError('Cette adresse email possède déjà un compte StockMaster. Connectez-vous avec ce compte. Une adresse email ne peut être utilisée qu’une seule fois.');return}
 
       if (data.session) {
-        const { error: setupError } = await supabase.rpc('bootstrap_company', {
-          p_company_name: values.companyName,
-          p_store_name: values.storeName,
-          p_country_code: values.countryCode,
-        });
-        if (setupError) {
-          setError(setupError.message || 'Impossible de créer l’entreprise.');
-          return;
-        }
-        router.replace('/(subscription)/welcome');
+        router.replace('/(auth)/complete-profile');
         return;
       }
 
@@ -143,29 +126,13 @@ export default function RegisterScreen() {
   }
 
   return (
-    <AuthScreen title="Créer votre compte" subtitle="Votre adresse email devra être confirmée avant l’accès.">
-      <Card mode="contained"><Card.Content style={{gap:6}}><Text variant="titleMedium">Confirmation par email</Text><Text>Après votre inscription, nous allons envoyer un email dans votre boîte de réception. Vous devrez cliquer sur le lien de confirmation avant de choisir votre essai gratuit ou votre abonnement.</Text></Card.Content></Card>
+    <AuthScreen title="Créer votre compte" subtitle="Étape 1 sur 2 · Votre adresse email devra être confirmée.">
+      <Card mode="contained" style={{ backgroundColor: '#E1F1F2' }}><Card.Content style={{ gap: 6 }}><Text variant="titleMedium" style={{ fontWeight: '800', color: '#084B50' }}>Commencez simplement</Text><Text>Renseignez les champs marqués * . Après confirmation de votre email, vous ajouterez votre entreprise et votre boutique.</Text></Card.Content></Card>
+      <Card mode="outlined"><Card.Content style={{gap:6}}><Text variant="titleMedium">Confirmation par email</Text><Text>Nous vous enverrons un lien sécurisé. L’essai gratuit de 14 jours ne nécessite aucune carte bancaire.</Text></Card.Content></Card>
       <Card mode="outlined"><Card.Content style={{gap:6}}><Text variant="titleMedium">Conditions d’utilisation</Text><Text variant="bodySmall">En créant votre compte, vous acceptez les conditions d’utilisation de StockMaster et la politique de confidentialité. Vous confirmez être autorisé à engager votre entreprise.</Text><Text variant="bodySmall">Lire les documents : <Link href="/legal/terms">Conditions d’utilisation</Link> et <Link href="/legal/privacy">Politique de confidentialité</Link>.</Text></Card.Content></Card>
       {!!error && <HelperText type="error" visible>{error}</HelperText>}
-      <FormField control={control} name="fullName" label="Nom complet" />
-      <FormField control={control} name="companyName" label="Entreprise" />
-      <FormField control={control} name="storeName" label="Première boutique" />
-      <Controller
-        control={control}
-        name="countryCode"
-        render={({ field, fieldState }) => (
-          <SelectField
-            label="Pays d’activité"
-            value={field.value}
-            onChange={(value) => field.onChange(value ?? 'GN')}
-            error={fieldState.error?.message}
-            options={supportedCountries.map((country) => ({
-              label: `${country.name} — ${country.currency}`,
-              value: country.code,
-            }))}
-          />
-        )}
-      />
+      <Text variant="labelLarge" style={{ color: '#084B50', fontWeight: '800' }}>Informations obligatoires *</Text>
+      <FormField control={control} name="fullName" label="Nom complet *" />
       <FormField
         control={control}
         name="email"
@@ -174,6 +141,7 @@ export default function RegisterScreen() {
         keyboardType="email-address"
       />
       <FormField control={control} name="password" label="Mot de passe" passwordToggle />
+      <Text variant="bodySmall">10 caractères minimum : majuscule, minuscule, chiffre et caractère spécial.</Text>
       <FormField
         control={control}
         name="confirmPassword"
@@ -187,7 +155,7 @@ export default function RegisterScreen() {
         </Text>
       </View>
       <AppButton onPress={submit} loading={isSubmitting} disabled={isSubmitting||!acceptedLegal}>
-        S’inscrire
+        Continuer vers la confirmation email
       </AppButton>
       <Link href="/(auth)/login" asChild>
         <Text style={{ textAlign: 'center' }}>J’ai déjà un compte</Text>

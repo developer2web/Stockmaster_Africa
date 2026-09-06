@@ -18,7 +18,7 @@ const iso = (date: Date) => date.toISOString().slice(0, 10);
 
 export default function AdminDashboard() {
   const { formatMoney: money } = useCurrency();
-  const { membership, businesses, stores, signOut } = useAuth();
+  const { membership, businesses, signOut } = useAuth();
   const { width } = useWindowDimensions();
   const theme = useTheme();
   const companyId = membership?.companyId ?? '';
@@ -59,7 +59,7 @@ export default function AdminDashboard() {
           titleStyle={[styles.headerCompanyName, compact && styles.mobileHeaderTitle]}
           subtitle={compact ? undefined : `Boutique active : ${membership?.storeName ?? 'Non sélectionnée'}`}
         />
-        {(businesses.length > 1 || stores.length > 1) && <Appbar.Action icon="swap-horizontal" accessibilityLabel="Changer d’espace" onPress={() => router.push('/choose-business')} />}
+        {businesses.length > 1 && <Appbar.Action icon="swap-horizontal" accessibilityLabel="Changer d’espace" onPress={() => router.push('/choose-business')} />}
         <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" onPress={() => void signOut()} />
         <NotificationBell />
       </Appbar.Header>
@@ -80,11 +80,21 @@ export default function AdminDashboard() {
           <View style={styles.heroTop}><View style={styles.grow}><Text variant="headlineSmall" style={styles.heroTitle}>Pilotez votre activité</Text><Text style={styles.heroText}>Une vue claire de votre entreprise, en temps réel.</Text></View><Chip icon="check-decagram">{membership?.subscriptionStatus ?? 'actif'}</Chip></View>
           <View style={[styles.heroStats, compact && styles.heroStatsCompact]}>
             <View style={[styles.heroStat, compact && styles.heroStatCompact]}><Text style={styles.heroLabel}>Ventes aujourd’hui</Text><Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit style={styles.heroTitle}>{money(report.data?.revenue ?? 0)}</Text></View>
+            <View style={[styles.heroStat, compact && styles.heroStatCompact]}><Text style={styles.heroLabel}>Nombre de ventes</Text><Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit style={styles.heroTitle}>{report.data?.saleCount ?? 0}</Text></View>
             <View style={[styles.heroStat, compact && styles.heroStatCompact]}><Text style={styles.heroLabel}>Bénéfice du jour</Text><Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit style={styles.heroTitle}>{money(report.data?.netProfit ?? 0)}</Text></View>
             <View style={[styles.heroStat, compact && styles.heroStatCompact]}><Text style={styles.heroLabel}>Stock faible</Text><Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit style={styles.heroTitle}>{overview.data?.lowStockProducts ?? 0}</Text></View>
             <View style={[styles.heroStat, compact && styles.heroStatCompact]}><Text style={styles.heroLabel}>Solde de caisse</Text><Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit style={styles.heroTitle}>{money(cash.data?.balance ?? 0)}</Text></View>
           </View>
         </View>
+
+        <Card mode="outlined">
+          <Card.Content style={styles.quickActions}>
+            <View style={styles.grow}><Text variant="titleMedium" style={styles.bold}>Accès rapides</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>Les actions utilisées chaque jour.</Text></View>
+            <AppButton icon="magnify" mode="outlined" onPress={() => router.push('/search' as never)}>Rechercher</AppButton>
+            <AppButton icon="cart-plus" onPress={() => router.push('/sales/new' as never)}>Nouvelle vente</AppButton>
+            <AppButton icon="wallet-plus" mode="outlined" onPress={() => router.push('/cash' as never)}>Caisse</AppButton>
+          </Card.Content>
+        </Card>
 
         <View style={[styles.secondaryGrid, compact && styles.secondaryGridCompact]}>
           <Card mode="contained" style={[styles.chartCard,compact&&styles.mobileFullCard,{backgroundColor:theme.colors.surface}]}><Card.Title title="Ventes des 7 derniers jours" subtitle={compact ? 'Détail quotidien' : undefined}/>{compact ? <Card.Content style={styles.mobileTrends}>{trends.data?.days.map(day=>{const max=Math.max(...(trends.data?.days.map(item=>item.revenue)??[1]),1);const date=new Date(`${day.date}T12:00:00`);return <View key={day.date} style={styles.mobileTrendRow}><View style={styles.mobileTrendDate}><Text variant="labelLarge" style={styles.bold}>{date.toLocaleDateString('fr-FR',{weekday:'short'})}</Text><Text variant="bodySmall" style={{color:theme.colors.onSurfaceVariant}}>{date.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</Text></View><View style={[styles.mobileTrack,{backgroundColor:theme.colors.surfaceVariant}]}><View style={[styles.mobileFill,{width:`${Math.max(day.revenue>0?6:0,(day.revenue/max)*100)}%`}]}/></View><Text variant="labelLarge" numberOfLines={1} adjustsFontSizeToFit style={styles.mobileAmount}>{money(day.revenue)}</Text></View>})}</Card.Content> : <Card.Content style={styles.bars}>{trends.data?.days.map(day=>{const max=Math.max(...(trends.data?.days.map(item=>item.revenue)??[1]),1);return <View key={day.date} style={styles.barColumn}><Text variant="labelSmall">{money(day.revenue)}</Text><View style={[styles.bar,{height:Math.max(5,(day.revenue/max)*90)}]}/><Text variant="labelSmall">{new Date(`${day.date}T12:00:00`).toLocaleDateString('fr-FR',{weekday:'short'})}</Text></View>})}</Card.Content>}</Card>
@@ -150,4 +160,5 @@ const styles = StyleSheet.create({
   topRow: { flexDirection:'row',alignItems:'center',gap:8 },
   saleAmount: { maxWidth: '38%', textAlign: 'right' },
   alertRows: { flexDirection:'row',flexWrap:'wrap',gap:8 },
+  quickActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
 });

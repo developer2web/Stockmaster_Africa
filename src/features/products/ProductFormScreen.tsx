@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Card, Dialog, HelperText, Icon, Portal, Switch, Text } from 'react-native-paper';
+import { Card, Dialog, HelperText, Icon, Portal, Switch, Text, TextInput } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -17,7 +17,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { hasPermission } from '@/features/auth/permissions';
 import { getStockLevels } from '@/features/inventory/api';
 import { useStockRealtime } from '@/hooks/useStockRealtime';
-import { deleteProduct, deleteVariant, getCategories, getProduct, getSuppliers, saveProduct, saveVariant } from './api';
+import { deleteProduct, deleteVariant, getCategories, getProduct, getSuppliers, saveCategory, saveProduct, saveVariant } from './api';
 import { productSchema, ProductInput, variantSchema, VariantInput } from '@/schemas/catalog';
 import type { ProductVariant } from '@/types/database';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
@@ -42,7 +42,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   const product = useQuery({ queryKey:['product',id], queryFn:()=>getProduct(id!), enabled:!!id });
   const categories = useQuery({ queryKey:['categories',company,store], queryFn:()=>getCategories(company,store), enabled:!!company&&!!store });
   const suppliers = useQuery({ queryKey:['suppliers',company,store], queryFn:()=>getSuppliers(company,store), enabled:!!company&&!!store });
-  const { control, handleSubmit, reset,formState:{isValid,isDirty} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
+  const { control, handleSubmit, reset, formState:{isValid,isDirty} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
   const levels = useQuery({queryKey:['stock-levels',company,store,id],queryFn:()=>getStockLevels(company,id,store),enabled:!!company&&!!store&&!!id});
 
   useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? 'SKU-AUTO', barcode:product.data.barcode??'', categoryId:product.data.category_id, supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:String(product.data.purchase_price), salePrice:String(product.data.sale_price), initialQuantity:'0', lowStockThreshold:String(product.data.low_stock_threshold), isActive:product.data.is_active }); }, [product.data,reset]);
@@ -50,6 +50,9 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onSuccess:async(saved)=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['employee-products',company,store]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace({pathname:basePath as never,params:{notice:id?'Modification enregistrée':'Produit enregistré'}}); } });
   const [confirm,setConfirm] = useState(false);
   const [moreOpen,setMoreOpen] = useState(false);
+    const [categoryOpen,setCategoryOpen] = useState(false);
+    const [categoryName,setCategoryName] = useState('');
+    const [categoryError,setCategoryError] = useState('');
   const [adjust,setAdjust] = useState<'in'|'out'|null>(null);
   const remove = useMutation({ mutationFn:()=>deleteProduct(id!), onSuccess:async()=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company]}),qc.invalidateQueries({queryKey:['employee-products',company]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company]})]); router.replace(basePath as never); } });
   const stockQuantity=(levels.data??[]).reduce((sum,row)=>sum+Number(row.quantity),0);
@@ -75,6 +78,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
     {id&&<Variants productId={id} companyId={company} variants={productVariants} refresh={()=>qc.invalidateQueries({queryKey:['product',id]})}/>}
     {id&&<AppButton mode="outlined" destructive icon="delete-outline" onPress={()=>setConfirm(true)}>Supprimer le produit</AppButton>}
     <ConfirmDialog visible={confirm} title="Supprimer ce produit ?" message="Cette action est refusée si le produit est déjà utilisé dans une opération." destructive loading={remove.isPending} onCancel={()=>setConfirm(false)} onConfirm={()=>remove.mutate()}/>
+      <ConfirmDialog visible={confirm} title="Supprimer ce produit ?" message="Cette action est refusée si le produit est déjà utilisé dans une opération." destructive loading={remove.isPending} onCancel={()=>setConfirm(false)} onConfirm={()=>remove.mutate()}/><Portal><Dialog visible={categoryOpen} onDismiss={()=>setCategoryOpen(false)}><Dialog.Title>Nouvelle catégorie</Dialog.Title><Dialog.Content><TextInput mode="outlined" label="Nom de la catégorie" value={categoryName} onChangeText={setCategoryName}/><HelperText type="error" visible={!!categoryError}>{categoryError}</HelperText></Dialog.Content><Dialog.Actions><AppButton mode="text" onPress={()=>setCategoryOpen(false)}>Annuler</AppButton><AppButton disabled={!categoryName.trim()} onPress={async()=>{try{await saveCategory(company,store,{name:categoryName.trim(),description:'',isActive:true});await qc.invalidateQueries({queryKey:['categories',company,store]});setCategoryOpen(false)}catch(error){setCategoryError(error instanceof Error?error.message:'Création impossible')}}}>Créer</AppButton></Dialog.Actions></Dialog></Portal>
     {id&&<StockAdjustmentDialog visible={!!adjust} onDismiss={()=>setAdjust(null)} companyId={company} storeId={store} storeName={membership?.storeName} productId={id} currentQuantity={stockQuantity} initialDirection={adjust??'in'} variants={productVariants}/>}
   </AdminPage>;
 }

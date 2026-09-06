@@ -23,6 +23,7 @@ export default function LoginScreen() {
     <Card mode="outlined" onPress={()=>setMode('admin')}><Card.Content style={{flexDirection:'row',alignItems:'center',gap:16}}><Icon source="shield-account" size={36}/><View style={{flex:1}}><Text variant="titleLarge">Administrateur</Text><Text>Gestion de l’entreprise, des boutiques et de l’équipe.</Text></View><Icon source="chevron-right" size={24}/></Card.Content></Card>
     <Card mode="outlined" onPress={()=>router.push('/employee' as never)}><Card.Content style={{flexDirection:'row',alignItems:'center',gap:16}}><Icon source="account-hard-hat" size={36}/><View style={{flex:1}}><Text variant="titleLarge">Employé</Text><Text>Email et mot de passe fournis par l’administrateur.</Text></View><Icon source="chevron-right" size={24}/></Card.Content></Card>
     <Link href="/(auth)/register" asChild><Text style={{textAlign:'center'}}>Créer une nouvelle entreprise</Text></Link>
+    <AppButton mode="outlined" icon="play-circle-outline" onPress={() => router.push('/demo' as never)}>Découvrir en mode démo</AppButton>
   </AuthScreen>;
 
   return <AuthScreen title="Connexion administrateur" subtitle="Accédez à la gestion StockMaster.">

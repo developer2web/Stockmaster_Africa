@@ -67,6 +67,8 @@ export default function Layout() {
         <Tabs.Screen name="support" options={{ href: null }} />
         <Tabs.Screen name="transfers" options={{ href: null }} />
         <Tabs.Screen name="notifications" options={{ href: null }} />
+        <Tabs.Screen name="search" options={{ href: null }} />
+        <Tabs.Screen name="activity" options={{ href: null }} />
         <Tabs.Screen name="more" options={{ href: null }} />
       </Tabs>
     </RoleGuard>

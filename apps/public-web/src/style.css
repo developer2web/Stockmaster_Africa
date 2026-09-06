@@ -98,11 +98,11 @@ p { color: var(--muted); line-height: 1.68; }
 
 .sectionShell, .contentSection { width: min(1180px, calc(100% - 44px)); margin-inline: auto; }
 .hero {
-  min-height: 665px;
+  min-height: 590px;
   display: grid;
-  grid-template-columns: minmax(0, .9fr) minmax(500px, 1.1fr);
+  grid-template-columns: minmax(0, .95fr) minmax(460px, 1.05fr);
   align-items: center;
-  gap: 55px;
+  gap: 38px;
   padding-block: 74px 80px;
 }
 .heroCopy { position: relative; z-index: 2; }
@@ -229,6 +229,13 @@ p { color: var(--muted); line-height: 1.68; }
 .featureGrid a { color: var(--green); font-size: 12px; font-weight: 800; }
 
 .productOverview .sectionHeading { margin-inline: auto; text-align: center; }
+.demoToolbar { width: min(940px, 100%); display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 0 auto 14px; padding: 8px 10px 8px 16px; border: 1px solid #d9e5e1; border-radius: 10px; background: #fff; color: #5d716b; font-size: 12px; font-weight: 700; }
+.demoToolbar > div { display: flex; gap: 5px; }
+.demoToolbar button { min-height: 34px; padding: 7px 13px; border: 0; border-radius: 7px; background: transparent; color: #60736d; font-size: 11px; font-weight: 800; }
+.demoToolbar button:hover, .demoToolbar button.selected { background: var(--mint); color: var(--green-dark); }
+.demoCaption { width: min(760px, 100%); display: grid; gap: 4px; margin: 20px auto 0; text-align: center; }
+.demoCaption strong { color: var(--ink); font-size: 15px; }
+.demoCaption span { color: var(--muted); font-size: 12px; }
 .desktopFrame { width: min(940px,100%); margin: 0 auto; padding: 10px; border: 1px solid #d9e5e1; border-radius: 14px; background: #edf3f1; box-shadow: 0 27px 63px rgba(20,64,55,.16); }
 .browserBar { height: 27px; display: flex; align-items: center; gap: 5px; padding: 0 8px; }
 .browserBar i { width: 7px; height: 7px; border-radius: 50%; background: #ff7667; }.browserBar i:nth-child(2){background:#ffc75c}.browserBar i:nth-child(3){background:#4dcc7c}
@@ -368,7 +375,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
 .formError { background: #fff0ed; color: #a63527; border: 1px solid #f6d3ce; }.formSuccess{background:#eaf8ef;color:#17633b;border:1px solid #ccebd7}
 .legalConsent{grid-template-columns:20px 1fr;align-items:start;gap:9px;font-size:10px;line-height:1.5}.legalConsent input{width:17px;min-height:17px;margin:1px 0}.legalConsent a{color:var(--green);text-decoration:underline}
 
-@media (max-width: 1050px) {
+@media (max-width: 980px) {
   .siteHeader { grid-template-columns: auto auto 1fr; }
   .menuButton { display: grid; place-items: center; justify-self: end; grid-column: 3; width: 39px; height: 39px; border: 1px solid #d7e4df; border-radius: 8px; background: #fff; color: var(--green-dark); font-size: 19px; }
   .siteHeader nav { position: fixed; left: 16px; right: 16px; top: 70px; display: none; align-items: stretch; padding: 14px; border: 1px solid #dce8e4; border-radius: 12px; background: #fff; box-shadow: var(--shadow); }
@@ -390,6 +397,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
   .trusted>div{gap:18px 30px}.trusted span{font-size:11px}
   .featureGrid,.pricingGrid,.testimonialGrid,.articleGrid{grid-template-columns:1fr}.featureGrid article{min-height:0}.featureGrid p{min-height:0}.pricingGrid{max-width:520px}.pricingGrid article.featured{transform:none}.pricingGrid article{min-height:430px}
   .productBenefits{grid-template-columns:1fr;gap:28px}.desktopFrame .dashboardMockup{grid-template-columns:80px 1fr;min-height:330px}.desktopFrame .mockBody{padding:12px}.desktopFrame{padding:6px}.browserBar{height:20px}
+  .demoToolbar { align-items: stretch; flex-direction: column; padding: 10px; }.demoToolbar > div { width: 100%; }.demoToolbar button { flex: 1; }
   .aboutGrid,.faqSection,.contactSection{grid-template-columns:1fr;gap:40px}.aboutStats{grid-template-columns:1fr 1fr}.faqVisual{min-height:330px}.contactSection form>div{grid-template-columns:1fr}.contactSection form{padding:22px}
   .finalBanner{flex-direction:column;text-align:center}.siteFooter{grid-template-columns:1fr 1fr;gap:35px}.siteFooter>div:first-child{grid-column:1/-1}.footerBottom{flex-direction:column;gap:8px}
   .authBackdrop{padding:10px}.authShell{max-height:calc(100vh - 20px);grid-template-columns:1fr}.authShell>aside{display:none}.authShell>form{padding:38px 24px}.authGrid{grid-template-columns:1fr}.authGrid .full{grid-column:auto}
