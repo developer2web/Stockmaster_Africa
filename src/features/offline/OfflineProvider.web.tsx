@@ -8,7 +8,9 @@ type OfflineContextValue = {
   isOnline: boolean;
   isSynchronizing: boolean;
   pendingCount: number;
+  queueError: string | null;
   lastSyncedCount: number;
+  lastSynchronizedAt: string | null;
   refreshQueue: () => Promise<void>;
   synchronize: () => Promise<void>;
 };
@@ -19,12 +21,20 @@ export function OfflineProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
   const [isOnline, setOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
   const [isSynchronizing, setSynchronizing] = useState(false);
+  const [queueError, setQueueError] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [lastSyncedCount, setLastSyncedCount] = useState(0);
+  const [lastSynchronizedAt, setLastSynchronizedAt] = useState<string | null>(null);
   const synchronizingRef = useRef(false);
 
   const refreshQueue = useCallback(async () => {
-    setPendingCount((await getCurrentUserOfflineQueue()).length);
+    try {
+      setPendingCount((await getCurrentUserOfflineQueue()).length);
+      setQueueError(null);
+    } catch (error) {
+      setQueueError('Le suivi des opérations locales est indisponible. Les données sont conservées.');
+      throw error;
+    }
   }, []);
 
   const synchronize = useCallback(async () => {
@@ -34,6 +44,7 @@ export function OfflineProvider({ children }: PropsWithChildren) {
     try {
       const result = await synchronizeOfflineQueue();
       if (result.synced) {
+        setLastSynchronizedAt(new Date().toISOString());
         setLastSyncedCount(result.synced);
         window.setTimeout(() => setLastSyncedCount(0), 5000);
         await Promise.all([
@@ -74,7 +85,7 @@ export function OfflineProvider({ children }: PropsWithChildren) {
     };
   }, [refreshQueue, synchronize]);
 
-  const value = useMemo(() => ({ isOnline, isSynchronizing, pendingCount, lastSyncedCount, refreshQueue, synchronize }), [isOnline, isSynchronizing, pendingCount, lastSyncedCount, refreshQueue, synchronize]);
+  const value = useMemo(() => ({ isOnline, isSynchronizing, pendingCount, queueError, lastSyncedCount, lastSynchronizedAt, refreshQueue, synchronize }), [isOnline, isSynchronizing, pendingCount, queueError, lastSyncedCount, lastSynchronizedAt, refreshQueue, synchronize]);
   return <OfflineContext.Provider value={value}>{children}</OfflineContext.Provider>;
 }
 

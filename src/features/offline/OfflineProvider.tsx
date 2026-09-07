@@ -11,6 +11,7 @@ type OfflineContextValue = {
   isOnline: boolean;
   isSynchronizing: boolean;
   pendingCount: number;
+  queueError: string | null;
   lastSyncedCount: number;
   lastSynchronizedAt: string | null;
   refreshQueue: () => Promise<void>;
@@ -25,11 +26,18 @@ export function OfflineProvider({ children }: PropsWithChildren) {
   const [isOnline, setOnline] = useState(true);
   const [isSynchronizing, setSynchronizing] = useState(false);
   const synchronizingRef = useRef(false);
+  const [queueError, setQueueError] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [lastSyncedCount,setLastSyncedCount]=useState(0);
   const [lastSynchronizedAt,setLastSynchronizedAt]=useState<string|null>(null);
   const refreshQueue = useCallback(async () => {
-    setPendingCount((await getCurrentUserOfflineQueue()).length);
+    try {
+      setPendingCount((await getCurrentUserOfflineQueue()).length);
+      setQueueError(null);
+    } catch (error) {
+      setQueueError('Le suivi des opérations locales est indisponible. Les données sont conservées.');
+      throw error;
+    }
   }, []);
   const synchronize = useCallback(async () => {
     if (synchronizingRef.current) return;
@@ -38,10 +46,10 @@ export function OfflineProvider({ children }: PropsWithChildren) {
     try {
       if (!await revalidateBeforeSynchronization()) return;
       const result = await synchronizeOfflineQueue();
-      const synchronizedAt = new Date().toISOString();
-      setLastSynchronizedAt(synchronizedAt);
-      await markOfflineAccessSynchronized(synchronizedAt).catch(() => undefined);
       if (result.synced) {
+        const synchronizedAt = new Date().toISOString();
+        setLastSynchronizedAt(synchronizedAt);
+        await markOfflineAccessSynchronized(synchronizedAt).catch(() => undefined);
         setLastSyncedCount(result.synced);
         setTimeout(()=>setLastSyncedCount(0),5000);
         await Promise.all([
@@ -76,8 +84,15 @@ export function OfflineProvider({ children }: PropsWithChildren) {
     const checkBackend = async () => {
       const probe = await probeBackendAccess(true);
       setOnline(probe.reachable);
-      const queued=await getCurrentUserOfflineQueue().catch(()=>[]);
-      setPendingCount(queued.length);
+      let queued;
+      try {
+        queued = await getCurrentUserOfflineQueue();
+        setPendingCount(queued.length);
+        setQueueError(null);
+      } catch {
+        setQueueError('Le suivi des opérations locales est indisponible. Les données sont conservées.');
+        return;
+      }
       if (probe.reachable && probe.authenticated && queued.length>0) await synchronize();
     };
     void checkBackend();
@@ -93,7 +108,7 @@ export function OfflineProvider({ children }: PropsWithChildren) {
     return () => { unsubscribe(); clearInterval(interval); };
   }, [refreshQueue, synchronize]);
 
-  const value = useMemo(() => ({ isOnline, isSynchronizing, pendingCount,lastSyncedCount,lastSynchronizedAt, refreshQueue, synchronize }), [isOnline, isSynchronizing, pendingCount,lastSyncedCount,lastSynchronizedAt, refreshQueue, synchronize]);
+  const value = useMemo(() => ({ isOnline, isSynchronizing, pendingCount, queueError,lastSyncedCount,lastSynchronizedAt, refreshQueue, synchronize }), [isOnline, isSynchronizing, pendingCount, queueError,lastSyncedCount,lastSynchronizedAt, refreshQueue, synchronize]);
   return <OfflineContext.Provider value={value}>{children}</OfflineContext.Provider>;
 }
 

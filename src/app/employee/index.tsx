@@ -82,10 +82,10 @@ export default function EmployeeEntry() {
           <View style={styles.sectionCopy}>
             <Text variant="titleLarge" style={styles.sectionTitle}>Outils quotidiens</Text>
             <Text style={{ color: theme.colors.onSurfaceVariant }}>
-              Seuls les modules autorisés par votre administrateur sont affichés.
+              Choisissez l’action à effectuer.
             </Text>
           </View>
-          <Chip icon="view-grid-outline">{modules.length} modules</Chip>
+
         </View>
 
         {canCreateSale && (
@@ -197,14 +197,14 @@ const styles = StyleSheet.create({
   hero: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, padding: 24, borderRadius: 28 },
   heroCompact: { padding: 16, borderRadius: 22, alignItems: 'flex-start' },
   heroIcon: { width: 62, height: 62, borderRadius: 21, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-4deg' }] },
-  heroCopy: { flex: 1, minWidth: 210, gap: 4 },
+  heroCopy: { flexGrow: 1, flexBasis: 210, minWidth: 0, gap: 4 },
   sectionHeading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  sectionCopy: { flex: 1, minWidth: 230, gap: 3 },
+  sectionCopy: { flexGrow: 1, flexBasis: 230, minWidth: 0, gap: 3 },
   sectionTitle: { fontWeight: '800' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   cardSingle: { width: '100%' },
-  cardHalf: { flexGrow: 1, flexBasis: '46%', minWidth: 280 },
-  cardThird: { flexGrow: 1, flexBasis: '30%', minWidth: 260 },
+  cardHalf: { flexGrow: 1, flexBasis: '46%', minWidth: 0 },
+  cardThird: { flexGrow: 1, flexBasis: '30%', minWidth: 0 },
   notice: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   noticeCopy: { flex: 1, gap: 3 },
   loginIcon: { width: 72, height: 72, borderRadius: 24, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-4deg' }] },

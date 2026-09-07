@@ -15,7 +15,6 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { getProducts, PRODUCT_PAGE_SIZE } from '@/features/products/api';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { shareProductsExport } from '@/features/products/excel';
 import { shareProductCatalog } from '@/features/products/catalog';
 import { useProductListView } from '@/stores/productListView';
 import { readableError } from '@/utils/errors';
@@ -47,7 +46,7 @@ export default function ProductsScreen() {
   return (
     <AdminPage
       title="Produits"
-      action={<View style={styles.actions}><Menu visible={actionsOpen} onDismiss={()=>setActionsOpen(false)} anchor={<AppButton mode="outlined" icon="dots-horizontal" accessibilityLabel="Actions produits" onPress={()=>setActionsOpen(true)}>Actions</AppButton>}><Menu.Item leadingIcon="shape-outline" title="Gérer les catégories" onPress={()=>{setActionsOpen(false);router.push('/categories' as never)}}/><Menu.Item leadingIcon="whatsapp" title="Partager le catalogue" onPress={()=>void runAction(()=>shareProductCatalog(membership?.companyName??'StockMaster',rows,formatMoney))}/><Menu.Item leadingIcon="download" title="Exporter Excel" onPress={()=>void runAction(()=>shareProductsExport(company,store))}/><Menu.Item leadingIcon="file-excel" title="Importer Excel" onPress={()=>{setActionsOpen(false);router.push('/products/import' as never)}}/></Menu><AppButton icon="plus" onPress={() => router.push('/products/new' as never)}>Ajouter</AppButton></View>}
+      action={<View style={styles.actions}><Menu visible={actionsOpen} onDismiss={()=>setActionsOpen(false)} anchor={<AppButton mode="outlined" icon="dots-horizontal" accessibilityLabel="Actions produits" onPress={()=>setActionsOpen(true)}>Actions</AppButton>}><Menu.Item leadingIcon="shape-outline" title="Gérer les catégories" onPress={()=>{setActionsOpen(false);router.push('/categories' as never)}}/><Menu.Item leadingIcon="whatsapp" title="Partager le catalogue" onPress={()=>void runAction(()=>shareProductCatalog(membership?.companyName??'StockMaster',rows,formatMoney))}/><Menu.Item leadingIcon="file-excel" title="Importer Excel" onPress={()=>{setActionsOpen(false);router.push('/products/import' as never)}}/></Menu><AppButton icon="plus" onPress={() => router.push('/products/new' as never)}>Ajouter</AppButton></View>}
     >
       <AppSearchBar
         placeholder="Nom ou code-barres"

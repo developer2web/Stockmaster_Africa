@@ -20,7 +20,7 @@ export function AppButton({contentStyle,labelStyle,style,destructive=false,disab
 }
 
 const styles=StyleSheet.create({
-  button:{borderRadius:12},
+  button:{borderRadius:12,minWidth:0,maxWidth:'100%',flexShrink:1},
   content:{minHeight:48,paddingHorizontal:4},
-  label:{fontWeight:'800',letterSpacing:.1},
+  label:{flexShrink:1,fontWeight:'800',letterSpacing:.1},
 });

@@ -1,3 +1,4 @@
+import { PendingSales } from '@/features/offline/PendingSales';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -14,7 +15,6 @@ import { getLifetimeNetProfit } from '@/features/reports/api';
 import { useSalesRealtime } from '@/hooks/useSalesRealtime';
 import { AppFeedback } from '@/components/ui/AppFeedback';
 import { formatDateTime } from '@/utils/format';
-import { shareSalesExport } from '@/features/products/excel';
 
 const paymentLabels: Record<string, string> = {
   cash: 'Espèces', card: 'Carte', mobile_money: 'Mobile Money',
@@ -60,7 +60,8 @@ export default function SalesScreen() {
   const revenue = rows.reduce((sum, sale) => sum + Number(sale.total), 0);
 
   return (
-    <AdminPage title="Ventes" action={<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{!employee && <AppButton mode="outlined" icon="file-excel-outline" onPress={() => void shareSalesExport(rows)}>Excel</AppButton>}{(membership?.role === 'company_admin' || membership?.permissions.includes('sales.write')) && <AppButton icon="plus" onPress={() => router.push((employee ? '/employee/sales/new' : '/sales/new') as never)}>Ajouter</AppButton>}</View>}>
+    <AdminPage title="Ventes" action={<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{(membership?.role === 'company_admin' || membership?.permissions.includes('sales.write')) && <AppButton icon="plus" onPress={() => router.push((employee ? '/employee/sales/new' : '/sales/new') as never)}>Ajouter</AppButton>}</View>}>
+      <PendingSales />
       <Card><Card.Content><Text variant="headlineSmall">{formatMoney(revenue)}</Text><Text>Chiffre d’affaires affiché</Text>{!employee && <Text variant="titleMedium" style={{ color: '#084B50' }}>{formatMoney(financialReport.data ?? 0)} de bénéfice net après toutes les dépenses</Text>}</Card.Content></Card>
       <Searchbar placeholder="Rechercher une référence, un client…" value={search} onChangeText={setSearch} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -70,7 +71,7 @@ export default function SalesScreen() {
       {!!sales.error && <HelperText type="error" visible>{sales.error.message}</HelperText>}
       {visibleRows.map((sale) => {
         const historicalMoney = (value: number) => formatForCurrency(value, sale.currency_code);
-        return <Card key={sale.id} mode="outlined" onPress={() => router.push((employee ? `/employee/sales/${sale.id}` : `/sales/${sale.id}`) as never)}><Card.Title title={sale.reference ?? 'Vente'} subtitle={`${sale.store?.name ?? 'Boutique'} • ${paymentLabels[sale.payment_method ?? ''] ?? sale.payment_method ?? 'Paiement'}`} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{historicalMoney(Number(sale.total))}</Text>} /><Card.Content><Text>{formatDateTime(sale.created_at)}{!employee ? ` • Bénéfice : ${historicalMoney(Number(sale.gross_profit))}` : ''}</Text>{sale.secondary_currency_code && sale.secondary_exchange_rate && <Text>Au taux historique : {formatForCurrency(Number(sale.total) * Number(sale.secondary_exchange_rate), sale.secondary_currency_code)}</Text>}</Card.Content></Card>;
+        return <Card key={sale.id} mode="outlined" onPress={() => router.push((employee ? `/employee/sales/${sale.id}` : `/sales/${sale.id}`) as never)}><Card.Title title={sale.reference ?? 'Vente'} subtitle={`${sale.store?.name ?? 'Boutique'} • ${paymentLabels[sale.payment_method ?? ''] ?? sale.payment_method ?? 'Paiement'}`} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{historicalMoney(Number(sale.total))}</Text>} /><Card.Content><Text style={{color:'#084B50'}}>Enregistrée sur le serveur</Text><Text>{formatDateTime(sale.created_at)}{!employee ? ` • Bénéfice : ${historicalMoney(Number(sale.gross_profit))}` : ''}</Text>{sale.secondary_currency_code && sale.secondary_exchange_rate && <Text>Au taux historique : {formatForCurrency(Number(sale.total) * Number(sale.secondary_exchange_rate), sale.secondary_currency_code)}</Text>}</Card.Content></Card>;
       })}
       {sales.hasNextPage && <AppButton mode="outlined" icon="chevron-down" loading={sales.isFetchingNextPage} onPress={() => void sales.fetchNextPage()}>Charger plus de ventes</AppButton>}
       {!sales.isLoading && !visibleRows.length && <EmptyState icon="cart-plus" title={rows.length ? 'Aucun résultat' : "Aucune vente aujourd’hui"} message={rows.length ? 'Modifiez les filtres ou la recherche.' : 'Enregistrez une vente à partir du catalogue ou du scanner.'} action={rows.length ? undefined : <AppButton icon="plus" onPress={()=>router.push((employee?'/employee/sales/new':'/sales/new') as never)}>Nouvelle vente</AppButton>}/>} 

@@ -36,7 +36,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - run: npx expo export --platform web
+      - run: npm run export:web
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x

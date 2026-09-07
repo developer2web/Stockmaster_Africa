@@ -1,4 +1,4 @@
-import { PropsWithChildren, ReactNode, useCallback, useRef, useState } from 'react';
+import { PropsWithChildren, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Appbar, Card, Icon, Text, useTheme } from 'react-native-paper';
 import { router, useLocalSearchParams, usePathname } from 'expo-router';
@@ -20,7 +20,7 @@ const descriptions:Record<string,string>={
   Produits:'Consultez, recherchez et gérez le catalogue de la boutique.',Stock:'Suivez les quantités disponibles dans la boutique sélectionnée.',Ventes:'Consultez les ventes et ouvrez leur détail.','Nouvelle vente':'Ajoutez les produits, choisissez le client puis encaissez.',Clients:'Gérez les clients, leurs achats et leurs crédits.',Caisse:'Suivez le solde, les mouvements et les clôtures.',Rapports:'Analysez les ventes, les dépenses et la performance.',Fournisseurs:'Gérez les fournisseurs, achats, dettes et règlements.',Employés:'Gérez les comptes, rôles et accès aux boutiques.',Boutiques:'Gérez les points de vente de l’entreprise.',Support:'Créez et suivez les demandes d’assistance.',Notifications:'Consultez les informations qui nécessitent votre attention.',
 };
 
-export function AdminPage({ title, description, action, floatingAction, backToHome = false, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean }>) {
+export function AdminPage({ title, description, action, floatingAction, backToHome = false, scrollResetKey, onContentWidthChange, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; scrollResetKey?: string; onContentWidthChange?: (width: number) => void }>) {
   const theme = useTheme();
   const { session, membership, offlineAuthenticated, lockOfflineSession } = useAuth();
   const employeeName = String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
@@ -34,6 +34,9 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
   const pathname = usePathname();
   const scrollRef = useRef<ScrollView>(null);
   const restoredFor = useRef('');
+  useEffect(() => {
+    if (scrollResetKey !== undefined) scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [scrollResetKey]);
   useFocusEffect(useCallback(() => {
     restoredFor.current = '';
     requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: scrollPositions.get(pathname) ?? 0, animated: false }));
@@ -50,6 +53,7 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
     (remainingDays !== null && remainingDays >= 0 && remainingDays <= 7);
   return (
     <KeyboardAvoidingView
+      onLayout={event => onContentWidthChange?.(Math.max(0, Math.min(event.nativeEvent.layout.width, employee ? 1100 : design.contentMaxWidth) - (compact ? 24 : 40)))}
       style={[styles.flex, { backgroundColor: pageBackground }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
@@ -75,8 +79,9 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
       </Appbar.Header>
       <ScrollView
         ref={scrollRef}
+        style={styles.scroll}
         nestedScrollEnabled
-        contentContainerStyle={[styles.page, employee && styles.employeePage, compact && styles.compactPage, !!floatingAction && { paddingBottom: 112 + insets.bottom }, employee && compact && { paddingBottom: 92 + insets.bottom }]}
+        contentContainerStyle={[styles.page, employee && styles.employeePage, compact && styles.compactPage]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={false}
@@ -88,7 +93,7 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
           scrollRef.current?.scrollTo({ y: scrollPositions.get(pathname) ?? 0, animated: false });
         }}
       >
-        <PageIntro title={title} description={description??descriptions[title]??'Gérez cette partie de StockMaster.'} action={action}/>
+        <PageIntro title={title} description={description??descriptions[title]} action={action}/>
         {!offlineAuthenticated && showRenewalWarning && (
           <Card mode="contained" style={{ backgroundColor: theme.colors.errorContainer }}>
             <Card.Content style={styles.subscriptionWarning}>
@@ -110,7 +115,7 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
         )}
         {children}
       </ScrollView>
-      {!!floatingAction && <View pointerEvents="box-none" style={[styles.floatingAction, { bottom: (employee && compact ? 62 : 10) + insets.bottom }]}>{floatingAction}</View>}
+      {!!floatingAction && <View style={[styles.actionFooter, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.outlineVariant, paddingBottom: employee && compact && !offlineAuthenticated ? 8 : Math.max(8, insets.bottom) }]}><View style={styles.footerContent}>{floatingAction}</View></View>}
       {employee && compact && !offlineAuthenticated && <EmployeeBottomNavigation />}
     </KeyboardAvoidingView>
   );
@@ -132,7 +137,8 @@ function EmployeeBottomNavigation() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  flex: { flex: 1, minWidth: 0, minHeight: 0 },
+  scroll: { flex: 1, minWidth: 0 },
   headerContent: { flex: 1, minWidth: 0 },
   page: { padding: 20, paddingBottom: 40, gap: 16, width: '100%', maxWidth: design.contentMaxWidth, alignSelf: 'center' },
   compactPage: { padding: 12, paddingBottom: 28, gap: 12 },
@@ -142,9 +148,10 @@ const styles = StyleSheet.create({
   storeSubtitle: { fontWeight: '700' },
   employeePage: { maxWidth: 1100 },
   subscriptionWarning: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
-  grow: { flex: 1, minWidth: 220 },
+  grow: { flexGrow: 1, flexBasis: 220, minWidth: 0 },
   employeeBottom: { flexDirection: 'row', borderTopWidth: 1, paddingTop: 5, paddingHorizontal: 4 },
-  employeeBottomItem: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: 2, borderRadius: 12 },
+  employeeBottomItem: { flex: 1, minWidth: 0, minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: 2, borderRadius: 12 },
   employeeBottomPressed: { opacity: 0.65 },
-  floatingAction: { position: 'absolute', right: 14, left: 14, alignItems: 'flex-end' },
+  actionFooter: { flexShrink: 0, borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 8 },
+  footerContent: { width: '100%', maxWidth: design.contentMaxWidth, alignSelf: 'center', alignItems: 'stretch' },
 });

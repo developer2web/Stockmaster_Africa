@@ -11,31 +11,29 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 
 const gatedModules:Record<string,{feature:FeatureKey;tier:string}>={
-  'Inventaire':{feature:'inventory_count',tier:'Pro'},
+  'Compter le stock':{feature:'inventory_count',tier:'Pro'},
   'Rôles':{feature:'advanced_permissions',tier:'Pro'},
-  'Approvisionnement':{feature:'supplier_debt',tier:'Pro'},
+  'Recevoir du stock':{feature:'supplier_debt',tier:'Pro'},
   'Journal d’activité':{feature:'audit_log',tier:'Pro'},
 };
 
 const sections = [
   { title: 'Gestion quotidienne', subtitle: 'Les outils les plus utilisés', items: [
     ['Produits', 'Catalogue et prix', 'package-variant-closed', '/products'],
-    ['Clients', 'Fiches clients et crédits', 'account-group-outline', '/customers'],
+    ['Clients et crédits', 'Retrouver un client ou encaisser sa dette', 'account-group-outline', '/customers'],
     ['Rapports', 'Ventes et performance', 'chart-box-outline', '/reports'],
+    ['Recevoir du stock', 'Enregistrer un achat et sa réception', 'truck-check-outline', '/purchases'],
     ['Fournisseurs', 'Comptes, dettes et règlements', 'truck-outline', '/suppliers'],
     ['Dépenses', 'Charges de la boutique', 'cash-minus', '/expenses'],
-    ['Employés', 'Comptes et accès', 'account-hard-hat-outline', '/employees'],
-    ['Paramètres', 'Compte, sécurité et mode hors ligne', 'cog-outline', '/(settings)'],
   ]},
   { title: 'Gestion avancée', subtitle: 'Outils à utiliser selon les besoins', items: [
     ['Abonnement', 'Forfait, renouvellement et paiements', 'credit-card-cog-outline', '/(subscription)'],
     ['Scanner', 'Codes-barres et QR codes', 'barcode-scan', '/scanner'],
-    ['Inventaire', 'Comptage physique', 'clipboard-check-outline', '/inventory-count'],
-    ['Approvisionnement', 'Achats et réceptions', 'truck-check-outline', '/purchases'],
+    ['Compter le stock', 'Comparer le comptage réel au stock enregistré', 'clipboard-check-outline', '/inventory-count'],
     ['Commandes clients', 'Réservations et acomptes', 'clipboard-list-outline', '/orders'],
+    ['Employés', 'Comptes et accès', 'account-hard-hat-outline', '/employees'],
     ['Rôles', 'Permissions personnalisées', 'shield-account-outline', '/roles'],
     ['Entreprise', 'Coordonnées et règles', 'office-building-cog-outline', '/company'],
-    ['Assistance', 'Contacter le support', 'lifebuoy', '/support'],
     ['Journal d’activité', 'Opérations importantes de l’entreprise', 'history', '/activity'],
   ]},
 ] as const;
@@ -53,11 +51,15 @@ export default function MoreScreen() {
     void openAccountPortal(membership?.companyId ?? '').catch((error) => setAccountError(error.message)).finally(() => setOpeningAccount(false));
   };
   return <AdminPage title="Tous les outils" backToHome>
-    <AppButton mode="outlined" destructive icon="logout" onPress={() => void signOut()}>Se déconnecter</AppButton>
     {sections.slice(0, 1).map(section => <ModuleSection key={section.title} section={section} isLoading={isLoading} canUseFeature={canUseFeature} theme={theme} openPlans={openPlans}/>) }
     {!!accountError && <HelperText type="error" visible>{accountError}</HelperText>}
     <AppButton mode="outlined" icon={showAdvanced?'chevron-up':'chevron-down'} onPress={()=>setShowAdvanced(value=>!value)}>{showAdvanced?'Masquer la gestion avancée':'Gestion avancée'}</AppButton>
     {showAdvanced && sections.slice(1).map(section => <ModuleSection key={section.title} section={section} isLoading={isLoading} canUseFeature={canUseFeature} theme={theme} openPlans={openPlans}/>) }
+    <View style={styles.footer}>
+      <AppButton mode="text" icon="cog-outline" onPress={() => router.push('/(settings)')}>Paramètres</AppButton>
+      <AppButton mode="text" icon="lifebuoy" onPress={() => router.push('/support')}>Assistance</AppButton>
+      <AppButton mode="text" destructive icon="logout" onPress={() => void signOut()}>Se déconnecter</AppButton>
+    </View>
   </AdminPage>;
 }
 
@@ -66,7 +68,8 @@ function ModuleSection({section,isLoading,canUseFeature,theme,openPlans}:{sectio
 }
 
 const styles = StyleSheet.create({
+  footer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   banner: { flexDirection: 'row', alignItems: 'center', gap: 14 }, bold: { fontWeight: '800' }, grow: { flex: 1, minWidth: 0 },
-  section: { gap: 10 }, grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, card: { flexGrow: 1, flexBasis: '46%', minWidth: 280 },
+  section: { gap: 10 }, grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, card: { flexGrow: 1, flexBasis: 300, minWidth: 0 },
   content: { flexDirection: 'row', alignItems: 'center', gap: 12 }, icon: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
 });

@@ -2,7 +2,6 @@ import { PropsWithChildren, useEffect, useState } from 'react';
 import { Image } from 'expo-image';
 import { Animated, Easing, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Surface, Text, useTheme } from 'react-native-paper';
-import { design } from '@/constants/design';
 
 export function AuthScreen({ title, subtitle, children }: PropsWithChildren<{ title: string; subtitle: string }>) {
   const theme = useTheme();
@@ -61,7 +60,7 @@ const styles = StyleSheet.create({
   logoMark: { width: 70, height: 70, borderRadius: 20, boxShadow: '0 8px 20px rgba(24,199,149,0.45)' },
   noPointerEvents: { pointerEvents: 'none' },
   compactLogoMark: { width: 54, height: 54, borderRadius: 16 },
-  logo: { color: design.colors.brand, fontWeight: '800', letterSpacing: -1.2 },
+  logo: { color: '#F2FCF8', fontWeight: '800', letterSpacing: -1.2 },
   subtitle: { color: '#B8D6CF', textAlign: 'center' },
   cardWrap: { width: '100%', maxWidth: 540, alignSelf: 'center' },
   card: { padding: 26, borderRadius: 28, gap: 15, borderWidth: 1 },

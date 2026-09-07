@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Button, HelperText, Menu, Text } from 'react-native-paper';
 
 export interface SelectOption { label: string; value: string | null }
@@ -13,6 +13,7 @@ export function SelectField({ label, value, options, error, required = false, di
   disabled?: boolean;
   onChange: (value: string | null) => void;
 }) {
+  const { width, height } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value);
   return (
@@ -21,7 +22,7 @@ export function SelectField({ label, value, options, error, required = false, di
       <Menu
         visible={open}
         onDismiss={() => setOpen(false)}
-        contentStyle={styles.menu}
+        contentStyle={[styles.menu, { width: Math.min(360, width - 32), minWidth: Math.min(240, width - 32), maxHeight: Math.min(360, height * 0.6) }]}
         anchor={
           <Button
             disabled={disabled}

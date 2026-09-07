@@ -1,3 +1,4 @@
+import { fetchAllRows } from '@/services/supabase/pagination';
 import { supabase } from '@/services/supabase/client';
 import { userErrorMessage } from '@/utils/errors';
 import { createOperationId } from '@/utils/operationId';
@@ -161,3 +162,10 @@ export async function recordCustomerEntry(
 export type DebtInstallment={id:string;due_date:string;amount:number;paid_amount:number;status:'pending'|'partial'|'paid'};
 export async function getCustomerDebtSchedule(customerId:string){const{data,error}=await supabase.from('customer_debt_schedules').select('id,total,status,created_at,customer_debt_installments(id,due_date,amount,paid_amount,status)').eq('customer_id',customerId).eq('status','active').maybeSingle();fail(error);return data as null|{id:string;total:number;status:string;created_at:string;customer_debt_installments:DebtInstallment[]}}
 export async function setCustomerDebtSchedule(customerId:string,items:{dueDate:string;amount:number}[]){const{data,error}=await supabase.rpc('set_customer_debt_schedule',{p_customer_id:customerId,p_items:items});fail(error);return data as string}
+
+export type CheckoutCustomer = Pick<Customer, 'id' | 'name' | 'phone'>;
+export async function getCheckoutCustomers(companyId: string): Promise<CheckoutCustomer[]> {
+  return withOfflineCache(`checkout-customers:${companyId}`, () => fetchAllRows((from, to) => supabase
+    .from('customers').select('id,name,phone').eq('company_id', companyId).eq('is_active', true)
+    .order('name').order('id').range(from, to)), Array.isArray);
+}

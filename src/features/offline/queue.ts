@@ -35,21 +35,19 @@ function serializeQueueMutation<T>(work: () => Promise<T>): Promise<T> {
 }
 
 export async function getOfflineQueue(): Promise<OfflineOperation[]> {
+  // Never overwrite pending transactions after a storage or decoding failure.
+  const raw = await AsyncStorage.getItem(QUEUE_KEY);
+  if (raw === null) return [];
+  let parsed: unknown;
   try {
-    const raw = await AsyncStorage.getItem(QUEUE_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      const valid = parsed.filter(isOfflineOperation);
-      if (valid.length !== parsed.length) await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(valid));
-      return valid;
-    }
-    await AsyncStorage.removeItem(QUEUE_KEY).catch(() => undefined);
-    return [];
+    parsed = JSON.parse(raw);
   } catch {
-    await AsyncStorage.removeItem(QUEUE_KEY).catch(() => undefined);
-    return [];
+    throw new Error('La file hors ligne est illisible. Les données ont été conservées pour récupération.');
   }
+  if (!Array.isArray(parsed) || !parsed.every(isOfflineOperation)) {
+    throw new Error('La file hors ligne contient des données invalides. Les opérations ont été conservées pour récupération.');
+  }
+  return parsed;
 }
 
 export async function getCurrentUserOfflineQueue(): Promise<OfflineOperation[]> {

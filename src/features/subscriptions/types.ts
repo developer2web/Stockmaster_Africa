@@ -7,6 +7,7 @@ export type FeatureKey =
   | 'customers_suppliers'
   | 'advanced_reports'
   | 'pdf_export'
+  // Clé serveur historique utilisée uniquement pour autoriser l’import de produits.
   | 'excel_export'
   | 'multi_business'
   | 'multi_store'

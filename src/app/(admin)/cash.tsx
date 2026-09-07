@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Card, Dialog, HelperText, Icon, Portal, Text, TextInput, useTheme } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
@@ -24,6 +24,7 @@ export default function CashScreen() {
   const { formatMoney: money, formatForCurrency } = useCurrency();
   const { membership } = useAuth();
   const theme = useTheme();
+  const { height } = useWindowDimensions();
   const cache = useQueryClient();
   const { refreshQueue } = useOffline();
   const companyId = membership?.companyId ?? '';
@@ -119,7 +120,7 @@ export default function CashScreen() {
             <View style={[styles.transactionIcon, { backgroundColor: item.transaction_type === 'deposit' ? theme.colors.primaryContainer : theme.colors.errorContainer }]}>
               <Icon source={item.transaction_type === 'deposit' ? 'arrow-down-left' : 'arrow-up-right'} size={23} color={item.transaction_type === 'deposit' ? theme.colors.primary : theme.colors.error} />
             </View>
-            <View style={styles.grow}><Text variant="titleMedium" style={styles.bold}>{item.designation}</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>{item.store?.name ?? 'Toutes les boutiques'} · {formatDateTime(item.created_at)}</Text></View>
+            <View style={styles.transactionCopy}><Text variant="titleMedium" style={styles.bold}>{item.designation}</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>{item.store?.name ?? 'Toutes les boutiques'} · {formatDateTime(item.created_at)}</Text></View>
             <Text variant="titleMedium" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.amount, styles.bold, { color: item.transaction_type === 'deposit' ? theme.colors.primary : theme.colors.error }]}>{item.transaction_type === 'deposit' ? '+' : '−'}{formatForCurrency(Number(item.amount), item.currency_code)}</Text>
           </Card.Content>
           <Card.Actions>{(()=>{const data={...receiptBranding,title:item.transaction_type==='deposit'?'Reçu d’entrée de caisse':'Reçu de sortie de caisse',party:item.designation,partyLabel:'Opération',amount:Number(item.amount),balanceBefore:0,balanceAfter:0,date:item.created_at,reference:`CAISSE-${item.id.slice(0,8).toUpperCase()}`,store:item.store?.name??receiptBranding.store,issuedBy:item.creator?.full_name||receiptBranding.issuedBy,amountLabel:item.transaction_type==='deposit'?'Montant encaissé':'Montant décaissé',showBalances:false};const printKey=`print-${item.id}`,shareKey=`share-${item.id}`;return [<AppButton key={printKey} mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(data,value=>formatForCurrency(value,item.currency_code)))}>Imprimer</AppButton>,<AppButton key={shareKey} mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(data,value=>formatForCurrency(value,item.currency_code)))}>Partager</AppButton>]})()}</Card.Actions>
@@ -128,7 +129,7 @@ export default function CashScreen() {
       {query.hasNextPage && <AppButton mode="outlined" icon="chevron-down" loading={query.isFetchingNextPage} onPress={() => void query.fetchNextPage()}>Charger plus de mouvements</AppButton>}
       {!query.isLoading && !rows.length && <EmptyState icon="wallet-outline" title="Caisse vide" message="Ajoutez un premier approvisionnement pour démarrer l’historique." />}
       {!!query.error && <HelperText type="error" visible>{readableError(query.error)}</HelperText>}
-      <Portal><Dialog visible={!!type} onDismiss={() => setType(null)}><Dialog.Title>{type === 'deposit' ? 'Ajouter des fonds' : 'Effectuer une dépense'}</Dialog.Title><Dialog.Content style={styles.dialog}><TextInput mode="outlined" label="Désignation" value={designation} onChangeText={setDesignation} /><TextInput mode="outlined" label="Montant" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" left={<TextInput.Icon icon="cash" />} />{!!mutation.error && <HelperText type="error" visible>{readableError(mutation.error)}</HelperText>}</Dialog.Content><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setType(null)}>Annuler</AppButton><AppButton loading={mutation.isPending} disabled={!valid || mutation.isPending} onPress={() => mutation.mutate()}>{mutation.isPending?'Enregistrement…':'Confirmer'}</AppButton></Dialog.Actions></Dialog><Dialog visible={closureOpen} onDismiss={()=>!closure.isPending&&setClosureOpen(false)}><Dialog.Title>Clôturer la caisse</Dialog.Title><Dialog.Content style={styles.dialog}><Text>Montant attendu : {money(balance)}</Text><TextInput mode="outlined" label="Montant réellement compté" value={countedAmount} onChangeText={setCountedAmount} keyboardType="decimal-pad"/><TextInput mode="outlined" label="Note (facultatif)" value={closureNote} onChangeText={setClosureNote} multiline/><Text>Écart : {money((parseDecimal(countedAmount)||0)-balance)}</Text>{!!closure.error&&<HelperText type="error" visible>{readableError(closure.error)}</HelperText>}</Dialog.Content><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" disabled={closure.isPending} onPress={()=>setClosureOpen(false)}>Annuler</AppButton><AppButton loading={closure.isPending} disabled={closure.isPending||parseDecimal(countedAmount)<0} onPress={()=>closure.mutate()}>{closure.isPending?'Enregistrement…':'Valider la clôture'}</AppButton></Dialog.Actions></Dialog></Portal>
+      <Portal><Dialog visible={!!type} onDismiss={() => setType(null)}><Dialog.Title>{type === 'deposit' ? 'Ajouter des fonds' : 'Effectuer une dépense'}</Dialog.Title><Dialog.ScrollArea><ScrollView style={{ maxHeight: Math.max(80, height * 0.45) }} contentContainerStyle={styles.dialogScroll} keyboardShouldPersistTaps="handled"><TextInput mode="outlined" label="Désignation" value={designation} onChangeText={setDesignation} /><TextInput mode="outlined" label="Montant" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" left={<TextInput.Icon icon="cash" />} />{!!mutation.error && <HelperText type="error" visible>{readableError(mutation.error)}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setType(null)}>Annuler</AppButton><AppButton loading={mutation.isPending} disabled={!valid || mutation.isPending} onPress={() => mutation.mutate()}>{mutation.isPending?'Enregistrement…':'Confirmer'}</AppButton></Dialog.Actions></Dialog><Dialog visible={closureOpen} onDismiss={()=>!closure.isPending&&setClosureOpen(false)}><Dialog.Title>Clôturer la caisse</Dialog.Title><Dialog.ScrollArea><ScrollView style={{ maxHeight: Math.max(80, height * 0.45) }} contentContainerStyle={styles.dialogScroll} keyboardShouldPersistTaps="handled"><Text>Montant attendu : {money(balance)}</Text><TextInput mode="outlined" label="Montant réellement compté" value={countedAmount} onChangeText={setCountedAmount} keyboardType="decimal-pad"/><TextInput mode="outlined" label="Note (facultatif)" value={closureNote} onChangeText={setClosureNote} multiline/><Text>Écart : {money((parseDecimal(countedAmount)||0)-balance)}</Text>{!!closure.error&&<HelperText type="error" visible>{readableError(closure.error)}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" disabled={closure.isPending} onPress={()=>setClosureOpen(false)}>Annuler</AppButton><AppButton loading={closure.isPending} disabled={closure.isPending||parseDecimal(countedAmount)<0} onPress={()=>closure.mutate()}>{closure.isPending?'Enregistrement…':'Valider la clôture'}</AppButton></Dialog.Actions></Dialog></Portal>
       <AppFeedback message={successMessage} onDismiss={() => setSuccessMessage('')} />
       <AppFeedback message={receiptAction.error ? readableError(receiptAction.error) : ''} type="error" onDismiss={receiptAction.clearError} />
     </AdminPage>
@@ -145,10 +146,12 @@ const styles = StyleSheet.create({
   action: { flexGrow: 1, flexBasis: 240 },
   summary: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   summaryCard: { flexGrow: 1, flexBasis: 220, borderRadius: 20 },
-  transaction: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  amount: { maxWidth: '42%', textAlign: 'right' },
+  transaction: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
+  transactionCopy: { flexGrow: 1, flexShrink: 1, flexBasis: 160, minWidth: 0 },
+  amount: { maxWidth: '100%', textAlign: 'right', flexShrink: 1 },
   transactionIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   dialog: { gap: 12 },
+  dialogScroll: { gap: 12, paddingVertical: 12 },
   closureCard: { overflow: 'hidden' },
   closureContent: { gap: 10, paddingTop: 16 },
   closureHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 },

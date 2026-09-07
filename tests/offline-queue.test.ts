@@ -61,9 +61,37 @@ describe('file de synchronisation hors ligne', () => {
     expect(supabaseMock.rpc).toHaveBeenNthCalledWith(2, 'record_cash_transaction', { p_operation_id: 'cash-1' });
   });
 
-  it('retire les entrées locales corrompues', async () => {
-    storedQueue = JSON.stringify([operation('sale-1', 'sale'), { id: 'broken' }]);
-    await expect(getOfflineQueue()).resolves.toHaveLength(1);
-    expect(JSON.parse(storedQueue ?? '[]')).toHaveLength(1);
+  it('conserve les données corrompues sans autoriser leur écrasement', async () => {
+    for (const raw of ['{invalid', '{}', JSON.stringify([operation('sale-1', 'sale'), { id: 'broken' }])]) {
+      storedQueue = raw;
+      await expect(getOfflineQueue()).rejects.toThrow('récupération');
+      await expect(enqueueOfflineOperation(operation('new-sale', 'sale'))).rejects.toThrow('récupération');
+      expect(storedQueue).toBe(raw);
+    }
+    expect(asyncStorage.removeItem).not.toHaveBeenCalled();
+    expect(asyncStorage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('conserve les ventes après une panne de lecture et permet une reprise', async () => {
+    storedQueue = JSON.stringify([operation('sale-1', 'sale')]);
+    const original = storedQueue;
+    asyncStorage.getItem.mockRejectedValueOnce(new Error('Stockage indisponible'));
+    await expect(synchronizeOfflineQueue()).rejects.toThrow('Stockage indisponible');
+    expect(storedQueue).toBe(original);
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
+    expect(asyncStorage.removeItem).not.toHaveBeenCalled();
+    supabaseMock.rpc.mockResolvedValue({ error: null });
+    await expect(synchronizeOfflineQueue()).resolves.toMatchObject({ synced: 1, remaining: [] });
+  });
+
+  it('conserve une vente si la sauvegarde après envoi échoue et rejoue le même identifiant', async () => {
+    storedQueue = JSON.stringify([operation('sale-1', 'sale')]);
+    const original = storedQueue;
+    supabaseMock.rpc.mockResolvedValue({ error: null });
+    asyncStorage.setItem.mockRejectedValueOnce(new Error('Écriture impossible'));
+    await expect(synchronizeOfflineQueue()).rejects.toThrow('Écriture impossible');
+    expect(storedQueue).toBe(original);
+    await expect(synchronizeOfflineQueue()).resolves.toMatchObject({ synced: 1 });
+    expect(supabaseMock.rpc).toHaveBeenNthCalledWith(2, 'create_sale_v3', { p_operation_id: 'sale-1' });
   });
 });

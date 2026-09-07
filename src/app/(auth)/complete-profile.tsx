@@ -1,7 +1,7 @@
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Card, HelperText } from 'react-native-paper';
+import { Card, HelperText, Text } from 'react-native-paper';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppBackButton } from '@/components/ui/AppBackButton';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';

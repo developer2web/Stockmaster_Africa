@@ -18,8 +18,9 @@ export default function StockScreen() {
   const { formatMoney: money } = useCurrency();
   const { membership } = useAuth();
   const theme = useTheme();
-  const { width } = useWindowDimensions();
-  const compact = width < 720;
+  const { fontScale } = useWindowDimensions();
+  const [contentWidth, setContentWidth] = useState(0);
+  const compact = contentWidth < 720 * Math.max(1, fontScale);
   const [search, setSearch] = useState('');
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? '';
@@ -38,8 +39,10 @@ export default function StockScreen() {
 
   return (
     <AdminPage
-      title="Inventaire"
-      action={<View style={{flexDirection:'row',alignItems:'center'}}><IconButton accessibilityLabel="Faire l’inventaire" icon="clipboard-list-outline" onPress={()=>router.push('/inventory-count' as never)}/><IconButton accessibilityLabel="Scanner un produit" icon="barcode-scan" onPress={() => router.push('/scanner' as never)} /></View>}
+      onContentWidthChange={setContentWidth}
+      title="Stock"
+      description="Consultez les quantités disponibles. Pour vérifier les quantités réelles, utilisez Compter le stock."
+      action={<View style={{flexDirection:'row',alignItems:'center'}}><IconButton accessibilityLabel="Compter le stock" icon="clipboard-list-outline" onPress={()=>router.push('/inventory-count' as never)}/><IconButton accessibilityLabel="Scanner un produit" icon="barcode-scan" onPress={() => router.push('/scanner' as never)} /></View>}
     >
       <View style={[styles.summary, compact && styles.compactSummary, { backgroundColor: theme.colors.primaryContainer }]}>
         <View style={[styles.summaryIcon, { backgroundColor: theme.colors.primary }]}>

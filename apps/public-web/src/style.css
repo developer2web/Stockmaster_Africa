@@ -123,7 +123,8 @@ p { color: var(--muted); line-height: 1.68; }
   z-index: 2;
   display: grid;
   grid-template-columns: 92px 1fr;
-  min-width: 560px;
+  min-width: 0;
+  width: 100%;
   min-height: 365px;
   overflow: hidden;
   border: 8px solid #102321;
@@ -412,4 +413,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
   .aboutStats{grid-template-columns:1fr 1fr}.aboutStats article{padding:15px}.aboutStats b{font-size:20px}.teamVisual{padding:22px}.teamCard{padding:15px}
   .faqVisual{display:none}.contactSection form{padding:18px}.finalBanner{padding:48px 20px}.siteFooter{grid-template-columns:1fr}.siteFooter>div:first-child,.footerBottom{grid-column:auto}
   .socialButtons{grid-template-columns:1fr}.authShell>form{padding:36px 18px}.authShell>form>h2{font-size:25px}
+}
+
+/* Keep the preview inside its column on tablets, without clipping it. */
+@media (min-width: 981px) and (max-width: 1200px) {
+  .heroVisual .dashboardMockup { transform: none; }
 }

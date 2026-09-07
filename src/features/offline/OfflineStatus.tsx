@@ -5,9 +5,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 export function OfflineStatus() {
   const theme=useTheme();
-  const { isOnline, isSynchronizing, pendingCount,lastSyncedCount, synchronize } = useOffline();
-  const visible=!isOnline||isSynchronizing||pendingCount>0||lastSyncedCount>0;
-  const message = !isOnline
+  const { isOnline, isSynchronizing, pendingCount,queueError,lastSyncedCount, synchronize } = useOffline();
+  const visible=!!queueError||!isOnline||isSynchronizing||pendingCount>0||lastSyncedCount>0;
+  const message = queueError ? 'À vérifier : suivi local indisponible' : !isOnline
     ? `Mode hors ligne${pendingCount ? ` • ${pendingCount} opération(s) en attente` : ''}`
     : isSynchronizing
       ? 'Synchronisation en cours…'

@@ -98,7 +98,7 @@ Connexion → Choix de l’entreprise → Choix de la boutique → Tableau de bo
 - performances par boutique et par employé ;
 - produits les plus vendus et les plus rentables ;
 - répartition par moyen de paiement ;
-- export préparé avec Expo Print, Expo Sharing et XLSX.
+- export PDF avec Expo Print et Expo Sharing.
 
 ## Prérequis
 
@@ -144,6 +144,9 @@ La clé `service_role` Supabase et la clé secrète Stripe ne doivent jamais êt
 ## Lancer le projet
 
 ### Expo et Metro
+
+Les scripts npm activent le WebSocket expérimental de Node 20, nécessaire à
+Supabase pendant le rendu serveur Expo. Utilisez ces scripts pour démarrer et exporter le projet.
 
 ```bash
 npm start
@@ -325,14 +328,14 @@ npm run typecheck
 npm run lint
 npm test
 npx expo-doctor
-npx expo export --platform web
+npm run export:web
 ```
 
 État des tests lors de la dernière mise à jour :
 
 ```text
-5 fichiers de tests réussis
-18 tests réussis
+18 fichiers de tests réussis
+83 tests réussis
 0 erreur TypeScript
 0 erreur ESLint
 ```

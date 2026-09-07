@@ -1,3 +1,4 @@
+import { fetchAllRows } from '@/services/supabase/pagination';
 import { supabase } from '@/services/supabase/client';
 import type { CategoryInput, ProductInput, SupplierInput, VariantInput } from '@/schemas/catalog';
 import type { Category, Product, Supplier } from '@/types/database';
@@ -69,7 +70,23 @@ export async function saveSupplier(companyId: string, storeId: string, value: Su
     : supabase.from('suppliers').insert(payload));
   fail(error);
 }
-export async function getSupplierStats(companyId:string,storeId:string){const{data,error}=await supabase.from('purchases').select('supplier_id,total,amount_due,created_at').eq('company_id',companyId).eq('store_id',storeId).order('created_at',{ascending:false}).limit(1000);fail(error);const result:Record<string,{total:number;due:number;lastDelivery:string|null;count:number}>={};for(const row of data??[]){if(!row.supplier_id)continue;const current=result[row.supplier_id]??{total:0,due:0,lastDelivery:null,count:0};current.total+=Number(row.total);current.due+=Number(row.amount_due);current.count+=1;current.lastDelivery??=row.created_at;result[row.supplier_id]=current}return result}
+export async function getSupplierStats(companyId: string, storeId: string) {
+  const purchases = await fetchAllRows((from, to) => supabase.from('purchases')
+    .select('supplier_id,total,amount_due,created_at')
+    .eq('company_id', companyId).eq('store_id', storeId)
+    .order('created_at', { ascending: false }).order('id').range(from, to));
+  const result: Record<string, { total: number; due: number; lastDelivery: string | null; count: number }> = {};
+  for (const row of purchases) {
+    if (!row.supplier_id) continue;
+    const current = result[row.supplier_id] ?? { total: 0, due: 0, lastDelivery: null, count: 0 };
+    current.total += Number(row.total);
+    current.due += Number(row.amount_due);
+    current.count += 1;
+    current.lastDelivery ??= row.created_at;
+    result[row.supplier_id] = current;
+  }
+  return result;
+}
 
 export const PRODUCT_PAGE_SIZE = 30;
 

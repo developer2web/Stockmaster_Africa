@@ -23,7 +23,7 @@ const featureLabels: Record<string, string> = {
   customers_suppliers: 'Clients et fournisseurs',
   advanced_reports: 'Rapports avancés',
   pdf_export: 'Export PDF',
-  excel_export: 'Export Excel',
+  excel_export: 'Import Excel',
   multi_business: 'Multi-entreprises',
   multi_store: 'Multi-boutiques',
   offline_mode: 'Mode hors ligne',

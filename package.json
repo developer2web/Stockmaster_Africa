@@ -61,15 +61,16 @@
     "eslint": "^9.0.0",
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "vite": "8.1.5"
   },
   "scripts": {
-    "start": "expo start",
-    "start:dev-client": "expo start --dev-client",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "web": "expo start --web",
-    "web:lan": "expo start --web --lan",
+    "start": "node --experimental-websocket ./node_modules/expo/bin/cli start",
+    "start:dev-client": "node --experimental-websocket ./node_modules/expo/bin/cli start --dev-client",
+    "android": "node --experimental-websocket ./node_modules/expo/bin/cli run:android",
+    "ios": "node --experimental-websocket ./node_modules/expo/bin/cli run:ios",
+    "web": "node --experimental-websocket ./node_modules/expo/bin/cli start --web",
+    "web:lan": "node --experimental-websocket ./node_modules/expo/bin/cli start --web --lan",
     "web:admin": "vite --config apps/admin-web/vite.config.ts",
     "web:account": "vite --config apps/account-web/vite.config.ts",
     "web:public": "vite --config apps/public-web/vite.config.ts",
@@ -82,7 +83,8 @@
     "test:supabase": "npx supabase test db",
     "db:reset": "npx supabase db reset --local",
     "typecheck": "tsc --noEmit",
-    "doctor": "npx expo-doctor"
+    "doctor": "npx expo-doctor",
+    "export:web": "node --experimental-websocket ./node_modules/expo/bin/cli export --platform web"
   },
   "private": true
 }
