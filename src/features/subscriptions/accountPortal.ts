@@ -3,17 +3,18 @@ import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
+import { siteUrl } from '@/constants/siteLinks';
 import { supabase } from '@/services/supabase/client';
 
 function accountPortalBaseUrl() {
   const configured = process.env.EXPO_PUBLIC_ACCOUNT_WEB_URL?.trim();
   if (configured) return configured;
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:4001`;
+    return siteUrl('account', undefined, window.location);
   }
   const hostUri = Constants.expoConfig?.hostUri ?? Constants.expoGoConfig?.debuggerHost;
   const host = hostUri?.split(':')[0];
-  return host ? `http://${host}:4001` : 'https://account.stockmaster.com';
+  return siteUrl('account', undefined, host ? { hostname: host, protocol: 'http:' } : undefined);
 }
 
 async function edgeMessage(error: unknown) {

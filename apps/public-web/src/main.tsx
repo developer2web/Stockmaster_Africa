@@ -1,18 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { configured, getContext, signIn, supabase } from '../../shared/supabase';
+import { featureLabelsFor, formatBillingMoney, planDisplayName } from '../../../src/constants/commercial';
+import { supportedCountries } from '../../../src/constants/countries';
+import { sharedPublicValue } from '../../../src/constants/publicConfig';
+import { webSiteUrl } from '../../shared/siteConfig';
 import './style.css';
 import '../../shared/ux.css';
 
 type AuthMode = 'login' | 'register';
-type PlanCode = 'basic' | 'pro' | 'business';
-const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL?.trim() || '';
-const legalAddress = import.meta.env.VITE_LEGAL_ADDRESS?.trim() || '';
+type PlanCode = string;
+const supportEmail = sharedPublicValue(import.meta.env, 'SUPPORT_EMAIL');
+const legalAddress = sharedPublicValue(import.meta.env, 'LEGAL_ADDRESS');
 
 const features = [
   { icon: '▦', title: 'Gestion des ventes', text: 'Enregistrez rapidement chaque vente et générez des reçus professionnels.' },
   { icon: '▤', title: 'Gestion du stock', text: 'Suivez vos produits en temps réel et recevez des alertes de rupture.' },
-  { icon: '♙', title: 'Paiements & fournisseurs', text: 'Suivez les encaissements, dépenses et paiements Orange Money.' },
+  { icon: '♙', title: 'Paiements & fournisseurs', text: 'Suivez les encaissements, dépenses et règlements fournisseurs.' },
   { icon: '♧', title: 'Clients & utilisateurs', text: 'Gérez vos clients, fournisseurs et l’accès de vos employés en sécurité.' },
   { icon: '↗', title: 'Rapports & statistiques', text: 'Prenez des décisions éclairées grâce à des rapports détaillés.' },
   { icon: '▦', title: 'Multi-boutiques', text: 'Gérez plusieurs boutiques depuis un seul compte StockMaster.' },
@@ -27,20 +31,6 @@ const solutions = [
 
 type PublicPlan = { code: PlanCode; name: string; price: string; description: string; features: string[] };
 type PublicPlanRow = { code: string; name: string; description: string; monthly_price: number; currency: string; max_businesses: number; max_stores: number; max_employees: number; feature_keys: string[] };
-const fallbackPlans: PublicPlan[] = [
-  { code: 'basic', name: 'Basic', price: '120 000 FG', description: 'Les outils essentiels pour une boutique.', features: ['14 jours d’essai · Orange Money et Stripe', 'Web ordinateur, mobile et mode hors ligne', 'Alertes de stock faible et dettes clients', '1 boutique · 2 employés'] },
-  { code: 'pro', name: 'Pro', price: '300 000 FG', description: 'Pour développer plusieurs points de vente.', features: ['Tout Basic', 'Dettes fournisseurs et clôture avancée', 'Transferts entre boutiques', 'Jusqu’à 5 boutiques · 15 employés'] },
-  { code: 'business', name: 'Business', price: '600 000 FG', description: 'Pour les groupes et contrôles avancés.', features: ['Tout Pro', 'Gestion de plusieurs entreprises', 'Jusqu’à 10 entreprises', '20 boutiques · 100 employés'] },
-];
-
-const formatPlanPrice = (value: number) => `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(value))} FG`;
-
-const commercialFeatures = (code: PlanCode, businesses: number, stores: number, employees: number) => code === 'basic'
-  ? ['14 jours d’essai · Orange Money et Stripe', 'Web ordinateur, mobile et mode hors ligne', 'Alertes de stock faible et dettes clients', `${stores} boutique · ${employees} employés`]
-  : code === 'pro'
-    ? ['Tout Basic', 'Dettes fournisseurs et clôture avancée', 'Transferts entre boutiques', `Jusqu’à ${stores} boutiques · ${employees} employés`]
-    : ['Tout Pro', 'Gestion de plusieurs entreprises', `Jusqu’à ${businesses} entreprises`, `${stores} boutiques · ${employees} employés`];
-
 const useCases = [
   { quote: 'Centraliser les ventes, le stock et la caisse d’une boutique dans un même espace.', name: 'Commerce de proximité', role: 'Exemple d’utilisation', initials: 'CP' },
   { quote: 'Comparer les boutiques et contrôler les accès des équipes selon leur rôle.', name: 'Entreprise multi-boutiques', role: 'Exemple d’utilisation', initials: 'MB' },
@@ -55,21 +45,14 @@ const questions = [
   ['Puis-je changer de plan plus tard ?', 'Oui. Vous pouvez changer de forfait depuis votre espace Compte selon l’évolution de votre activité.'],
 ];
 
-function destinations() {
-  const local = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || /^192\.168\./.test(location.hostname);
-  return {
-    admin: local ? `${location.protocol}//${location.hostname}:4002` : (import.meta.env.VITE_ADMIN_URL || 'https://admin.stockmaster.com'),
-    account: local ? `${location.protocol}//${location.hostname}:4001` : (import.meta.env.VITE_ACCOUNT_URL || 'https://account.stockmaster.com'),
-    app: local ? `${location.protocol}//${location.hostname}:8081` : (import.meta.env.VITE_APP_URL || 'https://app.stockmaster.com'),
-  };
-}
+function destinations() { return { admin: webSiteUrl('admin'), account: webSiteUrl('account'), app: webSiteUrl('app') }; }
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return <a className={`brand ${compact ? 'compact' : ''}`} href="#top" aria-label="StockMaster - Accueil"><span className="brandMark">S<i>↗</i><b>▰</b></span><strong>Stock<span>Master</span></strong></a>;
 }
 
 function DashboardMockup({ compact = false, view = 'dashboard' }: { compact?: boolean; view?: 'dashboard' | 'sales' }) {
-  return <div className={`dashboardMockup ${compact ? 'compact' : ''}`} aria-label="Aperçu du tableau de bord StockMaster">
+  return <div className={`dashboardMockup ${compact ? 'compact' : ''}`} aria-label="Illustration du tableau de bord StockMaster avec données fictives">
     <aside><Brand compact/><span className="mockActive">▦ <i>Tableau de bord</i></span>{['Ventes', 'Produits', 'Clients', 'Paiements', 'Rapports'].map(item => <span key={item}>○ <i>{item}</i></span>)}</aside>
     <div className="mockBody">
       <div className="mockHead"><div><small>Boutique principale</small><b>{view === 'dashboard' ? 'Tableau de bord' : 'Ventes récentes'}</b></div><span>MD</span></div>
@@ -85,8 +68,10 @@ function PhoneMockup({ screen = 'dashboard', tilted = false }: { screen?: 'dashb
 
 function App() {
   const [auth, setAuth] = useState<AuthMode | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<PlanCode>('pro');
-  const [displayPlans, setDisplayPlans] = useState<PublicPlan[]>(fallbackPlans);
+  const [selectedPlan, setSelectedPlan] = useState<PlanCode>('');
+  const [displayPlans, setDisplayPlans] = useState<PublicPlan[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [demoView, setDemoView] = useState<'dashboard' | 'sales'>('dashboard');
   const openAuth = (mode: AuthMode, plan: PlanCode = selectedPlan) => { setSelectedPlan(plan); setAuth(mode); setMenuOpen(false); };
@@ -109,20 +94,27 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!configured) return;
-    void supabase.rpc('list_public_plans').then(({ data }) => {
-      const rows = (data ?? []) as PublicPlanRow[];
-      const supported = rows.filter((plan) => ['basic', 'pro', 'premium', 'business'].includes(String(plan.code)) && String(plan.currency).toUpperCase() === 'GNF');
-      if (!supported.length) return;
-      setDisplayPlans(supported.map((plan) => ({
-        code: (plan.code === 'premium' ? 'business' : plan.code) as PlanCode,
-        name: plan.code === 'premium' ? 'Business' : String(plan.name),
-        description: String(plan.description || 'Offre StockMaster'),
-        price: formatPlanPrice(Number(plan.monthly_price)),
-        features: commercialFeatures((plan.code === 'premium' ? 'business' : plan.code) as PlanCode, Number(plan.max_businesses), Number(plan.max_stores), Number(plan.max_employees)),
-      })));
-    });
-  }, []);
+    let cancelled = false;
+    setCatalogLoading(true);
+    async function loadCatalog() {
+      try {
+        if (!configured) throw new Error('Catalogue indisponible');
+        const { data, error } = await supabase.rpc('list_public_plans');
+        if (error) throw error;
+        const rows = (Array.isArray(data) ? data : []) as PublicPlanRow[];
+        const plans = rows.filter(plan => Number.isFinite(Number(plan.monthly_price)) && Number(plan.monthly_price) >= 0).map(plan => ({
+          code: plan.code, name: planDisplayName(plan.code, plan.name),
+          description: plan.description || 'Offre StockMaster',
+          price: formatBillingMoney(Number(plan.monthly_price), plan.currency),
+          features: [`${plan.max_businesses} entreprise(s)`, `${plan.max_stores} boutique(s) par entreprise`, `${plan.max_employees} employé(s) actif(s) par entreprise`, ...featureLabelsFor(plan.feature_keys ?? [])],
+        }));
+        if (!cancelled) setDisplayPlans(plans);
+      } catch { if (!cancelled) setDisplayPlans([]); }
+      finally { if (!cancelled) setCatalogLoading(false); }
+    }
+    void loadCatalog();
+    return () => { cancelled = true; };
+  }, [catalogAttempt]);
 
   return <div id="top" className="marketingSite">
     <header className="siteHeader"><Brand/><button className="menuButton" onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-controls="public-navigation" aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}>{menuOpen ? '×' : '☰'}</button><nav id="public-navigation" className={menuOpen ? 'open' : ''}>{[['#features','Fonctionnalités'],['#solutions','Solutions'],['#pricing','Tarifs'],['#about','À propos'],['#faq','FAQ']].map(([href, label]) => <a key={href} href={href} onClick={() => setMenuOpen(false)}>{label}</a>)}</nav><div className="headerActions"><button className="linkButton" onClick={() => openAuth('login')}>Se connecter</button><button className="primaryButton small" onClick={() => openAuth('register')}>Commencer</button></div></header>
@@ -135,17 +127,17 @@ function App() {
 
       <section className="trusted"><p>Une plateforme pensée pour les opérations quotidiennes</p><div>{['Ventes', 'Stock', 'Caisse', 'Fournisseurs', 'Rapports'].map((name, index) => <span key={name}><i>{['⌁', '▣', '◎', '♧', '◉'][index]}</i>{name}</span>)}</div></section>
 
-      <section id="features" className="contentSection softSection"><SectionHeading eyebrow="Fonctionnalités" title="Toutes les fonctionnalités dont vous avez besoin, au même endroit" text="StockMaster centralise toutes les opérations de votre entreprise pour vous faire gagner du temps et augmenter vos profits."/><div className="featureGrid">{features.map(feature => <article key={feature.title}><i className="iconBox">{feature.icon}</i><h3>{feature.title}</h3><p>{feature.text}</p><a href="#product">Découvrir <span>→</span></a></article>)}</div><div className="center"><a className="primaryButton" href="#product">Découvrir toutes les fonctionnalités</a></div></section>
+      <section id="features" className="contentSection softSection"><SectionHeading eyebrow="Fonctionnalités" title="Toutes les fonctionnalités dont vous avez besoin, au même endroit" text="Les fonctionnalités disponibles dépendent du forfait choisi et des permissions de chaque utilisateur."/><div className="featureGrid">{features.map(feature => <article key={feature.title}><i className="iconBox">{feature.icon}</i><h3>{feature.title}</h3><p>{feature.text}</p><a href="#product">Découvrir <span>→</span></a></article>)}</div><div className="center"><a className="primaryButton" href="#product">Découvrir toutes les fonctionnalités</a></div></section>
 
-      <section id="product" className="contentSection productOverview"><SectionHeading eyebrow="Aperçu du produit" title="Un logiciel puissant et simple à utiliser" text="Découvrez une interface moderne conçue pour organiser votre travail."/><div className="demoToolbar" role="tablist" aria-label="Vues de la démonstration"><span>Voir dans l’application</span><div><button role="tab" aria-selected={demoView === 'dashboard'} className={demoView === 'dashboard' ? 'selected' : ''} onClick={() => setDemoView('dashboard')}>Tableau de bord</button><button role="tab" aria-selected={demoView === 'sales'} className={demoView === 'sales' ? 'selected' : ''} onClick={() => setDemoView('sales')}>Ventes</button></div></div><div className="desktopFrame"><div className="browserBar"><i/><i/><i/><span>app.stockmaster.com/{demoView === 'dashboard' ? 'dashboard' : 'sales'}</span></div><DashboardMockup compact view={demoView}/></div><div className="demoCaption"><strong>{demoView === 'dashboard' ? 'Une vue claire de votre activité' : 'Une saisie rapide pour chaque vente'}</strong><span>{demoView === 'dashboard' ? 'Suivez les ventes, le stock faible et les indicateurs essentiels dès l’ouverture.' : 'Retrouvez les transactions récentes, les montants et les clients au même endroit.'}</span></div><div className="productBenefits"><article><i>▣</i><h3>Tableau de bord intuitif</h3><p>Vos données clés en un coup d’œil.</p></article><article><i>◉</i><h3>Accès rapide</h3><p>Naviguez entre les fonctionnalités autorisées.</p></article><article><i>♢</i><h3>Mesures de sécurité</h3><p>Authentification, permissions et journalisation sont intégrées.</p></article></div></section>
+      <section id="product" className="contentSection productOverview"><SectionHeading eyebrow="Aperçu du produit" title="Un logiciel puissant et simple à utiliser" text="Découvrez une interface moderne conçue pour organiser votre travail."/><div className="demoToolbar" role="tablist" aria-label="Vues de la démonstration"><span>Illustration · données fictives</span><div><button role="tab" aria-selected={demoView === 'dashboard'} className={demoView === 'dashboard' ? 'selected' : ''} onClick={() => setDemoView('dashboard')}>Tableau de bord</button><button role="tab" aria-selected={demoView === 'sales'} className={demoView === 'sales' ? 'selected' : ''} onClick={() => setDemoView('sales')}>Ventes</button></div></div><div className="desktopFrame"><div className="browserBar"><i/><i/><i/><span>{webSiteUrl('app')}{demoView === 'dashboard' ? '/' : '/sales'}</span></div><DashboardMockup compact view={demoView}/></div><div className="demoCaption"><strong>{demoView === 'dashboard' ? 'Une vue claire de votre activité' : 'Une saisie rapide pour chaque vente'}</strong><span>{demoView === 'dashboard' ? 'Suivez les ventes, le stock faible et les indicateurs essentiels dès l’ouverture.' : 'Retrouvez les transactions récentes, les montants et les clients au même endroit.'}</span></div><div className="productBenefits"><article><i>▣</i><h3>Tableau de bord intuitif</h3><p>Vos données clés en un coup d’œil.</p></article><article><i>◉</i><h3>Accès rapide</h3><p>Naviguez entre les fonctionnalités autorisées.</p></article><article><i>♢</i><h3>Mesures de sécurité</h3><p>Authentification, permissions et journalisation sont intégrées.</p></article></div></section>
 
       <section id="solutions" className="contentSection softSection"><SectionHeading eyebrow="Solutions par commerce" title="Une solution adaptée à chaque type de commerce" text="Que vous soyez une petite boutique ou une grande entreprise, StockMaster s’adapte à vos besoins."/><div className="solutionGrid">{solutions.map(solution => <article key={solution.title}><div className={`solutionArt ${solution.theme}`}><i>{solution.icon}</i><span/><span/><span/></div><div><i className="miniIcon">{solution.icon}</i><h3>{solution.title}</h3><p>{solution.text}</p></div></article>)}</div><div className="center"><button className="primaryButton" onClick={() => openAuth('register')}>Voir toutes les solutions</button></div></section>
 
-      <section className="mobileFeature contentSection"><div><span className="sectionEyebrow">Application mobile Expo 54</span><h2>Gérez votre commerce depuis votre téléphone</h2><p>L’application mobile StockMaster couvre les ventes, le stock, la caisse et les opérations autorisées de chaque employé.</p><ul><li>Interface adaptée aux téléphones</li><li>Accès selon le rôle et les permissions</li><li>File hors ligne pour les opérations compatibles</li><li>Synchronisation après le retour du réseau</li></ul><p className="pricingNote">La disponibilité sur les boutiques d’applications sera annoncée uniquement après publication effective.</p></div><div className="phoneStage"><PhoneMockup/><PhoneMockup screen="sales" tilted/></div></section>
+      <section className="mobileFeature contentSection"><div><span className="sectionEyebrow">Application mobile</span><h2>Gérez votre commerce depuis votre téléphone</h2><p>L’application mobile StockMaster couvre les ventes, le stock, la caisse et les opérations autorisées de chaque employé.</p><ul><li>Interface adaptée aux téléphones</li><li>Accès selon le rôle et les permissions</li><li>File hors ligne pour les opérations compatibles</li><li>Synchronisation après le retour du réseau</li></ul><p className="pricingNote">La disponibilité sur les boutiques d’applications sera annoncée uniquement après publication effective.</p></div><div className="phoneStage"><PhoneMockup/><PhoneMockup screen="sales" tilted/></div></section>
 
-      <section id="pricing" className="contentSection softSection"><SectionHeading eyebrow="Tarifs" title="Des offres adaptées à votre activité" text="Un tarif unique en franc guinéen, identique sur tous les espaces StockMaster."/><div className="pricingGrid">{displayPlans.map(plan => <article className={plan.code === 'pro' ? 'featured' : ''} key={plan.code}>{plan.code === 'pro' && <span className="popular">Offre intermédiaire</span>}<h3>{plan.name}</h3><p>{plan.description}</p><strong>{plan.price}<small>/ mois</small></strong><ul>{plan.features.map(feature => <li key={feature}>✓ {feature}</li>)}</ul><button className={plan.code === 'pro' ? 'primaryButton' : 'secondaryButton'} onClick={() => openAuth('register', plan.code)}>Choisir {plan.name}</button></article>)}</div><p className="pricingNote">Les abonnements sont facturés en FG. Les opérations de votre entreprise peuvent conserver leur devise de travail.</p></section>
+      <section id="pricing" className="contentSection softSection"><SectionHeading eyebrow="Tarifs" title="Des offres adaptées à votre activité" text="Les prix et les fonctionnalités proviennent du catalogue utilisé pour votre abonnement."/><div className="pricingGrid">{displayPlans.map(plan => <article className={plan.code === 'pro' ? 'featured' : ''} key={plan.code}>{plan.code === 'pro' && <span className="popular">Offre intermédiaire</span>}<h3>{plan.name}</h3><p>{plan.description}</p><strong>{plan.price}<small>/ mois</small></strong><ul>{plan.features.slice(0,3).map(feature => <li key={feature}>✓ {feature}</li>)}</ul><details><summary>Fonctionnalités incluses</summary><ul>{plan.features.slice(3).map(feature => <li key={feature}>✓ {feature}</li>)}</ul></details><button className={plan.code === 'pro' ? 'primaryButton' : 'secondaryButton'} onClick={() => openAuth('register', plan.code)}>Choisir {plan.name}</button></article>)}</div>{catalogLoading && <p role="status">Chargement des offres…</p>}{!catalogLoading && !displayPlans.length && <div role="status"><p>Les offres sont momentanément indisponibles. Réessayez pour consulter les tarifs à jour.</p><button className="secondaryButton" onClick={() => setCatalogAttempt(attempt => attempt + 1)}>Réessayer</button></div>}<p className="pricingNote">Les abonnements sont facturés dans la devise affichée pour chaque offre. Les opérations de votre entreprise peuvent conserver leur devise de travail.</p></section>
 
-      <section className="contentSection"><SectionHeading eyebrow="Cas d’usage" title="Une organisation adaptée à votre activité" text="Exemples de besoins couverts par StockMaster."/><div className="testimonialGrid">{useCases.map(item => <article key={item.name}><blockquote>{item.quote}</blockquote><div className="person"><i>{item.initials}</i><span><b>{item.name}</b><small>{item.role}</small></span></div></article>)}</div></section>
+      <section className="contentSection"><SectionHeading eyebrow="Cas d’usage" title="Une organisation adaptée à votre activité" text="Exemples de besoins couverts selon le forfait et les permissions."/><div className="testimonialGrid">{useCases.map(item => <article key={item.name}><blockquote>{item.quote}</blockquote><div className="person"><i>{item.initials}</i><span><b>{item.name}</b><small>{item.role}</small></span></div></article>)}</div></section>
 
       <section id="about" className="contentSection aboutSection"><SectionHeading eyebrow="À propos de StockMaster" title="Notre mission : mieux organiser votre commerce" text="StockMaster est conçu pour accompagner la gestion quotidienne des entreprises africaines."/><div className="aboutGrid"><ul><li>Gestion multi-boutiques</li><li>Accès selon les rôles</li><li>Traçabilité des opérations</li><li>Assistance et documentation</li></ul><div className="teamVisual"><div className="teamCard"><i>SM</i><span><b>Une solution proche du terrain</b><small>Afrique francophone</small></span></div><p>Nous développons des outils adaptés aux besoins concrets des commerçants.</p></div></div><div className="aboutStats"><article><b>3</b><span>Espaces web spécialisés</span></article><article><b>2</b><span>Moyens de paiement proposés</span></article><article><b>Hors ligne</b><span>File de synchronisation mobile</span></article><article><b>Par rôle</b><span>Permissions configurables</span></article></div></section>
 
@@ -158,7 +150,7 @@ function App() {
 
     <footer className="siteFooter"><div><Brand/><p>La plateforme de gestion pour les commerces et leurs équipes.</p></div><div><b>Produit</b><a href="#features">Fonctionnalités</a><a href="#pricing">Tarifs</a><a href="#product">Application mobile</a></div><div><b>Informations</b><a href="/legal-notice/">Mentions légales</a><a href="/terms/">Conditions d’utilisation</a><a href="/privacy/">Confidentialité</a></div><div><b>Aide</b><a href="#faq">FAQ</a>{supportEmail && <a href={`mailto:${supportEmail}`}>Support</a>}<a href="/account-deletion/">Supprimer un compte</a></div><div className="footerBottom"><span>© 2026 StockMaster. Tous droits réservés.</span><span>Informations légales à compléter avant publication.</span></div></footer>
 
-    {auth && <AuthModal mode={auth} initialPlan={selectedPlan} close={() => setAuth(null)} switchMode={setAuth}/>} 
+    {auth && <AuthModal mode={auth} initialPlan={selectedPlan} plans={displayPlans} close={() => setAuth(null)} switchMode={setAuth}/>}
   </div>;
 }
 
@@ -180,7 +172,7 @@ function ContactSection() {
   return <section id="contact" className="contentSection contactSection"><div><span className="sectionEyebrow">Contactez-nous</span><h2>Nous sommes là pour vous accompagner</h2><p>Une question, un besoin spécifique ? Notre équipe est à votre écoute.</p><ul><li><i>✉</i><span><b>Email</b>{supportEmail}</span></li>{legalAddress && <li><i>⌖</i><span><b>Adresse</b>{legalAddress}</span></li>}<li><i>◷</i><span><b>Réponse</b>Selon les horaires et la priorité de la demande</span></li></ul></div><form onSubmit={submit}><div><label>Nom complet<input required value={form.name} onChange={event => update('name', event.target.value)} placeholder="Votre nom"/></label><label>Email<input type="email" required value={form.email} onChange={event => update('email', event.target.value)} placeholder="vous@entreprise.com"/></label></div><div><label>Téléphone<input value={form.phone} onChange={event => update('phone', event.target.value)} placeholder="Facultatif"/></label><label>Sujet<input required value={form.subject} onChange={event => update('subject', event.target.value)} placeholder="Comment pouvons-nous aider ?"/></label></div><label>Votre message<textarea required value={form.message} onChange={event => update('message', event.target.value)} placeholder="Décrivez votre besoin..."/></label><small>En envoyant ce message, vous acceptez que les informations saisies soient utilisées pour répondre à votre demande.</small>{sent && <p className="formSuccess">Votre application de messagerie a été ouverte avec le message préparé.</p>}<button className="primaryButton">Envoyer le message →</button></form></section>;
 }
 
-function AuthModal({ mode, initialPlan, close, switchMode }: { mode: AuthMode; initialPlan: PlanCode; close: () => void; switchMode: (mode: AuthMode) => void }) {
+function AuthModal({ mode, initialPlan, plans, close, switchMode }: { mode: AuthMode; initialPlan: PlanCode; plans: PublicPlan[]; close: () => void; switchMode: (mode: AuthMode) => void }) {
   const [values, setValues] = useState({ fullName: '', companyName: '', storeName: '', countryCode: 'GN', email: '', password: '', confirm: '', plan: initialPlan });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -204,14 +196,14 @@ function AuthModal({ mode, initialPlan, close, switchMode }: { mode: AuthMode; i
         if (values.password.length < 10 || !/[A-Z]/.test(values.password) || !/[a-z]/.test(values.password) || !/[0-9]/.test(values.password) || !/[^A-Za-z0-9]/.test(values.password)) throw new Error('Le mot de passe doit contenir au moins 10 caractères, avec majuscule, minuscule, chiffre et caractère spécial.');
         if (values.password !== values.confirm) throw new Error('Les mots de passe ne correspondent pas.');
         const links = destinations();
-        const { data, error: signUpError } = await supabase.auth.signUp({ email: values.email.trim().toLowerCase(), password: values.password, options: { emailRedirectTo: `${links.app}/(auth)/complete-profile`, data: { full_name: values.fullName.trim(), company_name: values.companyName.trim(), store_name: values.storeName.trim(), country_code: values.countryCode, selected_plan: values.plan === 'business' ? 'premium' : values.plan } } });
+        const { data, error: signUpError } = await supabase.auth.signUp({ email: values.email.trim().toLowerCase(), password: values.password, options: { emailRedirectTo: `${links.app}/(auth)/complete-profile`, data: { full_name: values.fullName.trim(), company_name: values.companyName.trim(), store_name: values.storeName.trim(), country_code: values.countryCode, selected_plan: values.plan || undefined } } });
         if (signUpError) throw signUpError;
         if (data.user?.identities?.length === 0) throw new Error('Cette adresse email possède déjà un compte StockMaster.');
         if (data.session) {
           const { error: setupError } = await supabase.rpc('bootstrap_company', { p_company_name: values.companyName.trim(), p_store_name: values.storeName.trim(), p_country_code: values.countryCode });
           if (setupError) throw setupError;
           location.assign(links.app);
-        } else setSuccess(`Email envoyé à ${values.email}. Confirmez votre adresse pour démarrer votre essai gratuit de 14 jours, sans carte bancaire.`);
+        } else setSuccess(`Email envoyé à ${values.email}. Confirmez votre adresse pour découvrir les offres et les conditions d’essai disponibles pour votre compte.`);
       }
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Opération impossible. Réessayez.'); }
     finally { setBusy(false); }
@@ -226,7 +218,7 @@ function AuthModal({ mode, initialPlan, close, switchMode }: { mode: AuthMode; i
     setBusy(false);
   }
 
-  return <div className="authBackdrop" onMouseDown={event => event.target === event.currentTarget && close()}><section className="authShell"><aside><Brand/><div><span>BIENVENUE SUR STOCKMASTER</span><h2>Gérez mieux.<br/>Grandissez plus vite.</h2><p>Connectez-vous à votre espace de gestion.</p><ul><li>✓ Accès par rôle</li><li>✓ Journal de sécurité</li>{supportEmail && <li>✓ Assistance par email</li>}</ul></div><DashboardMockup compact/></aside><form onSubmit={submit}><button type="button" className="modalClose" onClick={close} aria-label="Fermer">×</button><span className="sectionEyebrow">{mode === 'login' ? 'Ravi de vous revoir' : 'CRÉATION DE COMPTE'}</span><h2>{mode === 'login' ? 'Connexion à votre compte' : 'Créer votre espace'}</h2><p>{mode === 'login' ? 'Accédez à votre environnement StockMaster.' : 'Les offres et l’éventuel essai seront confirmés avant activation.'}</p>{mode === 'register' && <div className="authGrid"><label>Nom complet<input required value={values.fullName} onChange={event => update('fullName', event.target.value)} placeholder="Votre nom"/></label><label>Entreprise<input required value={values.companyName} onChange={event => update('companyName', event.target.value)} placeholder="Nom de l’entreprise"/></label><label>Première boutique<input required value={values.storeName} onChange={event => update('storeName', event.target.value)} placeholder="Nom de la boutique"/></label><label>Pays<select value={values.countryCode} onChange={event => update('countryCode', event.target.value)}><option value="GN">Guinée - GNF</option><option value="SN">Sénégal - XOF</option><option value="CI">Côte d’Ivoire - XOF</option><option value="ML">Mali - XOF</option></select></label><label className="full">Forfait souhaité<select value={values.plan} onChange={event => update('plan', event.target.value)}><option value="basic">Basic</option><option value="pro">Pro</option><option value="business">Business</option></select></label></div>}<label>Email<input type="email" required value={values.email} onChange={event => update('email', event.target.value)} placeholder="vous@entreprise.com"/></label><label>Mot de passe<div className="passwordField"><input type={showPassword ? 'text' : 'password'} required value={values.password} onChange={event => update('password', event.target.value)} placeholder="10 caractères minimum"/><button type="button" onClick={() => setShowPassword(value => !value)}>{showPassword ? 'Masquer' : 'Voir'}</button></div></label>{mode === 'register' && <><label>Confirmer le mot de passe<input type={showPassword ? 'text' : 'password'} required value={values.confirm} onChange={event => update('confirm', event.target.value)} placeholder="Répétez le mot de passe"/></label><label className="legalConsent"><input type="checkbox" required checked={accepted} onChange={event => setAccepted(event.target.checked)}/><span>J’accepte les <a href="/terms/" target="_blank">conditions d’utilisation</a> et j’ai lu la <a href="/privacy/" target="_blank">politique de confidentialité</a>.</span></label></>}{mode === 'login' && <button className="forgotButton" type="button" onClick={() => void resetPassword()}>Mot de passe oublié ?</button>}{error && <p className="formError">{error}</p>}{success && <p className="formSuccess">{success}</p>}<button className="primaryButton authSubmit" disabled={busy || !!success || (mode === 'register' && !accepted)}>{busy ? 'Traitement en cours…' : mode === 'login' ? 'Se connecter →' : 'Créer mon compte →'}</button><button className="authSwitch" type="button" onClick={() => { setError(''); setSuccess(''); switchMode(mode === 'login' ? 'register' : 'login'); }}>{mode === 'login' ? 'Pas encore de compte ? Créer un compte' : 'J’ai déjà un compte - Me connecter'}</button></form></section></div>;
+  return <div className="authBackdrop" onMouseDown={event => event.target === event.currentTarget && close()}><section className="authShell"><aside><Brand/><div><span>BIENVENUE SUR STOCKMASTER</span><h2>Gérez mieux.<br/>Grandissez plus vite.</h2><p>Connectez-vous à votre espace de gestion.</p><ul><li>✓ Accès par rôle</li><li>✓ Journal de sécurité</li>{supportEmail && <li>✓ Assistance par email</li>}</ul></div><DashboardMockup compact/></aside><form onSubmit={submit}><button type="button" className="modalClose" onClick={close} aria-label="Fermer">×</button><span className="sectionEyebrow">{mode === 'login' ? 'Ravi de vous revoir' : 'CRÉATION DE COMPTE'}</span><h2>{mode === 'login' ? 'Connexion à votre compte' : 'Créer votre espace'}</h2><p>{mode === 'login' ? 'Accédez à votre environnement StockMaster.' : 'Les offres et l’éventuel essai seront confirmés avant activation.'}</p>{mode === 'register' && <div className="authGrid"><label>Nom complet<input required value={values.fullName} onChange={event => update('fullName', event.target.value)} placeholder="Votre nom"/></label><label>Entreprise<input required value={values.companyName} onChange={event => update('companyName', event.target.value)} placeholder="Nom de l’entreprise"/></label><label>Première boutique<input required value={values.storeName} onChange={event => update('storeName', event.target.value)} placeholder="Nom de la boutique"/></label><label>Pays<select value={values.countryCode} onChange={event => update('countryCode', event.target.value)}>{supportedCountries.map(country => <option key={country.code} value={country.code}>{country.name} - {country.currency}</option>)}</select></label><label className="full">Forfait souhaité<select value={values.plan} onChange={event => update('plan', event.target.value)}><option value="">Choisir plus tard</option>{plans.map(plan => <option key={plan.code} value={plan.code}>{plan.name}</option>)}</select></label></div>}<label>Email<input type="email" required value={values.email} onChange={event => update('email', event.target.value)} placeholder="vous@entreprise.com"/></label><label>Mot de passe<div className="passwordField"><input type={showPassword ? 'text' : 'password'} required value={values.password} onChange={event => update('password', event.target.value)} placeholder="10 caractères minimum"/><button type="button" onClick={() => setShowPassword(value => !value)}>{showPassword ? 'Masquer' : 'Voir'}</button></div></label>{mode === 'register' && <><label>Confirmer le mot de passe<input type={showPassword ? 'text' : 'password'} required value={values.confirm} onChange={event => update('confirm', event.target.value)} placeholder="Répétez le mot de passe"/></label><label className="legalConsent"><input type="checkbox" required checked={accepted} onChange={event => setAccepted(event.target.checked)}/><span>J’accepte les <a href="/terms/" target="_blank">conditions d’utilisation</a> et j’ai lu la <a href="/privacy/" target="_blank">politique de confidentialité</a>.</span></label></>}{mode === 'login' && <button className="forgotButton" type="button" onClick={() => void resetPassword()}>Mot de passe oublié ?</button>}{error && <p className="formError">{error}</p>}{success && <p className="formSuccess">{success}</p>}<button className="primaryButton authSubmit" disabled={busy || !!success || (mode === 'register' && !accepted)}>{busy ? 'Traitement en cours…' : mode === 'login' ? 'Se connecter →' : 'Créer mon compte →'}</button><button className="authSwitch" type="button" onClick={() => { setError(''); setSuccess(''); switchMode(mode === 'login' ? 'register' : 'login'); }}>{mode === 'login' ? 'Pas encore de compte ? Créer un compte' : 'J’ai déjà un compte - Me connecter'}</button></form></section></div>;
 }
 
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

@@ -31,7 +31,7 @@ Ces vérifications ne couvrent pas toutes les routes et ne remplacent pas un ess
 ## Améliorations conseillées, par priorité
 
 1. **Faire essayer les tâches courantes en boutique.** Suivre le [protocole utilisateurs](essai-utilisateurs-simplification.md) avec cinq personnes : créer un produit, vendre, retrouver un crédit, consulter la caisse. Corriger les points où elles demandent de l’aide.
-2. **Alléger Rapports.** Afficher d’abord les indicateurs essentiels et replier les filtres Employé/Produit/Catégorie ainsi que les classements dans des détails accessibles sur demande. Les nombreuses cartes restent visuellement longues sur téléphone.
+2. **Rapports allégés.** La vue globale présente désormais ventes, dépenses et bénéfice net en premier. Le choix de période est compact ; les filtres Employé/Produit/Catégorie et les détails avec classements sont repliables. Les filtres actifs restent indiqués après repli et peuvent être effacés. L’export PDF se trouve après les résultats. Vérifier en boutique que cette organisation réduit les hésitations.
 3. **Raccourcir la page publique.** Sa capture à 320 pixels mesure environ 14 000 pixels de haut. Regrouper les arguments répétitifs et garder une démonstration, les bénéfices principaux, les tarifs et un appel à l’action clair.
 4. **Valider les appareils réels.** Tester petit téléphone Android, iPhone, paysage, clavier ouvert et texte agrandi ; vérifier spécialement la saisie des quantités et l’accès à la validation.
 

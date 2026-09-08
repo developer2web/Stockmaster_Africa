@@ -1,1 +1,2 @@
-import{defineConfig}from'vite';export default defineConfig({root:'apps/public-web',cacheDir:'../../node_modules/.vite-public-web',envDir:'../..',envPrefix:['VITE_','EXPO_PUBLIC_'],build:{outDir:'../../dist/public-web',emptyOutDir:true}});
+import { webConfig } from '../shared/viteConfig';
+export default webConfig('public');

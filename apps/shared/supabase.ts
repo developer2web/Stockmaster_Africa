@@ -1,7 +1,8 @@
+import { sharedPublicValue } from '../../src/constants/publicConfig';
 import { createClient } from '@supabase/supabase-js';
 
-const url = import.meta.env.VITE_SUPABASE_URL || import.meta.env.EXPO_PUBLIC_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const url = sharedPublicValue(import.meta.env, 'SUPABASE_URL');
+const anonKey = sharedPublicValue(import.meta.env, 'SUPABASE_ANON_KEY');
 const projectRef = (() => {
   try { return url ? new URL(url).hostname.split('.')[0] : 'missing'; }
   catch { return 'missing'; }

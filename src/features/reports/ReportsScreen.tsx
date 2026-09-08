@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Card, Chip, HelperText, Icon, ProgressBar, Text, TextInput, useTheme } from 'react-native-paper';
 import { SelectField, type SelectOption } from '@/components/forms/SelectField';
 import { AdminPage } from '@/components/ui/AdminPage';
@@ -42,6 +42,14 @@ function MetricCard({ label, value, icon, color }: { label: string; value: strin
   return <Card mode="contained" style={[styles.metricCard, { backgroundColor: theme.colors.surface }]}><Card.Content style={styles.metricContent}><View style={[styles.metricIcon, { backgroundColor: `${color}1F` }]}><Icon source={icon} size={24} color={color} /></View><Text style={{ color: theme.colors.onSurfaceVariant }}>{label}</Text><Text variant="titleLarge" style={styles.bold}>{value}</Text></Card.Content></Card>;
 }
 
+function ReportDisclosure({ label, expanded, onPress }: { label: string; expanded: boolean; onPress: () => void }) {
+  const theme = useTheme();
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} aria-expanded={expanded} accessibilityState={{ expanded }} onPress={onPress} style={({ pressed }) => [styles.disclosure, { borderColor: theme.colors.outlineVariant, opacity: pressed ? 0.7 : 1 }]}>
+    <Text style={[styles.disclosureLabel, { color: theme.colors.primary }]}>{label}</Text>
+    <Icon source={expanded ? 'chevron-up' : 'chevron-down'} size={24} color={theme.colors.primary} />
+  </Pressable>;
+}
+
 function Ranking({ title, rows, valueKey = 'gross_profit' }: { title: string; rows: ReportMetricRow[]; valueKey?: 'gross_profit' | 'amount' | 'revenue' }) {
   const { formatMoney: money } = useCurrency();
   const max = Math.max(...rows.map((row) => Number(row[valueKey] ?? 0)), 1);
@@ -66,6 +74,8 @@ export default function ReportsScreen() {
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [productId, setProductId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
   const dates = useMemo(() => preset === 'custom' ? { start: startDate, end: endDate } : range(preset), [preset, startDate, endDate]);
@@ -78,6 +88,12 @@ export default function ReportsScreen() {
   const data = report.data;
   const cashBalance = cash.data ?? 0;
   const periodLabel = `${dates.start} au ${dates.end}`;
+  const activeFilters = [
+    employeeId && `Employé : ${filters.data?.employees.find(item => item.id === employeeId)?.name ?? 'sélectionné'}`,
+    productId && `Produit : ${filters.data?.products.find(item => item.id === productId)?.name ?? 'sélectionné'}`,
+    categoryId && `Catégorie : ${filters.data?.categories.find(item => item.id === categoryId)?.name ?? 'sélectionnée'}`,
+  ].filter(Boolean);
+  const clearFilters = () => { setEmployeeId(null); setProductId(null); setCategoryId(null); };
   const runExport = async () => {
     if (!data) return;
     if (!canUseFeature('pdf_export')) {
@@ -100,10 +116,9 @@ export default function ReportsScreen() {
       setExporting(false);
     }
   };
-  const periodCards = [
-    ['today', 'Rapport journalier', 'calendar-today', '#1971C2'],
-    ['month', 'Rapport mensuel', 'calendar-month-outline', '#7048E8'],
-    ['year', 'Rapport annuel', 'calendar-range', '#084B50'],
+  const periods = [
+    ['today', 'Aujourd’hui'], ['week', 'Semaine'], ['month', 'Mois'],
+    ['year', 'Année'], ['custom', 'Personnalisée'],
   ] as const;
 
   if (employee) {
@@ -130,28 +145,60 @@ export default function ReportsScreen() {
   return (
     <PermissionGuard permission={['daily_reports.read', 'monthly_reports.read']}>
       <AdminPage title="Bilan des activités">
-        <View style={styles.periodGrid}>
-          {periodCards.map(([value, label, icon, color]) => <Card key={value} mode={preset === value ? 'contained' : 'outlined'} onPress={() => setPreset(value)} style={[styles.periodCard, preset === value && { backgroundColor: `${color}20`, borderColor: color }]}><Card.Content style={styles.periodContent}><Icon source={icon} size={27} color={color} /><Text variant="titleMedium" style={[styles.bold, { color }]}>{label}</Text>{preset === value && <Icon source="check-circle" size={21} color={color} />}</Card.Content></Card>)}
-        </View>
         <Card mode="contained" style={{ backgroundColor: theme.colors.surface }}>
           <Card.Content style={styles.filters}>
-            <View style={styles.chips}><Chip selected={preset === 'week'} onPress={() => setPreset('week')}>Cette semaine</Chip><Chip selected={preset === 'custom'} onPress={() => setPreset('custom')}>Période personnalisée</Chip></View>
+            <Text variant="titleMedium" style={styles.bold}>Période du rapport</Text>
+            <View style={styles.chips}>
+              {periods.map(([value, label]) => <Chip key={value} selected={preset === value} accessibilityState={{ selected: preset === value }} onPress={() => setPreset(value)}>{label}</Chip>)}
+            </View>
             {preset === 'custom' && <View style={styles.grid}><TextInput style={styles.field} mode="outlined" label="Début (AAAA-MM-JJ)" value={startDate} onChangeText={setStartDate} /><TextInput style={styles.field} mode="outlined" label="Fin (AAAA-MM-JJ)" value={endDate} onChangeText={setEndDate} /></View>}
             {!validDates && <HelperText type="error" visible>Entrez une période valide au format AAAA-MM-JJ.</HelperText>}
-            {advancedReports && <View style={styles.grid}><View style={styles.field}><SelectField label="Employé" value={employeeId} options={options(filters.data?.employees ?? [], 'Tous les employés')} onChange={setEmployeeId} /></View><View style={styles.field}><SelectField label="Produit" value={productId} options={options(filters.data?.products ?? [], 'Tous les produits')} onChange={setProductId} /></View><View style={styles.field}><SelectField label="Catégorie" value={categoryId} options={options(filters.data?.categories ?? [], 'Toutes les catégories')} onChange={setCategoryId} /></View></View>}
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Du {dates.start} au {dates.end}</Text>
+            {advancedReports && <>
+              <ReportDisclosure label={`Filtres avancés${activeFilters.length ? ` (${activeFilters.length})` : ''}`} expanded={filtersOpen} onPress={() => setFiltersOpen(open => !open)} />
+              {activeFilters.length > 0 && <View style={styles.filters}>
+                <Text>{activeFilters.join(' • ')}</Text>
+                <AppButton mode="text" icon="filter-remove-outline" onPress={clearFilters}>Effacer les filtres</AppButton>
+              </View>}
+              {filtersOpen && <View style={styles.grid}>
+                <View style={styles.field}><SelectField label="Employé" value={employeeId} options={options(filters.data?.employees ?? [], 'Tous les employés')} onChange={setEmployeeId} /></View>
+                <View style={styles.field}><SelectField label="Produit" value={productId} options={options(filters.data?.products ?? [], 'Tous les produits')} onChange={setProductId} /></View>
+                <View style={styles.field}><SelectField label="Catégorie" value={categoryId} options={options(filters.data?.categories ?? [], 'Toutes les catégories')} onChange={setCategoryId} /></View>
+              </View>}
+            </>}
           </Card.Content>
         </Card>
-        {advancedReports ? <View style={styles.chips}>{([{ value: 'global', label: 'Global', icon: 'view-dashboard-outline' }, { value: 'sales', label: 'Ventes', icon: 'cart-outline' }, { value: 'expenses', label: 'Dépenses', icon: 'cash-minus' }] as const).map(tab => <Chip key={tab.value} selected={view === tab.value} icon={tab.icon} onPress={() => setView(tab.value)}>{tab.label}</Chip>)}</View> : <FeatureGate feature="advanced_reports" label="Rapports détaillés" />}
-        {data && <FeatureGate feature="pdf_export" label="Export PDF des rapports"><Card mode="contained" style={{ backgroundColor: theme.colors.surface }}><Card.Content style={styles.exportRow}><View style={styles.grow}><Text variant="titleMedium" style={styles.bold}>Exporter le rapport détaillé</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>Document PDF personnalisé, prêt à imprimer ou partager.</Text></View><AppButton mode="outlined" icon="file-pdf-box" loading={exporting} disabled={exporting} onPress={() => void runExport()}>Générer le PDF</AppButton></Card.Content></Card></FeatureGate>}
-        {!!exportError && <HelperText type="error" visible>{exportError}</HelperText>}
+        {advancedReports ? <View style={styles.chips}>{([{ value: 'global', label: 'Global', icon: 'view-dashboard-outline' }, { value: 'sales', label: 'Ventes', icon: 'cart-outline' }, { value: 'expenses', label: 'Dépenses', icon: 'cash-minus' }] as const).map(tab => <Chip key={tab.value} selected={view === tab.value} icon={tab.icon} onPress={() => setView(tab.value)}>{tab.label}</Chip>)}</View> : null}
         {(report.isLoading || filters.isLoading) && <LoadingScreen label="Calcul du rapport…" />}
         {!!filters.error && <HelperText type="error" visible>{filters.error.message}</HelperText>}
         {!!report.error && <HelperText type="error" visible>{report.error.message}</HelperText>}
         {data && !advancedReports && <View style={styles.metricGrid}><MetricCard label="Total des ventes" value={money(data.revenue)} icon="cart-check" color="#1971C2" /><MetricCard label="Nombre de ventes" value={String(data.saleCount)} icon="receipt-text-outline" color="#084B50" /><MetricCard label="Quantité vendue" value={formatQuantity(data.quantitySold)} icon="counter" color="#7048E8" /><MetricCard label="Dépenses" value={money(data.expenses)} icon="cash-minus" color="#C92A2A" /></View>}
-        {data && advancedReports && view === 'global' && <><View style={styles.metricGrid}><MetricCard label="Revenus" value={money(data.revenue)} icon="cash-multiple" color="#1971C2" /><MetricCard label="Bénéfice brut" value={money(data.grossProfit)} icon="trending-up" color="#084B50" /><MetricCard label="Dépenses" value={money(data.expenses)} icon="cash-minus" color="#C92A2A" /><MetricCard label="Bénéfice net" value={money(data.netProfit)} icon="chart-line" color={data.netProfit >= 0 ? '#084B50' : '#C92A2A'} /><MetricCard label="Valeur du stock" value={money(data.stockValue)} icon="warehouse" color="#E67700" /><MetricCard label="Solde de caisse" value={money(cashBalance)} icon="wallet-outline" color="#7048E8" /><MetricCard label="Valeur de la boutique" value={money(data.stockValue + cashBalance)} icon="store-check-outline" color="#084B50" /></View><Card mode="contained" style={{ backgroundColor: data.netProfit >= 0 ? theme.colors.primaryContainer : theme.colors.errorContainer }}><Card.Content style={styles.netProfit}><Icon source={data.netProfit >= 0 ? 'arrow-up-circle' : 'arrow-down-circle'} size={34} color={data.netProfit >= 0 ? theme.colors.primary : theme.colors.error} /><View style={styles.grow}><Text>Bénéfice net de la période</Text><Text variant="headlineMedium" style={styles.bold}>{money(data.netProfit)}</Text></View><Chip>{variation(data.netProfit, data.previous.netProfit)}</Chip></Card.Content></Card><Card mode="outlined"><Card.Content><Text style={{ color: theme.colors.onSurfaceVariant }}>Valeur de la boutique = valeur d’achat du stock restant + solde de caisse. Il s’agit d’un indicateur opérationnel, pas d’une valorisation commerciale de l’entreprise.</Text></Card.Content></Card><View style={styles.twoColumns}><Ranking title="Produits les plus rentables" rows={data.topProducts} /><Ranking title="Performance des boutiques" rows={data.stores} valueKey="revenue" /></View></>}
-        {data && advancedReports && view === 'sales' && <><View style={styles.metricGrid}><MetricCard label="Total des ventes" value={money(data.revenue)} icon="cart-check" color="#1971C2" /><MetricCard label="Coût des marchandises" value={money(data.costOfGoods)} icon="package-variant" color="#E67700" /><MetricCard label="Quantité vendue" value={formatQuantity(data.quantitySold)} icon="counter" color="#7048E8" /><MetricCard label="Nombre de ventes" value={String(data.saleCount)} icon="receipt-text-outline" color="#084B50" /></View><View style={styles.twoColumns}><Ranking title="Moyens de paiement" rows={data.paymentMethods} valueKey="amount" /><Ranking title="Performance des employés" rows={data.employees} valueKey="revenue" /></View></>}
+        {data && advancedReports && view === 'global' && <>
+          <View style={styles.metricGrid}>
+            <MetricCard label="Total des ventes" value={money(data.revenue)} icon="cash-multiple" color="#1971C2" />
+            <MetricCard label="Dépenses" value={money(data.expenses)} icon="cash-minus" color="#C92A2A" />
+            <MetricCard label="Bénéfice net" value={money(data.netProfit)} icon="chart-line" color={data.netProfit >= 0 ? '#084B50' : '#C92A2A'} />
+          </View>
+          <Text style={{ color: theme.colors.onSurfaceVariant }}>Bénéfice net : {variation(data.netProfit, data.previous.netProfit)} par rapport à la période précédente.</Text>
+          <ReportDisclosure label="Détails et classements" expanded={detailsOpen} onPress={() => setDetailsOpen(open => !open)} />
+          {detailsOpen && <>
+            <View style={styles.metricGrid}>
+              <MetricCard label="Bénéfice brut" value={money(data.grossProfit)} icon="trending-up" color="#084B50" />
+              <MetricCard label="Valeur du stock" value={money(data.stockValue)} icon="warehouse" color="#E67700" />
+              <MetricCard label="Solde de caisse" value={money(cashBalance)} icon="wallet-outline" color="#7048E8" />
+              <MetricCard label="Valeur de la boutique" value={money(data.stockValue + cashBalance)} icon="store-check-outline" color="#084B50" />
+            </View>
+            <Text style={{ color: theme.colors.onSurfaceVariant }}>Valeur de la boutique = valeur d’achat du stock restant + solde de caisse. Il s’agit d’un indicateur opérationnel, pas d’une valorisation commerciale de l’entreprise.</Text>
+            <View style={styles.twoColumns}><Ranking title="Produits les plus rentables" rows={data.topProducts} /><Ranking title="Performance des boutiques" rows={data.stores} valueKey="revenue" /></View>
+          </>}
+        </>}
+        {data && advancedReports && view === 'sales' && <><View style={styles.metricGrid}><MetricCard label="Total des ventes" value={money(data.revenue)} icon="cart-check" color="#1971C2" /><MetricCard label="Coût des marchandises" value={money(data.costOfGoods)} icon="package-variant" color="#E67700" /><MetricCard label="Quantité vendue" value={formatQuantity(data.quantitySold)} icon="counter" color="#7048E8" /><MetricCard label="Nombre de ventes" value={String(data.saleCount)} icon="receipt-text-outline" color="#084B50" /></View><ReportDisclosure label="Détails et classements" expanded={detailsOpen} onPress={() => setDetailsOpen(open => !open)} />{detailsOpen && <View style={styles.twoColumns}><Ranking title="Moyens de paiement" rows={data.paymentMethods} valueKey="amount" /><Ranking title="Performance des employés" rows={data.employees} valueKey="revenue" /></View>}</>}
         {data && advancedReports && view === 'expenses' && <><View style={styles.metricGrid}><MetricCard label="Dépenses totales" value={money(data.expenses)} icon="cash-minus" color="#C92A2A" /><MetricCard label="Valeur du stock" value={money(data.stockValue)} icon="warehouse" color="#E67700" /><MetricCard label="Marge après dépenses" value={money(data.netProfit)} icon="scale-balance" color={data.netProfit >= 0 ? '#084B50' : '#C92A2A'} /></View><Card mode="outlined"><Card.Content style={styles.netProfit}><Icon source="information-outline" size={28} color={theme.colors.secondary} /><Text style={styles.grow}>Le bénéfice net correspond au bénéfice brut diminué de toutes les dépenses enregistrées sur la période.</Text></Card.Content></Card></>}
         {data && !data.saleCount && <EmptyState icon="chart-line" title="Aucune vente" message="Modifiez la période ou les filtres pour afficher un rapport." />}
+        {data && <FeatureGate feature="pdf_export" label="Export PDF des rapports"><AppButton mode="outlined" icon="file-pdf-box" loading={exporting} disabled={exporting} onPress={() => void runExport()}>Exporter le rapport PDF</AppButton></FeatureGate>}
+        {!!exportError && <HelperText type="error" visible>{exportError}</HelperText>}
+        {!advancedReports && <FeatureGate feature="advanced_reports" label="Rapports détaillés" />}
+
       </AdminPage>
     </PermissionGuard>
   );
@@ -159,10 +206,9 @@ export default function ReportsScreen() {
 
 const styles = StyleSheet.create({
   bold: { fontWeight: '800' },
-  periodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  periodCard: { flexGrow: 1, flexBasis: 230, borderRadius: 20 },
-  periodContent: { flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center', gap: 11 },
   filters: { gap: 14 },
+  disclosure: { minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  disclosureLabel: { flex: 1, minWidth: 0, fontWeight: '800' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   field: { flexGrow: 1, flexBasis: 200, minWidth: 0, maxWidth: '100%' },
@@ -171,7 +217,6 @@ const styles = StyleSheet.create({
   metricContent: { gap: 7 },
   metricIcon: { width: 44, height: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   netProfit: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 14 },
-  exportRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   twoColumns: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   rankingCard: { flexGrow: 1, flexShrink: 1, flexBasis: 360, minWidth: 0, maxWidth: '100%' },
   list: { paddingBottom: 10 },

@@ -334,8 +334,8 @@ npm run export:web
 État des tests lors de la dernière mise à jour :
 
 ```text
-18 fichiers de tests réussis
-83 tests réussis
+20 fichiers de tests réussis
+99 tests réussis
 0 erreur TypeScript
 0 erreur ESLint
 ```

@@ -112,7 +112,7 @@ export default function RegisterScreen() {
             </Text>
             <Text style={{ textAlign: 'center' }}>
               Ouvrez l’email envoyé à {createdEmail}, puis cliquez sur « Confirmer mon adresse email ».
-              Après la confirmation, StockMaster vous conduira directement au choix entre l’essai gratuit de 14 jours et un abonnement.
+              Après la confirmation, StockMaster vous présentera les abonnements et les conditions d’essai disponibles pour votre compte.
             </Text>
             <Text style={{textAlign:'center'}}>Vous ne trouvez pas le message ? Vérifiez les dossiers Spam, Indésirables et Promotions.</Text>
           </Card.Content>
@@ -128,7 +128,7 @@ export default function RegisterScreen() {
   return (
     <AuthScreen title="Créer votre compte" subtitle="Étape 1 sur 2 · Votre adresse email devra être confirmée.">
       <Card mode="contained" style={{ backgroundColor: '#E1F1F2' }}><Card.Content style={{ gap: 6 }}><Text variant="titleMedium" style={{ fontWeight: '800', color: '#084B50' }}>Commencez simplement</Text><Text>Renseignez les champs marqués * . Après confirmation de votre email, vous ajouterez votre entreprise et votre boutique.</Text></Card.Content></Card>
-      <Card mode="outlined"><Card.Content style={{gap:6}}><Text variant="titleMedium">Confirmation par email</Text><Text>Nous vous enverrons un lien sécurisé. L’essai gratuit de 14 jours ne nécessite aucune carte bancaire.</Text></Card.Content></Card>
+      <Card mode="outlined"><Card.Content style={{gap:6}}><Text variant="titleMedium">Confirmation par email</Text><Text>Nous vous enverrons un lien sécurisé. Les conditions des offres disponibles seront indiquées avant votre choix.</Text></Card.Content></Card>
       <Card mode="outlined"><Card.Content style={{gap:6}}><Text variant="titleMedium">Conditions d’utilisation</Text><Text variant="bodySmall">En créant votre compte, vous acceptez les conditions d’utilisation de StockMaster et la politique de confidentialité. Vous confirmez être autorisé à engager votre entreprise.</Text><Text variant="bodySmall">Lire les documents : <Link href="/legal/terms">Conditions d’utilisation</Link> et <Link href="/legal/privacy">Politique de confidentialité</Link>.</Text></Card.Content></Card>
       {!!error && <HelperText type="error" visible>{error}</HelperText>}
       <Text variant="labelLarge" style={{ color: '#084B50', fontWeight: '800' }}>Informations obligatoires *</Text>

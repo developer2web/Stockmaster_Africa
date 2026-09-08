@@ -1,3 +1,5 @@
+import { featureLabelsFor, formatBillingMoney, subscriptionStatusLabel } from '../../../src/constants/commercial';
+import { webSiteUrl } from '../../shared/siteConfig';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { businessContext, configured, getAccessibleBusinesses, signIn, supabase, type BusinessAccess, type UserContext } from '../../shared/supabase';
@@ -6,9 +8,9 @@ import './account.css';
 import './multi-business.css';
 import '../../shared/ux.css';
 
-type Subscription = { subscription_id: string | null; plan_id: string | null; plan_name: string | null; status: string | null; expires_at: string | null; max_businesses: number; max_stores: number; max_employees: number };
+type Subscription = { subscription_id: string | null; plan_id: string | null; plan_name: string | null; status: string | null; billing_cycle?: 'monthly' | 'annual' | null; expires_at: string | null; max_businesses: number; max_stores: number; max_employees: number };
 type Plan = { id: string; code: string; name: string; description: string; monthly_price: number; annual_price: number; currency: string; max_businesses: number; max_stores: number; max_employees: number; plan_features?: { feature_key:string;is_enabled:boolean }[] };
-const planFeatureLabels:Record<string,string>={inventory:'Produits et stock',sales:'Ventes et caisse',expenses:'Dépenses',basic_reports:'Rapports simples',receipts:'Reçus personnalisés',customers_suppliers:'Clients et fournisseurs',offline_mode:'Mode hors ligne',advanced_reports:'Rapports avancés',pdf_export:'Export PDF',excel_export:'Import Excel',multi_store:'Multi-boutiques',inventory_count:'Inventaires physiques',transfers:'Transferts entre boutiques',advanced_permissions:'Permissions personnalisées',notifications:'Notifications avancées',multi_business:'Multi-entreprises',expense_approval:'Approbation des dépenses',consolidated_reports:'Rapports consolidés',audit_log:'Journal d’audit avancé',priority_support:'Support prioritaire',trial_14_days:'14 jours d’essai gratuit',orange_money_payments:'Paiement Orange Money',stripe_payments:'Paiement par carte avec Stripe',desktop_web:'Accès Web optimisé pour ordinateur',low_stock_alerts:'Alertes de stock faible',customer_debt:'Dettes clients',supplier_debt:'Dettes fournisseurs',advanced_cash_closure:'Clôture de caisse avancée'};
+
 type Payment = { id: string; provider: string; provider_reference: string | null; amount: number; base_amount: number; discount_amount: number; currency: string; status: string; failure_reason: string | null; created_at: string; plan: { name: string } | null };
 type Company = { name: string; email: string | null; phone: string | null; address: string | null; default_currency_code: string; logo_url?: string | null; receipt_footer?: string | null };
 type SecurityEvent = { id: string; event_type: string; device_label: string | null; created_at: string };
@@ -29,9 +31,9 @@ const navItems: { section: Section; icon: string }[] = [
 const message = (value: unknown) => {const raw=value instanceof Error?value.message:typeof value==='object'&&value&&'message'in value?String(value.message):'';if(/failed to fetch|network/i.test(raw))return 'Connexion au serveur impossible. Vérifiez Internet puis réessayez.';if(/permission|row-level security|forbidden/i.test(raw))return 'Vous n’avez pas l’autorisation d’effectuer cette action.';if(/duplicate|unique|already exists/i.test(raw))return 'Cette information existe déjà.';return raw||'Opération impossible.'};
 const formatDate = (value: string) => new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date(value));
 const formatDateTime = (value: string) => new Date(value).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
-const money = (value: number, currency = 'GNF') => { const code = String(currency || 'GNF').toUpperCase(); const amount = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(value)); if (code === 'GNF' || code === 'FG') return `${amount} FG`; return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: code, currencyDisplay: 'code', maximumFractionDigits: 0 }).format(Number(value)); };
-const statusLabel = (status: string | null | undefined) => ({ active: 'Actif', trialing: 'Essai', succeeded: 'Payé', processing: 'En attente', pending: 'En attente', expired: 'Expiré', inactive: 'Inactif', failed: 'Refusé', open: 'Ouvert', in_progress: 'En cours', resolved: 'Résolu', closed: 'Fermé' }[status ?? ''] ?? status ?? 'Inactif');
-const marketingUrl = () => import.meta.env.VITE_MARKETING_URL || `${location.protocol}//${location.hostname}:4000`;
+const money = formatBillingMoney;
+const statusLabel = subscriptionStatusLabel;
+const marketingUrl = () => webSiteUrl('marketing');
 
 async function edgeErrorMessage(error: unknown) {
   const fallback = message(error);
@@ -44,21 +46,8 @@ async function edgeErrorMessage(error: unknown) {
 }
 
 async function loadSubscriptionPlans(companyId: string) {
-  const localized = await supabase.rpc('company_subscription_plans', { p_company_id: companyId });
-  if (!localized.error && Array.isArray(localized.data) && localized.data.length) {
-    return { data: localized.data as Plan[], error: null, localized: true };
-  }
-
-  const fallback = await supabase
-    .from('plans')
-    .select('id,code,name,description,monthly_price,annual_price,currency,max_businesses,max_stores,max_employees,plan_features(feature_key,is_enabled)')
-    .eq('is_active', true)
-    .order('monthly_price');
-  return {
-    data: (fallback.data ?? []) as unknown as Plan[],
-    error: fallback.error,
-    localized: false,
-  };
+  const result = await supabase.rpc('company_subscription_plans', { p_company_id: companyId });
+  return { data: (result.data ?? []) as Plan[], error: result.error, localized: true };
 }
 
 function Brand() {
@@ -258,34 +247,28 @@ function Empty({ icon, title, text }: { icon: string; title: string; text: strin
 function useStoredPage(key:string,count:number,pageSize=8){const storageKey=`stockmaster:account-page:${key}`;const[page,setPage]=useState(()=>Math.max(1,Number(sessionStorage.getItem(storageKey))||1));const total=Math.max(1,Math.ceil(count/pageSize));const safe=Math.min(page,total);useEffect(()=>{if(page!==safe)setPage(safe);sessionStorage.setItem(storageKey,String(safe))},[page,safe,storageKey]);return{page:safe,setPage,total,start:(safe-1)*pageSize,end:Math.min(safe*pageSize,count)}}
 function Pagination({page,total,setPage}:{page:number;total:number;setPage:(value:number)=>void}){if(total<=1)return null;return <nav className="tablePagination" aria-label="Pagination"><button className="secondaryButton" disabled={page===1} onClick={()=>setPage(Math.max(1,page-1))}>Précédent</button><span>Page <b>{page}</b> sur {total}</span><button className="secondaryButton" disabled={page===total} onClick={()=>setPage(Math.min(total,page+1))}>Suivant</button></nav>}
 
-function PlanCard({ subscription, plan, action }: { subscription: Subscription | null; plan?: Plan; action: () => void }) { return <article className="planHero"><div><div className="planName"><span>StockMaster {subscription?.plan_name ?? plan?.name ?? 'Sans forfait'}</span><Badge value={subscription?.status}/></div><strong>{plan ? money(plan.monthly_price, plan.currency) : '—'}<small>/ mois</small></strong><p>Prochain renouvellement : <b>{subscription?.expires_at ? formatDate(subscription.expires_at) : 'Non défini'}</b></p><div className="progress"><i style={{ width: subscription?.status === 'active' ? '78%' : '42%' }}/></div></div><button className="primaryButton light" onClick={action}>Gérer mon abonnement</button></article>; }
+function PlanCard({ subscription, plan, action }: { subscription: Subscription | null; plan?: Plan; action: () => void }) { return <article className="planHero"><div><div className="planName"><span>StockMaster {subscription?.plan_name ?? plan?.name ?? 'Sans forfait'}</span><Badge value={subscription?.status}/></div><strong>{plan ? money(subscription?.billing_cycle === 'annual' ? plan.annual_price : plan.monthly_price, plan.currency) : '—'}<small>/{subscription?.billing_cycle === 'annual' ? 'an' : 'mois'}</small></strong><p>Échéance : <b>{subscription?.expires_at ? formatDate(subscription.expires_at) : 'Non défini'}</b></p></div><button className="primaryButton light" onClick={action}>Gérer mon abonnement</button></article>; }
 
 function Dashboard({ fullName, subscription, currentPlan, payments, go, company }: { fullName: string; subscription: Subscription | null; currentPlan?: Plan; payments: Payment[]; go: (section: Section) => void; company: Company }) {
-  const last = payments[0]; return <><PageTitle title={`Bonjour, ${fullName.split(' ')[0] || 'Administrateur'} 👋`} subtitle={`Voici un aperçu de votre compte ${company.name || 'StockMaster'}.`} action={<Badge value={subscription?.status}/>}/><div className="dashboardGrid"><PlanCard subscription={subscription} plan={currentPlan} action={() => go('Abonnement')}/><article className="recentCard panel"><div className="panelHead"><div><span>PAIEMENTS RÉCENTS</span><h2>Dernières opérations</h2></div><button className="textButton" onClick={() => go('Historique')}>Voir tout →</button></div>{payments.slice(0, 3).map(payment => <div className="compactPayment" key={payment.id}><i className={payment.provider === 'stripe' ? 'cardIcon' : 'omIcon'}>{payment.provider === 'stripe' ? 'CB' : 'OM'}</i><span><b>{formatDate(payment.created_at)}</b><small>{payment.provider === 'stripe' ? 'Carte bancaire' : 'Orange Money'}</small></span><strong>{money(payment.amount, payment.currency)}</strong></div>)}{!payments.length && <Empty icon="▤" title="Aucun paiement" text="Vos prochaines opérations apparaîtront ici."/>}</article></div><section className="summarySection"><h2>Résumé du compte</h2><div className="summaryGrid"><article><i>✓</i><span>Statut<b>{statusLabel(subscription?.status)}</b></span></article><article><i>◷</i><span>Prochain paiement<b>{subscription?.expires_at ? formatDate(subscription.expires_at) : '—'}</b></span></article><article><i>{last?.provider === 'stripe' ? 'CB' : 'OM'}</i><span>Moyen de paiement<b>{last?.provider === 'stripe' ? 'Carte bancaire' : last ? 'Orange Money' : '—'}</b></span></article><article><i className="warning">!</i><span>Factures impayées<b>{payments.filter(payment => payment.status === 'processing').length}</b></span></article></div></section></>;
+  const last = payments[0]; return <><PageTitle title={`Bonjour, ${fullName.split(' ')[0] || 'Administrateur'} 👋`} subtitle={`Voici un aperçu de votre compte ${company.name || 'StockMaster'}.`} action={<Badge value={subscription?.status}/>}/><div className="dashboardGrid"><PlanCard subscription={subscription} plan={currentPlan} action={() => go('Abonnement')}/><article className="recentCard panel"><div className="panelHead"><div><span>PAIEMENTS RÉCENTS</span><h2>Dernières opérations</h2></div><button className="textButton" onClick={() => go('Historique')}>Voir tout →</button></div>{payments.slice(0, 3).map(payment => <div className="compactPayment" key={payment.id}><i className={payment.provider === 'stripe' ? 'cardIcon' : 'omIcon'}>{payment.provider === 'stripe' ? 'CB' : 'OM'}</i><span><b>{formatDate(payment.created_at)}</b><small>{payment.provider === 'stripe' ? 'Carte bancaire' : 'Orange Money'}</small></span><strong>{money(payment.amount, payment.currency)}</strong></div>)}{!payments.length && <Empty icon="▤" title="Aucun paiement" text="Vos prochaines opérations apparaîtront ici."/>}</article></div><section className="summarySection"><h2>Résumé du compte</h2><div className="summaryGrid"><article><i>✓</i><span>Statut<b>{statusLabel(subscription?.status)}</b></span></article><article><i>◷</i><span>Échéance de l’abonnement<b>{subscription?.expires_at ? formatDate(subscription.expires_at) : '—'}</b></span></article><article><i>{last?.provider === 'stripe' ? 'CB' : 'OM'}</i><span>Moyen de paiement<b>{last?.provider === 'stripe' ? 'Carte bancaire' : last ? 'Orange Money' : '—'}</b></span></article><article><i className="warning">!</i><span>Paiements en attente<b>{payments.filter(payment => ['pending', 'processing'].includes(payment.status)).length}</b></span></article></div></section></>;
 }
 
 function SubscriptionPage({ subscription, currentPlan, plans, selectPlan }: { subscription: Subscription | null; currentPlan?: Plan; plans: Plan[]; selectPlan: (id: string) => void }) {
   const [billingView, setBillingView] = useState<'monthly'|'annual'>('monthly');
-  const fallbackFeatures = currentPlan?.code === 'premium' || currentPlan?.code === 'business'
-    ? ['14 jours d’essai gratuit', 'Orange Money et Stripe', 'Web ordinateur, mobile et mode hors ligne', 'Dettes clients et fournisseurs', 'Clôture de caisse avancée', 'Multi-entreprises et transferts']
-    : currentPlan?.code === 'pro'
-      ? ['14 jours d’essai gratuit', 'Orange Money et Stripe', 'Web ordinateur, mobile et mode hors ligne', 'Dettes clients et fournisseurs', 'Clôture de caisse avancée', 'Transferts entre boutiques']
-      : ['14 jours d’essai gratuit', 'Orange Money et Stripe', 'Web ordinateur, mobile et mode hors ligne', 'Alertes de stock faible', 'Dettes clients', 'Ventes, stock, caisse et reçus'];
-  const enabledFeatures=(currentPlan?.plan_features??[]).filter(feature=>feature.is_enabled).map(feature=>planFeatureLabels[feature.feature_key]??feature.feature_key);
-  const features=enabledFeatures.length?enabledFeatures:fallbackFeatures;
+  const features = featureLabelsFor((currentPlan?.plan_features ?? []).filter(feature => feature.is_enabled).map(feature => feature.feature_key));
   return <>
     <PageTitle title="Mon abonnement" subtitle="Votre forfait actuel, ses limites et toutes les offres StockMaster." action={<Badge value={subscription?.status}/>}/>
     <div className="subscriptionLayout">
       <PlanCard subscription={subscription} plan={currentPlan} action={() => currentPlan ? selectPlan(currentPlan.id) : plans[0] && selectPlan(plans[0].id)}/>
       <section className="panel planDetails">
         <div className="panelHead"><div><span>FORFAIT ACTUEL</span><h2>{currentPlan?.name ?? subscription?.plan_name ?? 'Aucun forfait actif'}</h2></div></div>
-        <div className="featureList">{features.slice(0,8).map(item => <span key={item}>✓ {item}</span>)}</div>
-        <div className="quotaGrid"><article><b>{subscription?.max_businesses ?? currentPlan?.max_businesses ?? 0}</b><span>Entreprise(s)</span></article><article><b>{subscription?.max_stores ?? currentPlan?.max_stores ?? 0}</b><span>Boutique(s)</span></article><article><b>{subscription?.max_employees ?? currentPlan?.max_employees ?? 0}</b><span>Employé(s)</span></article></div>
+        <div className="featureList">{features.map(item => <span key={item}>✓ {item}</span>)}</div>
+        <div className="quotaGrid"><article><b>{subscription?.max_businesses ?? currentPlan?.max_businesses ?? 0}</b><span>Entreprise(s)</span></article><article><b>{subscription?.max_stores ?? currentPlan?.max_stores ?? 0}</b><span>Boutique(s) par entreprise</span></article><article><b>{subscription?.max_employees ?? currentPlan?.max_employees ?? 0}</b><span>Employé(s) actif(s) par entreprise</span></article></div>
       </section>
     </div>
     <section className="planCatalogSection">
       <div className="catalogHeading"><div><span className="eyebrow">TOUS LES FORFAITS</span><h2>Choisissez l’offre adaptée à votre entreprise</h2><p>Les montants sont affichés dans la devise configurée par le catalogue disponible.</p></div><div className="billingToggle"><button className={billingView==='monthly'?'active':''} onClick={()=>setBillingView('monthly')}>Mensuel</button><button className={billingView==='annual'?'active':''} onClick={()=>setBillingView('annual')}>Annuel</button></div></div>
-      {plans.length ? <div className="planCatalogGrid">{plans.map(plan => {const included=(plan.plan_features??[]).filter(item=>item.is_enabled).map(item=>planFeatureLabels[item.feature_key]??item.feature_key).slice(0,6);const selected=subscription?.plan_id===plan.id;const amount=billingView==='annual'?plan.annual_price:plan.monthly_price;return <article className={`catalogPlan ${selected?'selected':''} ${plan.code==='pro'?'recommended':''}`} key={plan.id}>{plan.code==='pro'&&<span className="recommendation">RECOMMANDÉ</span>}<div className="catalogPlanHead"><div><span>StockMaster</span><h3>{plan.name}</h3></div>{selected&&<Badge value="active"/>}</div><p>{plan.description || 'Un forfait StockMaster adapté à votre activité.'}</p><strong className="catalogPrice">{money(amount,plan.currency)}<small>/{billingView==='annual'?'an':'mois'}</small></strong><div className="catalogQuotas"><span>{plan.max_stores} boutique(s)</span><span>{plan.max_employees} employé(s)</span></div><ul>{included.length?included.map(item=><li key={item}>✓ {item}</li>):<><li>✓ Ventes et caisse</li><li>✓ Produits et stock</li><li>✓ Reçus personnalisés</li></>}</ul><button className={selected?'secondaryButton':'primaryButton'} disabled={selected} onClick={()=>selectPlan(plan.id)}>{selected?'Forfait actuel':'Choisir ce forfait'}</button></article>})}</div> : <div className="panel"><Empty icon="▣" title="Forfaits momentanément indisponibles" text="Actualisez la page. Si le problème continue, vérifiez les migrations Supabase du catalogue."/></div>}
+      {plans.length ? <div className="planCatalogGrid">{plans.map(plan => {const included=featureLabelsFor((plan.plan_features??[]).filter(item=>item.is_enabled).map(item=>item.feature_key));const selected=subscription?.plan_id===plan.id;const amount=billingView==='annual'?plan.annual_price:plan.monthly_price;return <article className={`catalogPlan ${selected?'selected':''} ${plan.code==='pro'?'recommended':''}`} key={plan.id}>{plan.code==='pro'&&<span className="recommendation">RECOMMANDÉ</span>}<div className="catalogPlanHead"><div><span>StockMaster</span><h3>{plan.name}</h3></div>{selected&&<Badge value={subscription?.status}/>}</div><p>{plan.description || 'Un forfait StockMaster adapté à votre activité.'}</p><strong className="catalogPrice">{money(amount,plan.currency)}<small>/{billingView==='annual'?'an':'mois'}</small></strong><div className="catalogQuotas"><span>{plan.max_businesses} entreprise(s)</span><span>{plan.max_stores} boutique(s) par entreprise</span><span>{plan.max_employees} employé(s) actif(s) par entreprise</span></div><ul>{included.length?included.map(item=><li key={item}>✓ {item}</li>):<li>Détail des fonctionnalités indisponible.</li>}</ul><button className={selected?'secondaryButton':'primaryButton'} disabled={selected} onClick={()=>selectPlan(plan.id)}>{selected?'Forfait actuel':'Choisir ce forfait'}</button></article>})}</div> : <div className="panel"><Empty icon="▣" title="Forfaits momentanément indisponibles" text="Actualisez la page ou contactez l’assistance si le problème continue."/></div>}
     </section>
   </>;
 }

@@ -56,24 +56,9 @@ function mapPlans(data: unknown): SubscriptionPlan[] {
 export async function getPlans(companyId: string): Promise<SubscriptionPlan[]> {
   return withOfflineCache(`subscription-plans:${companyId}`, async () => {
     const { data, error } = await supabase.rpc('company_subscription_plans', { p_company_id: companyId });
-    if (!error) {
-      const localizedPlans = mapPlans(data);
-      if (localizedPlans.length) return localizedPlans;
-    }
-
-    // Compatibilité avec les environnements Supabase où la fonction de
-    // localisation des devises n'est pas encore déployée.
-    return getCatalogPlans();
+    fail(error);
+    return mapPlans(data);
   }, Array.isArray);
-}
-
-export async function getCatalogPlans(): Promise<SubscriptionPlan[]> {
-  const { data, error } = await supabase.from('plans')
-    .select('id,code,name,description,monthly_price,annual_price,currency,max_businesses,max_stores,max_employees,plan_features(feature_key,is_enabled,usage_limit)')
-    .eq('is_active', true)
-    .order('monthly_price');
-  fail(error);
-  return mapPlans(data);
 }
 
 export async function getCurrentSubscription(companyId: string): Promise<SubscriptionContextValue | null> {

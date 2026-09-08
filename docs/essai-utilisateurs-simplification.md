@@ -54,6 +54,7 @@ Scénarios supplémentaires à vérifier sur appareils :
 - Effacer temporairement une quantité pour la retaper : l’article reste dans le panier, la validation est bloquée jusqu’à une quantité valide.
 - Vérifier les messages pour un panier vide, un crédit sans client, un acompte nul ou égal au total, et des règles d’entreprise non chargées.
 - Après une vente confirmée, partager son reçu ou démarrer une nouvelle vente. Après une vente locale, le reçu définitif attend la confirmation serveur.
+- Dans Rapports, retrouver les trois indicateurs essentiels, ouvrir les détails, filtrer sur un produit puis replier les filtres : la sélection doit rester indiquée. Effacer les filtres et vérifier le retour au rapport complet.
 - Sur une boutique vide, compléter le guide puis vérifier sa disparition après la première vente confirmée.
 - Retourner un article avec motif, vérifier la confirmation, l’historique et le refus des quantités déjà retournées. Tester une réponse réseau perdue sans double remboursement.
 

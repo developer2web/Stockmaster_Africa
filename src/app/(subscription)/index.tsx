@@ -1,3 +1,4 @@
+import { featureLabelsFor, formatBillingMoney, subscriptionStatusLabel } from '@/constants/commercial';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -14,37 +15,6 @@ import { formatDate } from '@/utils/format';
 import { requiresRetainedBusinessChoice } from '@/features/subscriptions/businessLimit';
 import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 
-const featureLabels: Record<string, string> = {
-  inventory: 'Produits et stock',
-  sales: 'Ventes',
-  expenses: 'Dépenses',
-  basic_reports: 'Rapports simples',
-  receipts: 'Reçus personnalisés',
-  customers_suppliers: 'Clients et fournisseurs',
-  advanced_reports: 'Rapports avancés',
-  pdf_export: 'Export PDF',
-  excel_export: 'Import Excel',
-  multi_business: 'Multi-entreprises',
-  multi_store: 'Multi-boutiques',
-  offline_mode: 'Mode hors ligne',
-  inventory_count: 'Inventaires physiques',
-  transfers: 'Transferts entre boutiques',
-  advanced_permissions: 'Permissions avancées',
-  notifications: 'Notifications avancées',
-  expense_approval: 'Approbation des dépenses',
-  consolidated_reports: 'Rapports multi-entreprises',
-  audit_log: 'Journal d’audit avancé',
-  priority_support: 'Support prioritaire',
-  trial_14_days: '14 jours d’essai gratuit',
-  orange_money_payments: 'Paiement Orange Money',
-  stripe_payments: 'Paiement par carte avec Stripe',
-  desktop_web: 'Accès Web optimisé pour ordinateur',
-  low_stock_alerts: 'Alertes de stock faible',
-  customer_debt: 'Dettes clients',
-  supplier_debt: 'Dettes fournisseurs',
-  advanced_cash_closure: 'Clôture de caisse avancée',
-};
-
 export default function SubscriptionScreen() {
   const theme = useTheme();
   const { membership, businesses } = useAuth();
@@ -54,7 +24,7 @@ export default function SubscriptionScreen() {
   const [keepCompanyId, setKeepCompanyId] = useState<string | null>(membership?.companyId ?? null);
   const [openingAccount, setOpeningAccount] = useState(false);
   const [accountError, setAccountError] = useState('');
-  const statusLabels:Record<string,string>={trialing:'Essai gratuit',active:'Actif',past_due:'Période de grâce',expired:'Expiré',canceled:'Annulé',cancelled:'Annulé',pending:'Paiement en attente',suspended:'Suspendu'};
+
 
   const choosePlan = (planId: string, targetCycle: BillingCycle) => {
     const targetPlan = plans.find((item) => item.id === planId);
@@ -96,7 +66,7 @@ export default function SubscriptionScreen() {
           <Card mode="contained">
             <Card.Title
               title={`Forfait actuel : ${subscription.planName}`}
-              subtitle={`Statut : ${statusLabels[subscription.status??''] ?? subscription.status ?? 'inconnu'}`}
+              subtitle={`Statut : ${subscriptionStatusLabel(subscription.status)}`}
               right={() => <Chip style={styles.chip}>{subscription.isReadOnly ? 'Lecture seule' : 'Actif'}</Chip>}
             />
             <Card.Content>
@@ -138,18 +108,12 @@ export default function SubscriptionScreen() {
                 />
                 <Card.Content style={styles.planContent}>
                   <Text variant="headlineMedium" style={styles.bold}>
-                    {new Intl.NumberFormat('fr-CA', {
-                      style: 'currency',
-                      currency: plan.currency,
-                      currencyDisplay: 'code',
-                    }).format(price)}
+                    {formatBillingMoney(price, plan.currency)}
                   </Text>
                   <Text>{cycle === 'monthly' ? 'par mois' : 'par année'}</Text>
-                  <Text>{plan.maxBusinesses} entreprise(s) · {plan.maxStores} boutique(s)</Text>
-                  <Text>{plan.maxEmployees} employé(s) actif(s)</Text>
-                  {plan.features.filter((feature) => feature.isEnabled).map((feature) => (
-                    <Text key={feature.featureKey}>✓ {featureLabels[feature.featureKey] ?? feature.featureKey}</Text>
-                  ))}
+                  <Text>{plan.maxBusinesses} entreprise(s) · {plan.maxStores} boutique(s) par entreprise</Text>
+                  <Text>{plan.maxEmployees} employé(s) actif(s) par entreprise</Text>
+                  {featureLabelsFor(plan.features.filter(feature => feature.isEnabled).map(feature => feature.featureKey)).map(label => <Text key={label}>✓ {label}</Text>)}
                   {membership?.role === 'company_admin' && (
                     <AppButton
                       loading={openingAccount}
