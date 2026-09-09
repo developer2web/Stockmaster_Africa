@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { Card, Chip, Dialog, HelperText, Icon, IconButton, Portal, Switch, Text, TextInput, useTheme } from 'react-native-paper';
 import { Controller, useForm } from 'react-hook-form';
 
@@ -53,9 +53,12 @@ export default function CustomerDetails() {
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [editing, setEditing] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [message, setMessage] = useState(notice??'');
   const [scheduleOpen,setScheduleOpen]=useState(false);
   const [scheduleRows,setScheduleRows]=useState([{dueDate:localDateValue(new Date(Date.now()+30*86400000)),amount:''}]);
+
+  useEffect(() => { setDetailsOpen(false); }, [id]);
 
   const refresh = async () => {
     await Promise.all([
@@ -102,34 +105,59 @@ export default function CustomerDetails() {
       {customer.data && (
         <>
           <Card testID="customer-balance-card" mode="contained" style={{ backgroundColor: owes ? theme.colors.errorContainer : theme.colors.primaryContainer }}>
-            <Card.Content style={{ gap: 6 }}>
-              <Text style={{ color: owes ? theme.colors.onErrorContainer : theme.colors.onPrimaryContainer }}>Ardoise (solde dû)</Text>
+            <Card.Content style={{ gap: 8 }}>
+              <Text style={{ color: owes ? theme.colors.onErrorContainer : theme.colors.onPrimaryContainer }}>Montant dû</Text>
               <Text variant="displaySmall" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={{ fontWeight: '900', color: owes ? theme.colors.error : theme.colors.primary }}>{formatMoney(balance)}</Text>
               <Text style={{ color: owes ? theme.colors.onErrorContainer : theme.colors.onPrimaryContainer }}>{owes ? 'Ce client a une dette en cours.' : 'Ce client est à jour.'}</Text>
-              <Text style={{ color: owes ? theme.colors.onErrorContainer : theme.colors.onPrimaryContainer }}>Limite de crédit : {customer.data.credit_limit == null ? 'Illimitée' : formatMoney(Number(customer.data.credit_limit))}</Text>
+              {canWrite && <AppButton testID="customer-add-payment" style={{ marginTop: 4 }} icon="cash-check" onPress={() => setEntryType('payment')}>Encaisser un paiement</AppButton>}
             </Card.Content>
           </Card>
-          <Card mode="contained" style={{ backgroundColor: theme.colors.secondaryContainer }}><Card.Title title={`${loyalty.data?.points ?? 0} point(s) fidélité`} subtitle={`${loyalty.data?.lifetime_earned ?? 0} point(s) gagnés au total`} left={()=><Icon source="star-circle" size={34} color={theme.colors.secondary}/>} /></Card>
+
+          <Card mode="outlined">
+            <Pressable
+              testID="customer-details-toggle"
+              accessibilityRole="button"
+              accessibilityLabel="Plus de détails"
+              accessibilityState={{ expanded: detailsOpen }}
+              aria-expanded={detailsOpen}
+              onPress={() => setDetailsOpen(open => !open)}
+              style={({ pressed }) => ({ minHeight: 52, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.65 : 1 })}
+            >
+              <Text variant="titleSmall" style={{ flex: 1, fontWeight: '700' }}>Plus de détails</Text>
+              <Icon source={detailsOpen ? 'chevron-up' : 'chevron-down'} size={24} color={theme.colors.onSurfaceVariant} />
+            </Pressable>
+            {detailsOpen && <Card.Content testID="customer-secondary-details" style={{ gap: 16 }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
+                <View style={{ flexGrow: 1, flexBasis: 220, gap: 4 }}>
+                  <Text variant="labelLarge" style={{ color: theme.colors.onSurfaceVariant }}>Fidélité</Text>
+                  <Text style={{ fontWeight: '700' }}>{loyalty.data?.points ?? 0} point(s) fidélité</Text>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>{loyalty.data?.lifetime_earned ?? 0} point(s) gagnés au total</Text>
+                </View>
+                <View style={{ flexGrow: 1, flexBasis: 220, gap: 4 }}>
+                  <Text variant="labelLarge" style={{ color: theme.colors.onSurfaceVariant }}>Limite de crédit</Text>
+                  <Text>{customer.data.credit_limit == null ? 'Illimitée' : formatMoney(Number(customer.data.credit_limit))}</Text>
+                </View>
+              </View>
+              {(customer.data.phone || customer.data.email || customer.data.address || customer.data.note) && <View style={{ gap: 8 }}>
+                <Text variant="labelLarge" style={{ color: theme.colors.onSurfaceVariant }}>Coordonnées et note</Text>
+                {!!customer.data.phone && <Text>Téléphone : {customer.data.phone}</Text>}
+                {!!customer.data.email && <Text>Email : {customer.data.email}</Text>}
+                {!!customer.data.address && <Text>Adresse : {customer.data.address}</Text>}
+                {!!customer.data.note && <Text style={{ color: theme.colors.onSurfaceVariant }}>{customer.data.note}</Text>}
+              </View>}
+              {canWrite && <AppButton mode="outlined" icon="pencil" onPress={() => setEditing(true)}>Modifier la fiche</AppButton>}
+            </Card.Content>}
+          </Card>
+
           {schedule.data&&<Card mode="outlined"><Card.Title title="Échéancier actif" subtitle={`${schedule.data.customer_debt_installments.length} échéance(s)`}/><Card.Content style={{gap:6}}>{schedule.data.customer_debt_installments.map(row=><Text key={row.id}>{formatDate(row.due_date)} • {formatMoney(Number(row.amount)-Number(row.paid_amount))} restant • {row.status}</Text>)}</Card.Content></Card>}
           {membership?.role==='company_admin'&&balance>0&&<AppButton mode="outlined" icon="calendar-clock" onPress={()=>setScheduleOpen(true)}>Définir l’échéancier</AppButton>}
 
-          {(customer.data.phone || customer.data.email || customer.data.address || customer.data.note) && (
-            <Card mode="outlined"><Card.Content style={{ gap: 4 }}>
-              {!!customer.data.phone && <Text>📞 {customer.data.phone}</Text>}
-              {!!customer.data.email && <Text>✉️ {customer.data.email}</Text>}
-              {!!customer.data.address && <Text>📍 {customer.data.address}</Text>}
-              {!!customer.data.note && <Text style={{ color: theme.colors.onSurfaceVariant }}>{customer.data.note}</Text>}
-            </Card.Content></Card>
-          )}
-
           {canWrite && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-              <AppButton testID="customer-add-credit" style={{ flexGrow: 1, flexBasis: 200 }} icon="notebook-plus-outline" buttonColor={theme.colors.error} onPress={() => setEntryType('credit')}>Ajouter une dette</AppButton>
-              <AppButton testID="customer-add-payment" style={{ flexGrow: 1, flexBasis: 200 }} icon="cash-check" onPress={() => setEntryType('payment')}>Encaisser un paiement</AppButton>
+              <AppButton testID="customer-add-credit" style={{ flexGrow: 1, flexBasis: 200 }} mode="outlined" icon="notebook-plus-outline" onPress={() => setEntryType('credit')}>Ajouter une dette</AppButton>
               {membership?.role==='company_admin'&&<AppButton style={{ flexGrow: 1, flexBasis: 200 }} mode="outlined" icon="sale" onPress={() => setEntryType('discount')}>Remise sur dette</AppButton>}
             </View>
           )}
-          {canWrite && <AppButton mode="outlined" icon="pencil" onPress={() => setEditing(true)}>Modifier la fiche</AppButton>}
 
           <Text variant="titleLarge" style={{ fontWeight: '800' }}>Historique d’achat</Text>
           {(sales.data ?? []).map((sale) => (

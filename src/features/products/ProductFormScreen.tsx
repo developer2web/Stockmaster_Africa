@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Dialog, HelperText, Icon, Portal, Switch, Text, TextInput } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
@@ -31,6 +31,7 @@ const unitOptions = [
   { label:'Kilogramme', value:'kg' }, { label:'Litre', value:'litre' },
   { label:'Sac', value:'sac' }, { label:'Paquet', value:'paquet' },
 ] as const;
+const additionalFields = ['description', 'sku', 'barcode', 'categoryId', 'supplierId', 'unit', 'lowStockThreshold', 'isActive'] as const;
 
 export function ProductFormScreen({ id,initialBarcode,basePath='/products',returnTo }: { id?: string;initialBarcode?:string;basePath?:string;returnTo?:string }) {
   const { formatMoney,primaryCode } = useCurrency();
@@ -42,7 +43,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   const product = useQuery({ queryKey:['product',id], queryFn:()=>getProduct(id!), enabled:!!id });
   const categories = useQuery({ queryKey:['categories',company,store], queryFn:()=>getCategories(company,store), enabled:!!company&&!!store });
   const suppliers = useQuery({ queryKey:['suppliers',company,store], queryFn:()=>getSuppliers(company,store), enabled:!!company&&!!store });
-  const { control, handleSubmit, reset, formState:{isValid,isDirty} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
+  const { control, handleSubmit, reset, formState:{errors,isDirty} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
   const levels = useQuery({queryKey:['stock-levels',company,store,id],queryFn:()=>getStockLevels(company,id,store),enabled:!!company&&!!store&&!!id});
 
   useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? 'SKU-AUTO', barcode:product.data.barcode??'', categoryId:product.data.category_id, supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:String(product.data.purchase_price), salePrice:String(product.data.sale_price), initialQuantity:'0', lowStockThreshold:String(product.data.low_stock_threshold), isActive:product.data.is_active }); }, [product.data,reset]);
@@ -50,6 +51,10 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onSuccess:async(saved)=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['employee-products',company,store]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace({pathname:basePath as never,params:{notice:id?'Modification enregistrée':'Produit enregistré'}}); } });
   const [confirm,setConfirm] = useState(false);
   const [moreOpen,setMoreOpen] = useState(false);
+  const hasAdditionalErrors = additionalFields.some(field => !!errors[field]);
+  useEffect(() => {
+    if (hasAdditionalErrors) setMoreOpen(true);
+  }, [hasAdditionalErrors]);
     const [categoryOpen,setCategoryOpen] = useState(false);
     const [categoryName,setCategoryName] = useState('');
     const [categoryError,setCategoryError] = useState('');
@@ -68,22 +73,100 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
     {!company||!store?<HelperText type="error" visible>Sélectionnez une entreprise et une boutique avant d’enregistrer un produit.</HelperText>:null}
     {!!product.error&&<HelperText type="error" visible>{readableError(product.error)}</HelperText>}
     {!!levels.error&&<HelperText type="error" visible>{readableError(levels.error)}</HelperText>}
-    <View style={styles.form}><Card mode="outlined"><Card.Title title="Informations du produit" subtitle="Les champs marqués * sont obligatoires"/><Card.Content style={styles.formContent}><FormField control={control} name="name" label="Nom du produit" required autoFocus/><ResponsiveFormGrid><FormField control={control} name="barcode" label="Code-barres (facultatif)" keyboardType="numeric"/><Controller control={control} name="categoryId" render={({field,fieldState})=><SelectField label="Catégorie" value={field.value} options={[{label:'Sans catégorie',value:null},...(categories.data??[]).filter(v=>v.is_active).map(v=>({label:v.name,value:v.id}))]} onChange={field.onChange} error={fieldState.error?.message}/>}/><Controller control={control} name="unit" render={({field,fieldState})=><SelectField label="Unité" required value={field.value} options={[...unitOptions]} onChange={field.onChange} error={fieldState.error?.message}/>}/></ResponsiveFormGrid><AppButton mode="text" icon={moreOpen?'chevron-up':'chevron-down'} onPress={()=>setMoreOpen(value=>!value)}>{moreOpen?'Masquer les informations facultatives':'Plus d’informations'}</AppButton>{moreOpen&&<View style={styles.formContent}><FormField control={control} name="description" label="Description (facultative)" multiline/><Controller control={control} name="supplierId" render={({field,fieldState})=><SelectField label="Fournisseur" value={field.value} options={[{label:'Sans fournisseur',value:null},...(suppliers.data??[]).filter(v=>v.is_active).map(v=>({label:v.name,value:v.id}))]} onChange={field.onChange} error={fieldState.error?.message}/>}/></View>}</Card.Content></Card><Card mode="outlined"><Card.Title title="Prix et stock" subtitle={`Montants en ${primaryCode}`}/><Card.Content style={styles.formContent}><ResponsiveFormGrid><FormField control={control} name="purchasePrice" label={`Prix d’achat (${primaryCode})`} required keyboardType="decimal-pad"/><FormField control={control} name="salePrice" label={`Prix de vente (${primaryCode})`} required keyboardType="decimal-pad"/>{!id&&<FormField control={control} name="initialQuantity" label="Quantité initiale (unités)" required keyboardType="decimal-pad"/>}{moreOpen&&<FormField control={control} name="lowStockThreshold" label="Seuil de stock faible (unités)" required keyboardType="decimal-pad"/>}</ResponsiveFormGrid>
-    {moreOpen&&<Controller control={control} name="isActive" render={({field})=><Card mode="outlined"><Card.Title title="Produit actif" right={()=><Switch value={field.value} onValueChange={field.onChange} style={{marginRight:12}}/>}/></Card>}/>} 
-    {!!save.error&&<HelperText type="error" visible>{readableError(save.error)}</HelperText>}<AppButton icon="content-save" loading={save.isPending} disabled={!company||!store||!isValid||!isDirty} onPress={handleSubmit(v=>save.mutate(v))}>{save.isPending?'Enregistrement…':'Enregistrer'}</AppButton></Card.Content></Card></View>
+    <View style={styles.form}>
+      <Card mode="outlined">
+        <Card.Content style={[styles.formContent, styles.essentialFields]}>
+          <FormField control={control} name="name" label="Nom du produit" required autoFocus />
+          <ResponsiveFormGrid>
+            <FormField control={control} name="purchasePrice" label={`Prix d’achat (${primaryCode})`} required keyboardType="decimal-pad" />
+            <FormField control={control} name="salePrice" label={`Prix de vente (${primaryCode})`} required keyboardType="decimal-pad" />
+          </ResponsiveFormGrid>
+          {!id && <FormField control={control} name="initialQuantity" label="Stock initial" required keyboardType="decimal-pad" />}
+        </Card.Content>
+      </Card>
+      <Card mode="outlined">
+        <Card.Content style={styles.formContent}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Options supplémentaires"
+            accessibilityState={{ expanded: moreOpen }}
+            aria-expanded={moreOpen}
+            style={({ pressed }) => [styles.optionsToggle, pressed && styles.optionsTogglePressed]}
+            onPress={() => setMoreOpen(value => !value)}
+          >
+            <Text variant="titleSmall" style={styles.optionsLabel}>Options supplémentaires</Text>
+            <Icon source={moreOpen ? 'chevron-up' : 'chevron-down'} size={24} />
+          </Pressable>
+          <View style={[styles.formContent, !moreOpen && styles.collapsedOptions]}>
+            <FormField control={control} name="description" label="Description (facultative)" multiline />
+            <FormField control={control} name="barcode" label="Code-barres (facultatif)" keyboardType="numeric" />
+            <FormField control={control} name="sku" label="Référence du produit (facultative)" />
+            <ResponsiveFormGrid>
+              <Controller control={control} name="categoryId" render={({ field, fieldState }) => <SelectField
+                label="Catégorie"
+                value={field.value}
+                options={[{ label: 'Sans catégorie', value: null }, ...(categories.data ?? []).filter(v => v.is_active).map(v => ({ label: v.name, value: v.id }))]}
+                onChange={field.onChange}
+                error={fieldState.error?.message}
+              />} />
+              <Controller control={control} name="unit" render={({ field, fieldState }) => <SelectField
+                label="Unité"
+                required
+                value={field.value}
+                options={[...unitOptions]}
+                onChange={field.onChange}
+                error={fieldState.error?.message}
+              />} />
+              <Controller control={control} name="supplierId" render={({ field, fieldState }) => <SelectField
+                label="Fournisseur"
+                value={field.value}
+                options={[{ label: 'Sans fournisseur', value: null }, ...(suppliers.data ?? []).filter(v => v.is_active).map(v => ({ label: v.name, value: v.id }))]}
+                onChange={field.onChange}
+                error={fieldState.error?.message}
+              />} />
+              <FormField control={control} name="lowStockThreshold" label="Seuil de stock faible" required keyboardType="decimal-pad" />
+            </ResponsiveFormGrid>
+            <Controller control={control} name="isActive" render={({ field }) => <Card mode="outlined">
+              <Card.Title title="Produit actif" right={() => <Switch value={field.value} onValueChange={field.onChange} style={{ marginRight: 12 }} />} />
+            </Card>} />
+            {id && product.data && <ProductImagesCard productId={id} companyId={company} storeId={store} urls={productImages} />}
+            {id && <Variants productId={id} companyId={company} variants={productVariants} refresh={() => qc.invalidateQueries({ queryKey: ['product', id] })} />}
+            {!id && <Text variant="bodyMedium">Vous pourrez ajouter des images et des variantes depuis la fiche du produit après l’enregistrement.</Text>}
+          </View>
+        </Card.Content>
+      </Card>
+      {Object.keys(errors).length > 0 && <HelperText type="error" visible>
+        {hasAdditionalErrors ? 'Vérifiez les champs signalés dans les options supplémentaires.' : 'Vérifiez les champs signalés avant d’enregistrer.'}
+      </HelperText>}
+      {!!save.error && <HelperText type="error" visible>{readableError(save.error)}</HelperText>}
+      <AppButton
+        icon="content-save"
+        loading={save.isPending}
+        disabled={!company || !store || !isDirty}
+        onPress={handleSubmit(v => save.mutate(v), invalid => {
+          if (additionalFields.some(field => !!invalid[field])) setMoreOpen(true);
+        })}
+      >Enregistrer</AppButton>
+    </View>
     {id&&<Card mode="contained" style={{backgroundColor:stockQuantity>0?'#E1F1F2':'#FFF3E0'}}><Card.Title title="Stock de la boutique active" subtitle={membership?.storeName??'Boutique'} left={()=><Icon source="package-variant-closed" size={28} color="#084B50"/>}/><Card.Content style={{gap:8}}><Text variant="displaySmall" style={{fontWeight:'900',color:stockQuantity>0?'#084B50':'#C25B00'}}>{formatQuantity(stockQuantity)}</Text><Text>Valeur au prix d’achat : {formatMoney(stockValue)}</Text>{!canAdjustStock&&<Text>Vous pouvez consulter ce stock, mais votre rôle ne permet pas de le modifier.</Text>}</Card.Content>{canAdjustStock&&<Card.Actions><AppButton mode="contained" icon="plus" onPress={()=>setAdjust('in')}>Ajouter du stock</AppButton><AppButton mode="outlined" icon="minus" disabled={stockQuantity<=0} onPress={()=>setAdjust('out')}>Retirer</AppButton></Card.Actions>}</Card>}
-    {id&&product.data&&<ProductImagesCard productId={id} companyId={company} storeId={store} urls={productImages}/>}
     {id&&product.data&&<Card mode="outlined"><Card.Title title="Indicateurs du produit"/><Card.Content style={{gap:6}}><Text>Marge unitaire : {formatMoney(margin)}</Text><Text>Taux de marge : {Number(product.data.purchase_price)>0?`${((margin/Number(product.data.purchase_price))*100).toFixed(1)} %`:'Non calculable'}</Text><Text>Unité : {unitOptions.find(option=>option.value===product.data.unit)?.label??'Pièce'}</Text><Text>Valeur du stock : {formatMoney(stockValue)}</Text><Text>Catégorie : {product.data.category?.name??'Sans catégorie'}</Text><Text>Fournisseur : {product.data.supplier?.name??'Sans fournisseur'}</Text></Card.Content></Card>}
     {id&&!!levels.data?.some(level=>level.variant)&&<Card><Card.Title title="Détail par variante"/><Card.Content>{levels.data.map(level=><Text key={level.id}>{level.variant?.name??'Produit simple'} : {formatQuantity(level.quantity)}</Text>)}</Card.Content></Card>}
-    {id&&<Variants productId={id} companyId={company} variants={productVariants} refresh={()=>qc.invalidateQueries({queryKey:['product',id]})}/>}
     {id&&<AppButton mode="outlined" destructive icon="delete-outline" onPress={()=>setConfirm(true)}>Supprimer le produit</AppButton>}
     <ConfirmDialog visible={confirm} title="Supprimer ce produit ?" message="Cette action est refusée si le produit est déjà utilisé dans une opération." destructive loading={remove.isPending} onCancel={()=>setConfirm(false)} onConfirm={()=>remove.mutate()}/>
-      <ConfirmDialog visible={confirm} title="Supprimer ce produit ?" message="Cette action est refusée si le produit est déjà utilisé dans une opération." destructive loading={remove.isPending} onCancel={()=>setConfirm(false)} onConfirm={()=>remove.mutate()}/><Portal><Dialog visible={categoryOpen} onDismiss={()=>setCategoryOpen(false)}><Dialog.Title>Nouvelle catégorie</Dialog.Title><Dialog.Content><TextInput mode="outlined" label="Nom de la catégorie" value={categoryName} onChangeText={setCategoryName}/><HelperText type="error" visible={!!categoryError}>{categoryError}</HelperText></Dialog.Content><Dialog.Actions><AppButton mode="text" onPress={()=>setCategoryOpen(false)}>Annuler</AppButton><AppButton disabled={!categoryName.trim()} onPress={async()=>{try{await saveCategory(company,store,{name:categoryName.trim(),description:'',isActive:true});await qc.invalidateQueries({queryKey:['categories',company,store]});setCategoryOpen(false)}catch(error){setCategoryError(error instanceof Error?error.message:'Création impossible')}}}>Créer</AppButton></Dialog.Actions></Dialog></Portal>
+      <Portal><Dialog visible={categoryOpen} onDismiss={()=>setCategoryOpen(false)}><Dialog.Title>Nouvelle catégorie</Dialog.Title><Dialog.Content><TextInput mode="outlined" label="Nom de la catégorie" value={categoryName} onChangeText={setCategoryName}/><HelperText type="error" visible={!!categoryError}>{categoryError}</HelperText></Dialog.Content><Dialog.Actions><AppButton mode="text" onPress={()=>setCategoryOpen(false)}>Annuler</AppButton><AppButton disabled={!categoryName.trim()} onPress={async()=>{try{await saveCategory(company,store,{name:categoryName.trim(),description:'',isActive:true});await qc.invalidateQueries({queryKey:['categories',company,store]});setCategoryOpen(false)}catch(error){setCategoryError(error instanceof Error?error.message:'Création impossible')}}}>Créer</AppButton></Dialog.Actions></Dialog></Portal>
     {id&&<StockAdjustmentDialog visible={!!adjust} onDismiss={()=>setAdjust(null)} companyId={company} storeId={store} storeName={membership?.storeName} productId={id} currentQuantity={stockQuantity} initialDirection={adjust??'in'} variants={productVariants}/>}
   </AdminPage>;
 }
 
-const styles=StyleSheet.create({form:{width:'100%',maxWidth:720,alignSelf:'center',gap:14},formContent:{gap:8}});
+const styles=StyleSheet.create({
+  form:{width:'100%',maxWidth:720,alignSelf:'center',gap:14},
+  formContent:{gap:8},
+  essentialFields:{paddingTop:16},
+  optionsToggle:{minHeight:48,flexDirection:'row',alignItems:'center',gap:12},
+  optionsTogglePressed:{opacity:0.7},
+  optionsLabel:{flex:1},
+  collapsedOptions:{display:'none'},
+});
 
 function Variants({ productId, companyId, variants, refresh }: { productId:string; companyId:string; variants:ProductVariant[]; refresh:()=>Promise<unknown> }) {
   const [open,setOpen]=useState(false); const [editing,setEditing]=useState<ProductVariant|null>(null); const [deleting,setDeleting]=useState<ProductVariant|null>(null);

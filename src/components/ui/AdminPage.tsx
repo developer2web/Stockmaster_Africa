@@ -17,7 +17,7 @@ import { useFocusEffect } from '@react-navigation/native';
 const scrollPositions = new Map<string, number>();
 
 const descriptions:Record<string,string>={
-  Produits:'Consultez, recherchez et gérez le catalogue de la boutique.',Stock:'Suivez les quantités disponibles dans la boutique sélectionnée.',Ventes:'Consultez les ventes et ouvrez leur détail.','Nouvelle vente':'Ajoutez les produits, choisissez le client puis encaissez.',Clients:'Gérez les clients, leurs achats et leurs crédits.',Caisse:'Suivez le solde, les mouvements et les clôtures.',Rapports:'Analysez les ventes, les dépenses et la performance.',Fournisseurs:'Gérez les fournisseurs, achats, dettes et règlements.',Employés:'Gérez les comptes, rôles et accès aux boutiques.',Boutiques:'Gérez les points de vente de l’entreprise.',Support:'Créez et suivez les demandes d’assistance.',Notifications:'Consultez les informations qui nécessitent votre attention.',
+  'Nouvelle vente':'Ajoutez les produits, choisissez le client puis encaissez.',
 };
 
 export function AdminPage({ title, description, action, floatingAction, backToHome = false, scrollResetKey, onContentWidthChange, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; scrollResetKey?: string; onContentWidthChange?: (width: number) => void }>) {
@@ -65,12 +65,12 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
         />}
         <Appbar.Content
           style={styles.headerContent}
-          title={membership?.companyName ?? 'StockMaster'}
+          title={membership?.storeName || membership?.companyName || 'StockMaster'}
           titleStyle={[compact && styles.compactTitle, employee && styles.employeeTitle]}
           subtitle={
             employee
-              ? `${employeeName} — Employé · ${membership?.storeName ?? 'Boutique'}`
-              : `${employeeName} — Administrateur · ${membership?.storeName ?? 'Boutique non sélectionnée'}`
+              ? `${employeeName} — Employé`
+              : membership?.companyName
           }
           subtitleStyle={employee ? styles.employeeSubtitle : styles.storeSubtitle}
         />

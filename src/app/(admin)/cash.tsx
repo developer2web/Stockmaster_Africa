@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Card, Dialog, HelperText, Icon, Portal, Text, TextInput, useTheme } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
@@ -57,6 +57,7 @@ export default function CashScreen() {
   const [openingAmount,setOpeningAmount]=useState('');
   const [openingNote,setOpeningNote]=useState('');
   const [openingOpen, setOpeningOpen] = useState(false);
+  const [previousClosuresOpen, setPreviousClosuresOpen] = useState(false);
   const receiptAction=useReceiptAction();
   const receiptBranding=useReceiptBranding();
   const rows = query.data?.pages.flat() ?? [];
@@ -90,7 +91,7 @@ export default function CashScreen() {
   const openingDifference=(parsedOpeningAmount||0)-(sessionStatus.data?.expectedInitial??0);
 
   return (
-    <AdminPage title="Caisse">
+    <AdminPage title="Caisse" description="">
       <Card mode="contained" style={[styles.balance, { backgroundColor: theme.colors.primaryContainer }]}>
         <Card.Content style={styles.balanceContent}>
           <View style={[styles.wallet, { backgroundColor: theme.colors.primary }]}><Icon source="wallet-outline" size={32} color={theme.colors.onPrimary} /></View>
@@ -117,18 +118,28 @@ export default function CashScreen() {
       {canWrite && <View style={styles.actions}>
         <AppButton disabled={requiresOpening} style={styles.action} icon="cash-plus" onPress={() => setType('deposit')}>Ajouter des fonds</AppButton>
         <AppButton disabled={requiresOpening} style={styles.action} buttonColor={theme.colors.error} icon="cash-minus" onPress={() => setType('withdrawal')}>Effectuer une dépense</AppButton>
+        <AppButton mode="outlined" disabled={requiresOpening} style={styles.action} icon="lock-check-outline" onPress={() => { setCountedAmount(String(balance)); setClosureOpen(true); }}>Clôturer la caisse</AppButton>
       </View>}
       <View style={styles.summary}>
         <Card mode="contained" style={[styles.summaryCard, { backgroundColor: theme.colors.surface }]}><Card.Content><Text style={{ color: theme.colors.onSurfaceVariant }}>Entrées</Text><Text variant="titleLarge" style={[styles.bold, { color: theme.colors.primary }]}>{money(deposits)}</Text></Card.Content></Card>
         <Card mode="contained" style={[styles.summaryCard, { backgroundColor: theme.colors.surface }]}><Card.Content><Text style={{ color: theme.colors.onSurfaceVariant }}>Sorties</Text><Text variant="titleLarge" style={[styles.bold, { color: theme.colors.error }]}>{money(withdrawals)}</Text></Card.Content></Card>
       </View>
-      {canWrite&&<Card mode="outlined"><Card.Title title="Clôture de caisse" subtitle="La caisse peut être clôturée plusieurs fois dans la journée" left={()=><Icon source="cash-register" size={28}/>}/><Card.Actions><AppButton disabled={requiresOpening} icon="lock-check-outline" onPress={()=>{setCountedAmount(String(balance));setClosureOpen(true);}}>Clôturer la caisse</AppButton></Card.Actions></Card>}
-      {!!closures.data?.length&&<><Text variant="titleLarge" style={styles.bold}>Dernières clôtures</Text>{closures.data.slice(0,7).map(item=>{
+      {!!closures.data?.length && <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: previousClosuresOpen }}
+        aria-expanded={previousClosuresOpen}
+        onPress={() => setPreviousClosuresOpen(open => !open)}
+        style={({ pressed }) => [styles.closuresToggle, { borderColor: theme.colors.outlineVariant, backgroundColor: pressed ? theme.colors.surfaceVariant : theme.colors.surface }]}
+      >
+        <Text style={[styles.grow, styles.bold, { color: theme.colors.primary }]}>{previousClosuresOpen ? 'Masquer les clôtures précédentes' : 'Voir les clôtures précédentes'}</Text>
+        <Icon source={previousClosuresOpen ? 'chevron-up' : 'chevron-down'} size={22} color={theme.colors.primary} />
+      </Pressable>}
+      {previousClosuresOpen && closures.data?.slice(0,7).map(item=>{
         const receipt={...receiptBranding,title:'Bordereau de clôture de caisse',party:membership?.storeName??receiptBranding.store??'Boutique',partyLabel:'Caisse',amount:Number(item.counted_amount),balanceBefore:0,balanceAfter:0,date:item.created_at,reference:`CLOTURE-${item.id.slice(0,8).toUpperCase()}`,issuedBy:item.closed_by_label,amountLabel:'Montant compté',note:`Montant attendu : ${money(Number(item.expected_amount))} • Écart : ${money(Number(item.difference))}${item.note?` • ${item.note}`:''}`,showBalances:false};
         const printKey=`closure-print-${item.id}`; const shareKey=`closure-share-${item.id}`;
         const difference=Number(item.difference);
         return <Card key={item.id} mode="outlined" style={styles.closureCard}><Card.Content style={styles.closureContent}><View style={styles.closureHeader}><View style={styles.grow}><Text variant="titleMedium" style={styles.bold}>{new Date(`${item.closure_date}T12:00:00`).toLocaleDateString('fr-FR')}</Text><Text style={{color:theme.colors.onSurfaceVariant}}>Attendu {money(Number(item.expected_amount))} • Compté {money(Number(item.counted_amount))}</Text></View><View style={[styles.differenceBadge,{backgroundColor:difference===0?theme.colors.primaryContainer:theme.colors.errorContainer}]}><Text style={[styles.differenceLabel,{color:difference===0?theme.colors.primary:theme.colors.error}]}>Écart</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[styles.differenceAmount,{color:difference===0?theme.colors.primary:theme.colors.error}]}>{difference>0?'+':''}{money(difference)}</Text></View></View><Text style={styles.bold}>Clôture effectuée par : {item.closed_by_label}</Text>{item.note&&<Text>{item.note}</Text>}</Card.Content><Card.Actions style={styles.closureActions}><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(receipt,money))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(receipt,money))}>Partager</AppButton></Card.Actions></Card>;
-      })}</>}
+      })}
       <Text variant="titleLarge" style={styles.bold}>Historique des mouvements</Text>
       {rows.map((item) => (
         <Card key={item.id} mode="contained" style={{ backgroundColor: theme.colors.surface }}>
@@ -189,6 +200,7 @@ const styles = StyleSheet.create({
   openingNoticeCopy: { flexDirection: 'row', alignItems: 'center', gap: 10, flexGrow: 1, flexShrink: 1, flexBasis: 220, minWidth: 0 },
   openingDialog: { alignSelf: 'center', marginHorizontal: 0 },
   dialogScroll: { gap: 12, paddingVertical: 12 },
+  closuresToggle: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderRadius: 12 },
   closureCard: { overflow: 'hidden' },
   closureContent: { gap: 10, paddingTop: 16 },
   closureHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 },
