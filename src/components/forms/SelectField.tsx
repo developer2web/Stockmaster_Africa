@@ -22,6 +22,8 @@ export function SelectField({ label, value, options, error, required = false, di
       <Menu
         visible={open}
         onDismiss={() => setOpen(false)}
+        // Avoid an initial close animation cancelling a quick first selection.
+        theme={{ animation: { scale: 0 } }}
         contentStyle={[styles.menu, { width: Math.min(360, width - 32), minWidth: Math.min(240, width - 32), maxHeight: Math.min(360, height * 0.6) }]}
         anchor={
           <Button

@@ -21,7 +21,7 @@ export default function EmployeeCatalog() {
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? '';
   const can = (permission: string) => hasPermission(membership, permission);
-  const products = useQuery({ queryKey: ['employee-catalog-products', company, store], queryFn: () => getProducts(company, store), enabled: !!company && !!store && can('products.read') });
+  const products = useQuery({ queryKey: ['employee-catalog-products', company, store, 'without-cost'], queryFn: () => getProducts(company, store), enabled: !!company && !!store && can('products.read') });
   const categories = useQuery({ queryKey: ['categories', company, store], queryFn: () => getCategories(company, store), enabled: !!company && !!store && can('categories.read') });
   const suppliers = useQuery({ queryKey: ['suppliers', company, store], queryFn: () => getSuppliers(company, store), enabled: !!company && !!store && can('suppliers.read') });
   const normalized = search.trim().toLowerCase();

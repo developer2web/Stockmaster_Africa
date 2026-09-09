@@ -17,6 +17,7 @@ import { OfflineProvider } from '@/features/offline/OfflineProvider';
 import { OfflineStatus } from '@/features/offline/OfflineStatus';
 import { logger } from '@/services/observability/logger';
 import { sanitizeErrorInPlace } from '@/utils/errors';
+import { usePortalLoginState } from '@/features/auth/portalLoginState';
 
 if (Platform.OS !== 'web') {
   void SplashScreen.preventAutoHideAsync();
@@ -41,6 +42,7 @@ const queryClient = new QueryClient({
 
 function RootNavigator() {
   const { isLoading, membership, offlineAuthenticated } = useAuth();
+  const portalLoginPending = usePortalLoginState(state => state.pending);
   const pathname = usePathname().replace(/\/+$/, '') || '/';
 
   useEffect(() => {
@@ -48,7 +50,10 @@ function RootNavigator() {
     if (!isLoading && Platform.OS !== 'web') void SplashScreen.hideAsync();
   }, [isLoading]);
 
-  if (isLoading) return <LoadingScreen label="Ouverture de StockMaster…" />;
+  // Keep login forms mounted while SIGNED_IN is being checked, so a rejected
+  // portal can display its message instead of losing local form state.
+  const loginRoute = pathname === '/login' || pathname === '/employee';
+  if (isLoading && !(loginRoute && portalLoginPending)) return <LoadingScreen label="Ouverture de StockMaster…" />;
 
   if (offlineAuthenticated) {
     const employee = membership?.role === 'employee';

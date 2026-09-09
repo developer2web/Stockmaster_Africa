@@ -1,4 +1,6 @@
-export type LoginPortalName = 'admin' | 'employee';
+import type { LoginPortal } from './portalRules';
+
+export type LoginPortalName = LoginPortal;
 
 export function portalAccessDeniedMessage(portal: LoginPortalName) {
   return portal === 'employee'

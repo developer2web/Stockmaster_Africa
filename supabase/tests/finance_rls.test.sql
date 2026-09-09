@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(40);
+select plan(51);
 
 insert into auth.users(id,email,aud,role)
 values
@@ -179,6 +179,20 @@ select lives_ok(
   'sale retry returns the existing sale'
 );
 select is((select count(*)::integer from sales),1,'sale retry creates one sale');
+select is((select count(*)::integer from sale_financials),1,'owner can read their financial summary');
+select is((select cost_total from sale_financials limit 1),8::numeric,'owner reads the historical cost without base-column access');
+select is((select purchase_price_snapshot from sale_item_financials limit 1),4::numeric,'owner reads historical item cost');
+select ok(not has_column_privilege('authenticated','public.sales','cost_total','SELECT'),'base sale cost remains protected');
+select ok(not has_column_privilege('authenticated','public.sale_items','purchase_price_snapshot','SELECT'),'base item cost remains protected');
+select ok(not has_table_privilege('anon','public.sale_financials','SELECT'),'anonymous users cannot read financial summaries');
+select ok(not has_table_privilege('anon','public.sale_item_financials','SELECT'),'anonymous users cannot read item costs');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
+select is((select count(*)::integer from sale_financials),0,'employee cannot read owner financial summaries');
+select is((select count(*)::integer from sale_item_financials),0,'employee cannot read owner item costs');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
+select is((select count(*)::integer from sale_financials),0,'another owner cannot read company A financial summaries');
+select is((select count(*)::integer from sale_item_financials),0,'another owner cannot read company A item costs');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
 select is((select currency_code::text from sales limit 1),'GNF','sale stores its historical currency');
 select throws_ok(
   $$select set_business_currency(

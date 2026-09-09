@@ -3,6 +3,8 @@ import { isJwtIssuedInFuture, retryJwtClockSkew } from '@/services/supabase/jwtR
 import type { AppRole } from '@/types/database';
 import { portalAccessDeniedMessage } from './portalMessages';
 import { portalAllowsRoles, type LoginPortal } from './portalRules';
+import { usePortalLoginState } from './portalLoginState';
+import { withRequestTimeout } from '@/services/supabase/requestTimeout';
 
 export type { LoginPortal } from './portalRules';
 
@@ -18,7 +20,7 @@ function normalizeRoles(rows: unknown): AppRole[] {
     .filter((role): role is AppRole => !!role);
 }
 
-export async function signInForPortal(
+async function performPortalSignIn(
   email: string,
   password: string,
   portal: LoginPortal,
@@ -41,8 +43,8 @@ export async function signInForPortal(
   }
 
   const [{ data: businesses, error: businessesError }, { data: context, error: contextError }] = await Promise.all([
-    retryJwtClockSkew(() => supabase.rpc('get_accessible_businesses')),
-    retryJwtClockSkew(() => supabase.rpc('get_my_context')),
+    withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_accessible_businesses').abortSignal(signal))),
+    withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_my_context').abortSignal(signal))),
   ]);
 
   if (businessesError || contextError) {
@@ -70,4 +72,13 @@ export async function signInForPortal(
   }
 
   return { ok: true };
+}
+
+export async function signInForPortal(email: string, password: string, portal: LoginPortal): Promise<PortalLoginResult> {
+  const state = usePortalLoginState.getState();
+  if (state.pending) return { ok: false, message: 'Une connexion est déjà en cours.' };
+  state.setPending(true);
+  try { return await performPortalSignIn(email, password, portal); }
+  catch { await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined); return { ok: false, message: 'Impossible de vérifier votre connexion. Réessayez.' }; }
+  finally { state.setPending(false); }
 }

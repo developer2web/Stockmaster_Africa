@@ -42,3 +42,5 @@ Ces vérifications ne couvrent pas toutes les routes et ne remplacent pas un ess
 - Réduire les textes explicatifs répétés et les animations décoratives sur mobile si les essais montrent qu’ils gênent la lecture ou ralentissent les appareils.
 
 La validation de la base de test, des rôles et de la reprise hors ligne avant publication est détaillée dans le [compte rendu des corrections](corrections-audit-2026-09-07.md). Aucun déploiement n’a été effectué.
+
+Complément du 8 septembre : les écrans d’abonnement protégés des portails ont depuis été contrôlés avec des données fictives communes, et les interactions des rapports simplifiés passent sur les cinq largeurs. La suite compte désormais 99 tests réussis. Voir le [bilan de cohérence](coherence-sites-2026-09-08.md) pour le périmètre précis et les validations restantes.

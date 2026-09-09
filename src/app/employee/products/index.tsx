@@ -28,7 +28,7 @@ export default function EmployeeProducts() {
   const search=useProductListView(state=>state.searches[listScope]??'');
   const setSearch=useProductListView(state=>state.setSearch);
   const debounced = useDebouncedValue(search);
-  const query = useInfiniteQuery({ queryKey: ['employee-products', company, store, debounced], queryFn: ({pageParam}) => getProducts(company, store, debounced,pageParam),initialPageParam:0,getNextPageParam:(last,pages)=>last.length===PRODUCT_PAGE_SIZE?pages.length:undefined, enabled: !!company && !!store });
+  const query = useInfiniteQuery({ queryKey: ['employee-products', company, store, debounced, 'without-cost'], queryFn: ({pageParam}) => getProducts(company, store, debounced,pageParam),initialPageParam:0,getNextPageParam:(last,pages)=>last.length===PRODUCT_PAGE_SIZE?pages.length:undefined, enabled: !!company && !!store });
   const products=query.data?.pages.flat()??[];
   return <PermissionGuard permission="products.read"><AdminPage title="Produits" action={canWrite ? <FAB size="small" icon="plus" onPress={() => router.push('/employee/products/new' as never)} /> : undefined}>
     <AppSearchBar placeholder="Nom ou code-barres" value={search} onChangeText={value=>setSearch(listScope,value)} loading={search !== debounced} />

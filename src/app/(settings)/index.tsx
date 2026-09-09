@@ -1,3 +1,4 @@
+import { AccessDiagnosticsCard } from '@/components/security/AccessDiagnosticsCard';
 import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -59,6 +60,7 @@ export default function SettingsScreen() {
     </>}
 
     <Text variant="titleMedium">Compte et sécurité</Text>
+    <AccessDiagnosticsCard />
     <OfflineAccessCard />
     <SettingsLink title="Sécurité et 2FA" subtitle="Double authentification, codes QR et sessions actives" icon="shield-key-outline" onPress={() => router.push('/(settings)/security' as never)}/>
     <SettingsLink title="Journal des connexions" subtitle="Historique récent des accès au compte" icon="history" onPress={() => router.push('/(settings)/security-history' as never)}/>

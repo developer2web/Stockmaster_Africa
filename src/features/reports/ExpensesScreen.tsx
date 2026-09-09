@@ -1,7 +1,9 @@
+import { DateField } from '@/components/forms/DateField';
+import { localDateValue } from '@/utils/calendar';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { Card, Dialog, HelperText, Portal, Text } from 'react-native-paper';
 
 import { FormField } from '@/components/forms/FormField';
@@ -17,7 +19,7 @@ import { expenseSchema, type ExpenseInput } from '@/schemas/reports';
 import { createExpense, getExpenseRequests, getExpenses, reviewExpenseRequest, type ExpenseRequest } from './expensesApi';
 import { useOffline } from '@/features/offline/OfflineProvider';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localDateValue();
 
 export default function ExpensesScreen() {
   const { membership } = useAuth();
@@ -63,7 +65,7 @@ export default function ExpensesScreen() {
         <Portal>
           <Dialog visible={open} onDismiss={() => setOpen(false)}>
             <Dialog.Title>Nouvelle dépense</Dialog.Title>
-            <Dialog.Content><FormField control={control} name="label" label="Motif" /><FormField control={control} name="amount" label="Montant" keyboardType="decimal-pad" /><FormField control={control} name="expenseDate" label="Date (AAAA-MM-JJ)" />{!!add.error && <HelperText type="error" visible>{add.error.message}</HelperText>}</Dialog.Content>
+            <Dialog.Content><FormField control={control} name="label" label="Motif" /><FormField control={control} name="amount" label="Montant" keyboardType="decimal-pad" /><Controller control={control} name="expenseDate" render={({ field, fieldState }) => <DateField label="Date de la dépense" value={field.value} onChange={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} />} />{!!add.error && <HelperText type="error" visible>{add.error.message}</HelperText>}</Dialog.Content>
             <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={add.isPending} disabled={add.isPending} onPress={handleSubmit((value) => add.mutate(value))}>Enregistrer</AppButton></Dialog.Actions>
           </Dialog>
         </Portal>

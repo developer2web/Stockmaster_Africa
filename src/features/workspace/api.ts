@@ -1,5 +1,6 @@
 import { supabase } from '@/services/supabase/client';
 import { retryJwtClockSkew } from '@/services/supabase/jwtRetry';
+import { withRequestTimeout } from '@/services/supabase/requestTimeout';
 import type { BusinessAccess, StoreAccess, WorkspaceContext } from '@/types/database';
 
 function fail(error: { message: string } | null) {
@@ -31,7 +32,7 @@ type StoreRow = {
 export async function getAccessibleBusinesses(): Promise<BusinessAccess[]> {
   let rows: BusinessRow[] = [];
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { data, error } = await retryJwtClockSkew(() => supabase.rpc('get_accessible_businesses'));
+    const { data, error } = await withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_accessible_businesses').abortSignal(signal)));
     fail(error);
     rows = (data ?? []) as BusinessRow[];
     if (rows.length || attempt === 2) break;
@@ -55,7 +56,7 @@ export async function getAccessibleBusinesses(): Promise<BusinessAccess[]> {
 export async function getAccessibleStores(companyId: string): Promise<StoreAccess[]> {
   let rows: StoreRow[] = [];
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { data, error } = await retryJwtClockSkew(() => supabase.rpc('get_accessible_stores', { p_company_id: companyId }));
+    const { data, error } = await withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_accessible_stores', { p_company_id: companyId }).abortSignal(signal)));
     fail(error);
     rows = (data ?? []) as StoreRow[];
     if (rows.length || attempt === 2) break;
@@ -69,10 +70,10 @@ export async function getAccessibleStores(companyId: string): Promise<StoreAcces
 }
 
 export async function getWorkspaceContext(companyId: string, storeId: string): Promise<WorkspaceContext | null> {
-  const { data, error } = await retryJwtClockSkew(() => supabase.rpc('get_workspace_context', {
+  const { data, error } = await withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_workspace_context', {
     p_company_id: companyId,
     p_store_id: storeId,
-  }));
+  }).abortSignal(signal)));
   fail(error);
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) return null;

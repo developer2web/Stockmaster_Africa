@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { ScrollView } from 'react-native';
-import { Card, Chip, Dialog, HelperText, Portal, Switch, Text, TextInput } from 'react-native-paper';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Card, Chip, Dialog, HelperText, IconButton, Menu, Portal, Switch, Text, TextInput, useTheme } from 'react-native-paper';
 import { FormField } from '@/components/forms/FormField';
 import { SelectField } from '@/components/forms/SelectField';
 import { AdminPage } from '@/components/ui/AdminPage';
@@ -37,12 +37,16 @@ const paymentLabels: Record<SupplierPayment['payment_method'], string> = {
 export default function Suppliers() {
   const { membership } = useAuth();
   const { formatMoney } = useCurrency();
+  const theme = useTheme();
+  const { width, height } = useWindowDimensions();
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? '';
   const cache = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [selected, setSelected] = useState<Supplier | null>(null);
+  const [menuSupplierId, setMenuSupplierId] = useState<string | null>(null);
+  const [contactSupplier, setContactSupplier] = useState<Supplier | null>(null);
   const [search, setSearch] = useState('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
@@ -123,21 +127,46 @@ export default function Suppliers() {
       const summary = stats.data?.[item.id];
       const due = summary?.due ?? 0;
       return <Card key={item.id} mode="outlined">
-        <Card.Title title={item.name} subtitle={[item.email, item.phone].filter(Boolean).join(' • ') || 'Aucun contact'} right={() => <StatusChip style={{ marginRight: 12 }} status={item.is_active ? 'active' : 'archived'} />} />
-        <Card.Content>
-          <Text>Total achats : {formatMoney(summary?.total ?? 0)}</Text>
-          <Text style={due > 0 ? { fontWeight: '800', color: '#C92A2A' } : undefined}>Dette restante : {formatMoney(due)}</Text>
-          <Text>Livraisons : {summary?.count ?? 0}{summary?.lastDelivery ? ` • dernière le ${formatDate(summary.lastDelivery)}` : ''}</Text>
+        <Card.Content style={styles.supplierContent}>
+          <View style={styles.supplierHeader}>
+            <Text variant="titleMedium" style={styles.supplierName}>{item.name}</Text>
+            <StatusChip status={item.is_active ? 'active' : 'archived'} />
+          </View>
+          <Text style={{ color: theme.colors.onSurfaceVariant }}>
+            <Text style={[styles.debt, { color: due > 0 ? theme.colors.error : theme.colors.onSurface }]}>Dette : {formatMoney(due)}</Text>
+            {' · '}Achats : {formatMoney(summary?.total ?? 0)}{' · '}{summary?.count ?? 0} livraison{summary?.count === 1 ? '' : 's'}
+          </Text>
+          <View style={styles.supplierActions}>
+            <AppButton mode="text" icon="file-document-outline" onPress={() => showPayment(item)}>Compte / Reçus</AppButton>
+            <Menu
+              visible={menuSupplierId === item.id}
+              onDismiss={() => setMenuSupplierId(null)}
+              theme={{ animation: { scale: 0 } }}
+              contentStyle={{ maxWidth: Math.min(280, width - 32) }}
+              anchor={<IconButton icon="dots-horizontal" size={24} style={styles.menuButton} accessibilityLabel={`Actions pour ${item.name}`} onPress={() => setMenuSupplierId(item.id)} />}
+            >
+              <Menu.Item leadingIcon="pencil-outline" title="Modifier" onPress={() => { setMenuSupplierId(null); show(item); }} />
+              <Menu.Item leadingIcon="card-account-details-outline" title="Coordonnées et détails" onPress={() => { setMenuSupplierId(null); setContactSupplier(item); }} />
+            </Menu>
+          </View>
         </Card.Content>
-        <Card.Actions>
-          <AppButton mode="text" icon="pencil" onPress={() => show(item)}>Modifier</AppButton>
-          <AppButton icon={due>0?'cash-check':'file-document-outline'} onPress={() => showPayment(item)}>{due>0?'Régler / Reçus':'Compte / Reçus'}</AppButton>
-        </Card.Actions>
       </Card>;
     })}
     <AppButton icon="truck-check-outline" onPress={() => router.push('/purchases' as never)}>Nouvel approvisionnement</AppButton>
     {!query.isLoading && !shown.length && <EmptyState icon={search ? 'magnify' : 'truck-plus'} title={search ? 'Aucun résultat' : 'Aucun fournisseur'} message={search ? 'Modifiez votre recherche.' : 'Ajoutez votre premier fournisseur.'} />}
     <Portal>
+      <Dialog visible={!!contactSupplier} onDismiss={() => setContactSupplier(null)} style={[styles.contactDialog, { width: Math.min(440, width - 32) }]}>
+        <Dialog.Title>{contactSupplier?.name}</Dialog.Title>
+        <Dialog.ScrollArea>
+          <ScrollView style={{ maxHeight: Math.max(80, height * 0.45) }} contentContainerStyle={styles.contactDetails}>
+            <Text>Email : {contactSupplier?.email || 'Non renseigné'}</Text>
+            <Text>Téléphone : {contactSupplier?.phone || 'Non renseigné'}</Text>
+            <Text>Adresse : {contactSupplier?.address || 'Non renseignée'}</Text>
+            {!!contactSupplier && !!stats.data?.[contactSupplier.id]?.lastDelivery && <Text>Dernière livraison : {formatDate(stats.data[contactSupplier.id].lastDelivery!)}</Text>}
+          </ScrollView>
+        </Dialog.ScrollArea>
+        <Dialog.Actions><AppButton mode="text" onPress={() => setContactSupplier(null)}>Fermer</AppButton></Dialog.Actions>
+      </Dialog>
       <Dialog visible={open} dismissable={!isDirty&&!mutation.isPending} onDismiss={() => !isDirty&&!mutation.isPending&&setOpen(false)}>
         <Dialog.Title>{editing ? 'Modifier le fournisseur' : 'Nouveau fournisseur'}</Dialog.Title>
         <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}><ScrollView nestedScrollEnabled contentContainerStyle={{ gap: 12, paddingHorizontal: 24, paddingBottom: 12 }} keyboardShouldPersistTaps="handled">
@@ -184,3 +213,14 @@ export default function Suppliers() {
     <AppFeedback message={receiptAction.error ? readableError(receiptAction.error) : ''} type="error" onDismiss={receiptAction.clearError} />
   </AdminPage>;
 }
+
+const styles = StyleSheet.create({
+  supplierContent: { gap: 6, paddingTop: 12, paddingBottom: 8 },
+  supplierHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  supplierName: { flexGrow: 1, flexShrink: 1, flexBasis: 160, minWidth: 0, fontWeight: '800' },
+  debt: { fontWeight: '800' },
+  supplierActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  menuButton: { margin: 0, width: 44, height: 44 },
+  contactDialog: { alignSelf: 'center', marginHorizontal: 0 },
+  contactDetails: { gap: 12, paddingVertical: 12 },
+});

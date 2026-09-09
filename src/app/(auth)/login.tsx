@@ -22,6 +22,7 @@ export default function LoginScreen() {
   const submit=handleSubmit(async values=>{setError('');const result=await signInForPortal(values.email,values.password,'admin');if(!result.ok)return setError(result.message??'Connexion impossible.');await refreshMembership();router.replace('/')});
 
   if(mode==='choice')return <AuthScreen title="Choisir votre espace" subtitle="Connectez-vous selon votre rôle.">
+    {!!notice && <HelperText type="info" visible>{String(notice)}</HelperText>}
     <Card mode="outlined" onPress={()=>setMode('admin')}><Card.Content style={{flexDirection:compact?'column':'row',alignItems:compact?'stretch':'center',gap:10}}><Icon source="shield-account" size={36}/><View style={{flexGrow:1,minWidth:0}}><Text variant="titleMedium">Administrateur</Text><Text>Gestion de l’entreprise, des boutiques et de l’équipe.</Text></View>{!compact && <Icon source="chevron-right" size={24}/>}</Card.Content></Card>
     <Card mode="outlined" onPress={()=>router.push('/employee' as never)}><Card.Content style={{flexDirection:compact?'column':'row',alignItems:compact?'stretch':'center',gap:10}}><Icon source="account-hard-hat" size={36}/><View style={{flexGrow:1,minWidth:0}}><Text variant="titleLarge">Employé</Text><Text>Email et mot de passe fournis par l’administrateur.</Text></View>{!compact && <Icon source="chevron-right" size={24}/>}</Card.Content></Card>
     <Link href="/(auth)/register" asChild><Text style={{textAlign:'center'}}>Créer une nouvelle entreprise</Text></Link>

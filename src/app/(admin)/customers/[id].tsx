@@ -1,9 +1,11 @@
+import { DateField } from '@/components/forms/DateField';
+import { localDateValue } from '@/utils/calendar';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, View } from 'react-native';
-import { Card, Chip, Dialog, HelperText, Icon, Portal, Switch, Text, TextInput, useTheme } from 'react-native-paper';
+import { ScrollView, useWindowDimensions, View } from 'react-native';
+import { Card, Chip, Dialog, HelperText, Icon, IconButton, Portal, Switch, Text, TextInput, useTheme } from 'react-native-paper';
 import { Controller, useForm } from 'react-hook-form';
 
 import { AdminPage } from '@/components/ui/AdminPage';
@@ -32,6 +34,7 @@ export default function CustomerDetails() {
   const { membership } = useAuth();
   const { formatMoney } = useCurrency();
   const theme = useTheme();
+  const { width, height, fontScale } = useWindowDimensions();
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? null;
   const canWrite = membership?.role === 'company_admin' || !!membership?.permissions.includes('sales.write');
@@ -52,7 +55,7 @@ export default function CustomerDetails() {
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState(notice??'');
   const [scheduleOpen,setScheduleOpen]=useState(false);
-  const [scheduleRows,setScheduleRows]=useState([{dueDate:new Date(Date.now()+30*86400000).toISOString().slice(0,10),amount:''}]);
+  const [scheduleRows,setScheduleRows]=useState([{dueDate:localDateValue(new Date(Date.now()+30*86400000)),amount:''}]);
 
   const refresh = async () => {
     await Promise.all([
@@ -86,6 +89,8 @@ export default function CustomerDetails() {
   const saveSchedule=useMutation({mutationFn:()=>setCustomerDebtSchedule(id!,scheduleRows.map(row=>({dueDate:row.dueDate,amount:parseDecimal(row.amount)}))),onSuccess:async()=>{await schedule.refetch();setScheduleOpen(false);setMessage('Échéancier enregistré.')}});
 
   const balance = customer.data?.balance ?? 0;
+  const scheduleTotal = scheduleRows.reduce((sum, row) => sum + (parseDecimal(row.amount) || 0), 0);
+  const scheduleValid = scheduleRows.every(row => !!row.dueDate && Number.isFinite(parseDecimal(row.amount)) && parseDecimal(row.amount) > 0) && Math.abs(scheduleTotal - balance) <= 0.01;
   const owes = balance > 0;
   const amountValid = amount.trim().length > 0;
 
@@ -192,10 +197,26 @@ export default function CustomerDetails() {
             <AppButton loading={edit.isPending} disabled={!isValid||!isDirty} onPress={handleSubmit((value) => edit.mutate(value))}>Enregistrer</AppButton>
           </Dialog.Actions>
         </Dialog>
-        <Dialog visible={scheduleOpen} onDismiss={()=>!saveSchedule.isPending&&setScheduleOpen(false)}>
-          <Dialog.Title>Échéancier de la dette</Dialog.Title>
-          <Dialog.ScrollArea style={{paddingHorizontal:0}}><ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" contentContainerStyle={{gap:12,paddingHorizontal:24,paddingBottom:12}}>{scheduleRows.map((row,index)=><Card key={index} mode="outlined"><Card.Content style={{gap:8}}><TextInput mode="outlined" label="Date (AAAA-MM-JJ)" value={row.dueDate} onChangeText={dueDate=>setScheduleRows(rows=>rows.map((item,i)=>i===index?{...item,dueDate}:item))}/><TextInput mode="outlined" label="Montant" keyboardType="decimal-pad" value={row.amount} onChangeText={amount=>setScheduleRows(rows=>rows.map((item,i)=>i===index?{...item,amount}:item))}/>{scheduleRows.length>1&&<AppButton mode="text" textColor="#C92A2A" onPress={()=>setScheduleRows(rows=>rows.filter((_,i)=>i!==index))}>Retirer</AppButton>}</Card.Content></Card>)}<AppButton mode="outlined" icon="plus" onPress={()=>setScheduleRows(rows=>[...rows,{dueDate:new Date(Date.now()+(rows.length+1)*30*86400000).toISOString().slice(0,10),amount:''}])}>Ajouter une échéance</AppButton><HelperText type="info" visible>Total requis : {formatMoney(balance)}. Total saisi : {formatMoney(scheduleRows.reduce((sum,row)=>sum+(parseDecimal(row.amount)||0),0))}</HelperText>{!!saveSchedule.error&&<HelperText type="error" visible>{saveSchedule.error.message}</HelperText>}</ScrollView></Dialog.ScrollArea>
-          <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setScheduleOpen(false)}>Fermer</AppButton><AppButton loading={saveSchedule.isPending} disabled={saveSchedule.isPending||Math.abs(scheduleRows.reduce((sum,row)=>sum+(parseDecimal(row.amount)||0),0)-balance)>0.01} onPress={()=>saveSchedule.mutate()}>Enregistrer</AppButton></Dialog.Actions>
+        <Dialog testID="debt-schedule-dialog" visible={scheduleOpen} dismissable={!saveSchedule.isPending} onDismiss={()=>!saveSchedule.isPending&&setScheduleOpen(false)} style={{ width: Math.min(480, width - 32), maxHeight: height - 32, alignSelf: 'center', marginHorizontal: 0 }}>
+          <Dialog.Title style={{ marginTop: 16, marginBottom: 12, marginHorizontal: 16, fontSize: 20 }}>Échéancier de la dette</Dialog.Title>
+          <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}>
+            <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: height * 0.5 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingVertical: 12 }}>
+              {scheduleRows.map((row, index) => <View key={index} style={{ gap: 6, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: theme.colors.outlineVariant }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text variant="labelLarge">Échéance {index + 1}</Text>
+                  {scheduleRows.length > 1 && <IconButton icon="close" accessibilityLabel={`Retirer l’échéance ${index + 1}`} size={20} style={{ margin: 0, width: 44, height: 44 }} disabled={saveSchedule.isPending} onPress={() => setScheduleRows(rows => rows.filter((_, i) => i !== index))} />}
+                </View>
+                <View style={{ flexDirection: width >= 460 && fontScale <= 1.2 ? 'row' : 'column', alignItems: 'stretch', gap: 8 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}><DateField label={`Date de l’échéance ${index + 1}`} value={row.dueDate} disabled={saveSchedule.isPending} onChange={dueDate => setScheduleRows(rows => rows.map((item, i) => i === index ? { ...item, dueDate } : item))} /></View>
+                  <TextInput mode="outlined" dense label="Montant" accessibilityLabel={`Montant de l’échéance ${index + 1}`} keyboardType="decimal-pad" style={{ flex: 1, minWidth: 0 }} value={row.amount} disabled={saveSchedule.isPending} onChangeText={amount => setScheduleRows(rows => rows.map((item, i) => i === index ? { ...item, amount } : item))} />
+                </View>
+              </View>)}
+              <AppButton mode="text" icon="plus" disabled={saveSchedule.isPending} onPress={() => setScheduleRows(rows => [...rows, { dueDate: localDateValue(new Date(Date.now() + (rows.length + 1) * 30 * 86400000)), amount: '' }])}>Ajouter une échéance</AppButton>
+              <Text variant="bodySmall">Total requis : {formatMoney(balance)} · Saisi : {formatMoney(scheduleTotal)}</Text>
+              {!!saveSchedule.error && <HelperText type="error" visible>{readableError(saveSchedule.error)}</HelperText>}
+            </ScrollView>
+          </Dialog.ScrollArea>
+          <Dialog.Actions style={{ flexWrap: 'wrap', padding: 8 }}><AppButton mode="text" disabled={saveSchedule.isPending} onPress={()=>setScheduleOpen(false)}>Fermer</AppButton><AppButton loading={saveSchedule.isPending} disabled={saveSchedule.isPending || !scheduleValid} onPress={()=>saveSchedule.mutate()}>Enregistrer</AppButton></Dialog.Actions>
         </Dialog>
       </Portal>
       <AppFeedback message={message} onDismiss={() => setMessage('')}/>

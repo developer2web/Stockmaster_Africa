@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { canUseOfflineFallback } from '@/utils/errors';
 
 const CACHE_PREFIX = 'stockmaster:offline-cache:v1:';
 export const OFFLINE_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -44,6 +45,8 @@ export async function withOfflineCache<T>(key: string, load: () => Promise<T>, i
     await writeOfflineCache(key, value).catch(() => undefined);
     return value;
   } catch (error) {
+    // Cached pages must not hide revoked access or a missing server migration.
+    if (!canUseOfflineFallback(error)) throw error;
     const cached = await readOfflineCache<T>(key, isValid);
     if (cached !== null) return cached;
     throw error;

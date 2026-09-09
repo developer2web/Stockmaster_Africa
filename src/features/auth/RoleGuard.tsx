@@ -1,4 +1,4 @@
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { PropsWithChildren } from 'react';
 import { useAuth } from './AuthProvider';
 import type { AppRole } from '@/types/database';
@@ -26,7 +26,11 @@ export function RoleGuard({ roles, children, requireActiveSubscription = true }:
     if (employeeOnly) return <Redirect href={stores.length > 1 ? '/choose-store' : '/'} />;
     return <Redirect href="/(auth)/complete-profile" />;
   }
-  if (!roles.includes(membership.role)) return <Redirect href="/" />;
+  if (!roles.includes(membership.role)) return <ErrorState
+    title="Espace non autorisé"
+    message={`Votre compte ${membership.role === 'employee' ? 'employé' : membership.role === 'company_admin' ? 'propriétaire' : 'Super Administrateur'} n’est pas autorisé à utiliser cet espace.`}
+    retryLabel="Retour à mon espace" onRetry={() => router.replace('/')} onCancel={() => void signOut()}
+  />;
   if (
     requireActiveSubscription &&
     membership.role !== 'super_admin' &&

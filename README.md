@@ -8,6 +8,16 @@ Cette décision est officielle et documentée dans
 [`docs/adr/0001-expo-sdk-54.md`](docs/adr/0001-expo-sdk-54.md). Une migration
 vers Expo 57 devra être réalisée comme un projet séparé.
 
+Le [bilan de cohérence des quatre interfaces](docs/coherence-sites-2026-09-08.md)
+décrit les vérifications, la migration SQL à valider et les étapes avant publication.
+En développement : site public sur le port 4000, Account sur 4001, Admin sur 4002
+et application Expo sur 8081. En production, renseignez explicitement les quatre
+URL et les valeurs publiques communes indiquées dans `.env.example`.
+Les [calendriers et la correction du chargement des ventes](docs/calendriers-et-pagination-ventes-2026-09-08.md)
+sont également documentés avec leur périmètre de validation.
+Le [bilan des accès, portails et de l’accueil mobile](docs/acces-portails-2026-09-08.md)
+explique les derniers correctifs et le diagnostic à utiliser si un refus persiste.
+
 ## Technologies
 
 - React Native et Expo SDK 54
@@ -334,8 +344,8 @@ npm run export:web
 État des tests lors de la dernière mise à jour :
 
 ```text
-20 fichiers de tests réussis
-99 tests réussis
+27 fichiers de tests réussis
+143 tests réussis
 0 erreur TypeScript
 0 erreur ESLint
 ```

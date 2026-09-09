@@ -24,8 +24,9 @@ export default function StockScreen() {
   const [search, setSearch] = useState('');
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? '';
+  const canViewPurchaseValue = membership?.role === 'company_admin' || membership?.role === 'super_admin';
   useStockRealtime(company);
-  const levels = useQuery({ queryKey: ['stock-levels', company, store], queryFn: () => getStockLevels(company, undefined, store), enabled: !!company && !!store });
+  const levels = useQuery({ queryKey: ['stock-levels', company, store, 'cost', canViewPurchaseValue], queryFn: () => getStockLevels(company, undefined, store, canViewPurchaseValue), enabled: !!company && !!store });
   const movements = useQuery({ queryKey: ['stock-movements', company, store], queryFn: () => getStockMovements(company, undefined, store), enabled: !!company && !!store });
   const rows = levels.data ?? [];
   const total = rows.reduce((sum, row) => sum + Number(row.quantity), 0);
@@ -51,7 +52,7 @@ export default function StockScreen() {
         <View style={styles.metrics}>
           <Metric compact={compact} label="Produits référencés" value={String(new Set(rows.map((row) => row.product_id)).size)} />
           <Metric compact={compact} label="Quantité totale" value={formatQuantity(total)} />
-          <Metric compact={compact} label="Valeur d’achat" value={money(purchaseValue)} />
+          {canViewPurchaseValue && <Metric compact={compact} label="Valeur d’achat" value={money(purchaseValue)} />}
           <Metric compact={compact} label="Valeur de vente du stock" value={money(expectedRevenue)} />
         </View>
       </View>

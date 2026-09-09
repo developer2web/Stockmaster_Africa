@@ -89,18 +89,21 @@ export async function getSupplierStats(companyId: string, storeId: string) {
 }
 
 export const PRODUCT_PAGE_SIZE = 30;
+export type ProductListItem = Omit<Product, 'purchase_price'> & { purchase_price?: number };
 
 export async function getProducts(
   companyId: string,
   storeId: string,
   search = '',
   page = 0,
-): Promise<Product[]> {
-  return withOfflineCache(`products:${companyId}:${storeId}:${search.trim().toLowerCase()}:${page}`, async () => {
+  includeCost = false,
+): Promise<ProductListItem[]> {
+  return withOfflineCache(`products:${companyId}:${storeId}:${search.trim().toLowerCase()}:${page}:cost:${includeCost}`, async () => {
   const start = page * PRODUCT_PAGE_SIZE;
+  const costColumn = includeCost ? ',purchase_price' : '';
   let query = supabase
     .from('products')
-    .select('id,company_id,store_id,category_id,supplier_id,name,description,sku,qr_code,barcode,unit,purchase_price,sale_price,low_stock_threshold,image_url,image_urls,is_active,created_at,category:categories(name),supplier:suppliers(name)')
+    .select(`id,company_id,store_id,category_id,supplier_id,name,description,sku,qr_code,barcode,unit${costColumn},sale_price,low_stock_threshold,image_url,image_urls,is_active,created_at,category:categories(name),supplier:suppliers(name)`)
     .eq('company_id', companyId)
     .eq('store_id', storeId)
     .order('created_at', { ascending: false })
@@ -111,7 +114,7 @@ export async function getProducts(
   }
   const { data, error } = await query;
   fail(error);
-  return (data ?? []) as unknown as Product[];
+  return (data ?? []) as unknown as ProductListItem[];
   }, Array.isArray);
 }
 export async function getProduct(id:string):Promise<Product>{const{data,error}=await supabase.from('products').select('id,company_id,store_id,category_id,supplier_id,name,description,sku,qr_code,barcode,unit,purchase_price,sale_price,low_stock_threshold,image_url,image_urls,is_active,created_at,category:categories(name),supplier:suppliers(name),product_variants(id,product_id,name,sku,barcode,attributes,purchase_price,sale_price,is_active)').eq('id',id).single();fail(error);return data as unknown as Product}

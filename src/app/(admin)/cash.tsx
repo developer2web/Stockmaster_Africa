@@ -24,7 +24,7 @@ export default function CashScreen() {
   const { formatMoney: money, formatForCurrency } = useCurrency();
   const { membership } = useAuth();
   const theme = useTheme();
-  const { height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const cache = useQueryClient();
   const { refreshQueue } = useOffline();
   const companyId = membership?.companyId ?? '';
@@ -56,6 +56,7 @@ export default function CashScreen() {
   const [closureNote,setClosureNote]=useState('');
   const [openingAmount,setOpeningAmount]=useState('');
   const [openingNote,setOpeningNote]=useState('');
+  const [openingOpen, setOpeningOpen] = useState(false);
   const receiptAction=useReceiptAction();
   const receiptBranding=useReceiptBranding();
   const rows = query.data?.pages.flat() ?? [];
@@ -82,9 +83,11 @@ export default function CashScreen() {
   });
   const valid = !!storeId && designation.trim().length >= 2 && parseDecimal(amount) > 0;
   const closure=useMutation({mutationFn:()=>closeCash(storeId,parseDecimal(countedAmount),closureNote),onSuccess:async()=>{await Promise.all([cache.invalidateQueries({queryKey:['cash-closures',companyId,storeId]}),cache.invalidateQueries({queryKey:['cash-session',companyId,storeId]})]);setClosureOpen(false);setCountedAmount('');setClosureNote('');setSuccessMessage('Caisse clôturée');}});
-  const opening=useMutation({mutationFn:()=>openCash(storeId,parseDecimal(openingAmount),openingNote),onSuccess:async()=>{await cache.invalidateQueries({queryKey:['cash-session',companyId,storeId]});setOpeningAmount('');setOpeningNote('');setSuccessMessage('Caisse ouverte');}});
+  const opening=useMutation({mutationFn:()=>openCash(storeId,parseDecimal(openingAmount),openingNote),onSuccess:async()=>{await cache.invalidateQueries({queryKey:['cash-session',companyId,storeId]});setOpeningOpen(false);setOpeningAmount('');setOpeningNote('');setSuccessMessage('Caisse ouverte');}});
   const requiresOpening=!!sessionStatus.data?.requiresOpening;
-  const openingDifference=(parseDecimal(openingAmount)||0)-(sessionStatus.data?.expectedInitial??0);
+  const parsedOpeningAmount = parseDecimal(openingAmount);
+  const validOpeningAmount = Number.isFinite(parsedOpeningAmount) && parsedOpeningAmount >= 0;
+  const openingDifference=(parsedOpeningAmount||0)-(sessionStatus.data?.expectedInitial??0);
 
   return (
     <AdminPage title="Caisse">
@@ -97,7 +100,20 @@ export default function CashScreen() {
           </View>
         </Card.Content>
       </Card>
-      {requiresOpening&&<Card mode="outlined" style={{borderColor:theme.colors.outlineVariant}}><Card.Title title="Montant initial requis" subtitle={`Dernière clôture par ${sessionStatus.data?.closedByLabel??'un utilisateur'}`} left={()=><Icon source="cash-lock" size={30} color={theme.colors.primary}/>}/><Card.Content style={styles.dialog}>{canOpen?<><Text style={{color:theme.colors.onSurfaceVariant}}>Confirmez le montant réellement présent dans la caisse avant de commencer.</Text><Text>Montant transmis : {money(sessionStatus.data?.expectedInitial??0)}</Text><TextInput mode="outlined" label="Montant reçu" value={openingAmount} onChangeText={setOpeningAmount} keyboardType="decimal-pad"/><TextInput mode="outlined" label="Note en cas d’écart (facultatif)" value={openingNote} onChangeText={setOpeningNote} multiline/>{openingAmount.trim()!==''&&<Text style={{color:openingDifference===0?theme.colors.primary:theme.colors.error}}>Écart : {openingDifference>0?'+':''}{money(openingDifference)}</Text>}{!!opening.error&&<HelperText type="error" visible>{readableError(opening.error)}</HelperText>}</>:<HelperText type="error" visible>Un administrateur doit vous attribuer la permission « Ouvrir la caisse ».</HelperText>}</Card.Content>{canOpen&&<Card.Actions><AppButton icon="cash-check" loading={opening.isPending} disabled={opening.isPending||openingAmount.trim()===''||parseDecimal(openingAmount)<0} onPress={()=>opening.mutate()}>Valider et commencer</AppButton></Card.Actions>}</Card>}
+      {requiresOpening && <Card mode="outlined" style={{ borderColor: theme.colors.outlineVariant }}>
+        <Card.Content style={styles.openingNotice}>
+          <View style={styles.openingNoticeCopy}>
+            <Icon source="cash-lock" size={24} color={theme.colors.primary} />
+            <View style={styles.grow}>
+              <Text variant="titleSmall" style={styles.bold}>Montant initial requis</Text>
+              <Text style={{ color: theme.colors.onSurfaceVariant }}>Montant transmis : {money(sessionStatus.data?.expectedInitial ?? 0)}</Text>
+            </View>
+          </View>
+          {canOpen
+            ? <AppButton mode="outlined" icon="cash-check" onPress={() => setOpeningOpen(true)}>Ouvrir la caisse</AppButton>
+            : <HelperText type="error" visible>Un administrateur doit vous attribuer la permission « Ouvrir la caisse ».</HelperText>}
+        </Card.Content>
+      </Card>}
       {canWrite && <View style={styles.actions}>
         <AppButton disabled={requiresOpening} style={styles.action} icon="cash-plus" onPress={() => setType('deposit')}>Ajouter des fonds</AppButton>
         <AppButton disabled={requiresOpening} style={styles.action} buttonColor={theme.colors.error} icon="cash-minus" onPress={() => setType('withdrawal')}>Effectuer une dépense</AppButton>
@@ -129,6 +145,25 @@ export default function CashScreen() {
       {query.hasNextPage && <AppButton mode="outlined" icon="chevron-down" loading={query.isFetchingNextPage} onPress={() => void query.fetchNextPage()}>Charger plus de mouvements</AppButton>}
       {!query.isLoading && !rows.length && <EmptyState icon="wallet-outline" title="Caisse vide" message="Ajoutez un premier approvisionnement pour démarrer l’historique." />}
       {!!query.error && <HelperText type="error" visible>{readableError(query.error)}</HelperText>}
+      <Portal>
+        <Dialog visible={openingOpen && requiresOpening && canOpen} dismissable={!opening.isPending} onDismiss={() => !opening.isPending && setOpeningOpen(false)} style={[styles.openingDialog, { width: Math.min(460, width - 32) }]}>
+          <Dialog.Title>Ouvrir la caisse</Dialog.Title>
+          <Dialog.ScrollArea>
+            <ScrollView style={{ maxHeight: Math.max(80, height * 0.45) }} contentContainerStyle={styles.dialogScroll} keyboardShouldPersistTaps="handled">
+              <Text>Montant transmis : <Text style={styles.bold}>{money(sessionStatus.data?.expectedInitial ?? 0)}</Text></Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Dernière clôture par {sessionStatus.data?.closedByLabel ?? 'un utilisateur'}. Confirmez le montant réellement reçu.</Text>
+              <TextInput mode="outlined" dense label="Montant reçu" value={openingAmount} onChangeText={setOpeningAmount} keyboardType="decimal-pad" />
+              <TextInput mode="outlined" dense label="Note en cas d’écart (facultatif)" value={openingNote} onChangeText={setOpeningNote} multiline />
+              {validOpeningAmount && <Text style={{ color: openingDifference === 0 ? theme.colors.primary : theme.colors.error }}>Écart : {openingDifference > 0 ? '+' : ''}{money(openingDifference)}</Text>}
+              {!!opening.error && <HelperText type="error" visible>{readableError(opening.error)}</HelperText>}
+            </ScrollView>
+          </Dialog.ScrollArea>
+          <Dialog.Actions style={{ flexWrap: 'wrap' }}>
+            <AppButton mode="text" disabled={opening.isPending} onPress={() => setOpeningOpen(false)}>Annuler</AppButton>
+            <AppButton icon="cash-check" loading={opening.isPending} disabled={opening.isPending || !validOpeningAmount} onPress={() => opening.mutate()}>Valider et commencer</AppButton>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
       <Portal><Dialog visible={!!type} onDismiss={() => setType(null)}><Dialog.Title>{type === 'deposit' ? 'Ajouter des fonds' : 'Effectuer une dépense'}</Dialog.Title><Dialog.ScrollArea><ScrollView style={{ maxHeight: Math.max(80, height * 0.45) }} contentContainerStyle={styles.dialogScroll} keyboardShouldPersistTaps="handled"><TextInput mode="outlined" label="Désignation" value={designation} onChangeText={setDesignation} /><TextInput mode="outlined" label="Montant" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" left={<TextInput.Icon icon="cash" />} />{!!mutation.error && <HelperText type="error" visible>{readableError(mutation.error)}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setType(null)}>Annuler</AppButton><AppButton loading={mutation.isPending} disabled={!valid || mutation.isPending} onPress={() => mutation.mutate()}>{mutation.isPending?'Enregistrement…':'Confirmer'}</AppButton></Dialog.Actions></Dialog><Dialog visible={closureOpen} onDismiss={()=>!closure.isPending&&setClosureOpen(false)}><Dialog.Title>Clôturer la caisse</Dialog.Title><Dialog.ScrollArea><ScrollView style={{ maxHeight: Math.max(80, height * 0.45) }} contentContainerStyle={styles.dialogScroll} keyboardShouldPersistTaps="handled"><Text>Montant attendu : {money(balance)}</Text><TextInput mode="outlined" label="Montant réellement compté" value={countedAmount} onChangeText={setCountedAmount} keyboardType="decimal-pad"/><TextInput mode="outlined" label="Note (facultatif)" value={closureNote} onChangeText={setClosureNote} multiline/><Text>Écart : {money((parseDecimal(countedAmount)||0)-balance)}</Text>{!!closure.error&&<HelperText type="error" visible>{readableError(closure.error)}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" disabled={closure.isPending} onPress={()=>setClosureOpen(false)}>Annuler</AppButton><AppButton loading={closure.isPending} disabled={closure.isPending||parseDecimal(countedAmount)<0} onPress={()=>closure.mutate()}>{closure.isPending?'Enregistrement…':'Valider la clôture'}</AppButton></Dialog.Actions></Dialog></Portal>
       <AppFeedback message={successMessage} onDismiss={() => setSuccessMessage('')} />
       <AppFeedback message={receiptAction.error ? readableError(receiptAction.error) : ''} type="error" onDismiss={receiptAction.clearError} />
@@ -150,7 +185,9 @@ const styles = StyleSheet.create({
   transactionCopy: { flexGrow: 1, flexShrink: 1, flexBasis: 160, minWidth: 0 },
   amount: { maxWidth: '100%', textAlign: 'right', flexShrink: 1 },
   transactionIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  dialog: { gap: 12 },
+  openingNotice: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, paddingVertical: 12 },
+  openingNoticeCopy: { flexDirection: 'row', alignItems: 'center', gap: 10, flexGrow: 1, flexShrink: 1, flexBasis: 220, minWidth: 0 },
+  openingDialog: { alignSelf: 'center', marginHorizontal: 0 },
   dialogScroll: { gap: 12, paddingVertical: 12 },
   closureCard: { overflow: 'hidden' },
   closureContent: { gap: 10, paddingTop: 16 },

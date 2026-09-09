@@ -11,8 +11,10 @@ import { AuthScreen } from '@/features/auth/AuthScreen';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { hasAnyPermission, hasPermission } from '@/features/auth/permissions';
 import { signInForPortal } from '@/features/auth/portalLogin';
+import { usePortalLoginState } from '@/features/auth/portalLoginState';
 
 export default function EmployeeEntry() {
+  const portalLoginPending = usePortalLoginState(state => state.pending);
   const { session, membership, businesses, stores, isWorkspaceLoading, signOut } = useAuth();
   const { width } = useWindowDimensions();
   const theme = useTheme();
@@ -20,7 +22,7 @@ export default function EmployeeEntry() {
   const wide = width >= 980;
   const employeeName = String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
 
-  if (!session) return <EmployeeLogin />;
+  if (!session || portalLoginPending) return <EmployeeLogin />;
   if (!membership && isWorkspaceLoading) return <LoadingScreen label="Chargement de vos boutiques…" />;
   if (!membership && businesses.length) {
     if (stores.length > 1) return <Redirect href="/choose-store" />;
@@ -34,7 +36,7 @@ export default function EmployeeEntry() {
     );
   }
   if (!membership) return <LoadingScreen label="Chargement de votre espace…" />;
-  if (membership.role !== 'employee') return <Redirect href="/" />;
+  if (membership.role !== 'employee') return <ErrorState title="Espace employé non autorisé" message="Ce compte ne possède pas d’accès employé. Utilisez l’espace qui vous a été attribué." retryLabel="Retour à mon espace" onRetry={() => router.replace('/')} onCancel={() => void signOut()} />;
 
   const hasAny = (permissions: string[]) => hasAnyPermission(membership, permissions);
   const canCatalog = hasAny(['products.read', 'categories.read', 'suppliers.read']);

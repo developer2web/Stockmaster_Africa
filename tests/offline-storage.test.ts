@@ -36,6 +36,21 @@ describe('cache hors ligne', () => {
       .resolves.toEqual([{ id: 'p1' }]);
   });
 
+  it('ne masque pas un refus de droits avec une ancienne page en cache', async () => {
+    asyncStorage.getItem.mockResolvedValue(JSON.stringify({ value: [{ id: 'p1' }], savedAt: new Date().toISOString() }));
+    const error = { code: '42501', message: 'permission denied for products' };
+    await expect(withOfflineCache('products', async () => { throw error; }, Array.isArray)).rejects.toBe(error);
+    expect(asyncStorage.getItem).not.toHaveBeenCalled();
+    expect(asyncStorage.removeItem).not.toHaveBeenCalled();
+  });
+
+  it('ne masque ni une session expirée ni une migration manquante', async () => {
+    for (const error of [{ status: 401, message: 'JWT expired' }, { code: 'PGRST202', message: 'Could not find function get_accessible_businesses in the schema cache' }]) {
+      await expect(withOfflineCache('products', async () => { throw error; }, Array.isArray)).rejects.toBe(error);
+    }
+    expect(asyncStorage.getItem).not.toHaveBeenCalled();
+  });
+
   it('supprime un ancien cache mal formé au lieu de casser un écran', async () => {
     asyncStorage.getItem.mockResolvedValue(JSON.stringify({ value: { id: 'p1' }, savedAt: new Date().toISOString() }));
 

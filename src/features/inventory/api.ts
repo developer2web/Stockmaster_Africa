@@ -67,11 +67,14 @@ export async function getStockLevels(
   companyId: string,
   productId?: string,
   storeId?: string,
+  includeCost = false,
 ): Promise<StockLevel[]> {
-  return withOfflineCache(`stock-levels:${companyId}:${productId??'all'}:${storeId??'all'}`, async () => {
+  // Keep read-only quantities separate from previously cached purchase prices.
+  return withOfflineCache(`stock-levels:${companyId}:${productId??'all'}:${storeId??'all'}:cost:${includeCost}`, async () => {
+  const productColumns = includeCost ? 'name,sku,purchase_price,sale_price' : 'name,sku,sale_price';
   let query = supabase
     .from('stock_levels')
-    .select('id,company_id,store_id,product_id,product_variant_id,quantity,updated_at,store:stores(name),product:products(name,sku,purchase_price,sale_price),variant:product_variants(name,sku)')
+    .select(`id,company_id,store_id,product_id,product_variant_id,quantity,updated_at,store:stores(name),product:products(${productColumns}),variant:product_variants(name,sku)`)
     .eq('company_id', companyId)
     .order('updated_at', { ascending: false })
     .limit(500);

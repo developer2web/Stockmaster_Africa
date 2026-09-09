@@ -1,7 +1,8 @@
+import { DateField } from '@/components/forms/DateField';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Card, Chip, HelperText, Icon, ProgressBar, Text, TextInput, useTheme } from 'react-native-paper';
+import { Card, Chip, HelperText, Icon, ProgressBar, Text, useTheme } from 'react-native-paper';
 import { SelectField, type SelectOption } from '@/components/forms/SelectField';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
@@ -151,8 +152,8 @@ export default function ReportsScreen() {
             <View style={styles.chips}>
               {periods.map(([value, label]) => <Chip key={value} selected={preset === value} accessibilityState={{ selected: preset === value }} onPress={() => setPreset(value)}>{label}</Chip>)}
             </View>
-            {preset === 'custom' && <View style={styles.grid}><TextInput style={styles.field} mode="outlined" label="Début (AAAA-MM-JJ)" value={startDate} onChangeText={setStartDate} /><TextInput style={styles.field} mode="outlined" label="Fin (AAAA-MM-JJ)" value={endDate} onChangeText={setEndDate} /></View>}
-            {!validDates && <HelperText type="error" visible>Entrez une période valide au format AAAA-MM-JJ.</HelperText>}
+            {preset === 'custom' && <View style={styles.grid}><View style={styles.field}><DateField label="Date de début" value={startDate} onChange={setStartDate} maxDate={endDate} /></View><View style={styles.field}><DateField label="Date de fin" value={endDate} onChange={setEndDate} minDate={startDate} /></View></View>}
+            {!validDates && <HelperText type="error" visible>La date de fin doit être égale ou postérieure à la date de début.</HelperText>}
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Du {dates.start} au {dates.end}</Text>
             {advancedReports && <>
               <ReportDisclosure label={`Filtres avancés${activeFilters.length ? ` (${activeFilters.length})` : ''}`} expanded={filtersOpen} onPress={() => setFiltersOpen(open => !open)} />

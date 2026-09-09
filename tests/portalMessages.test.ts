@@ -21,6 +21,9 @@ describe('messages de refus des portails', () => {
 describe('portal role separation', () => {
   it('never accepts a Super Admin in the main Admin portal', () => {
     expect(portalAllowsRoles(['super_admin'], 'admin')).toBe(false);
+    expect(portalAllowsRoles(['super_admin', 'company_admin'], 'admin')).toBe(false);
+    expect(portalAllowsRoles(['super_admin', 'employee'], 'employee')).toBe(false);
+    expect(portalAllowsRoles(['super_admin'], 'admin', true)).toBe(false);
   });
 
   it('keeps Admin and Employee portals mutually exclusive', () => {
@@ -28,5 +31,11 @@ describe('portal role separation', () => {
     expect(portalAllowsRoles(['company_admin'], 'employee')).toBe(false);
     expect(portalAllowsRoles(['employee'], 'employee')).toBe(true);
     expect(portalAllowsRoles(['employee'], 'admin')).toBe(false);
+  });
+
+  it('allows pending owners only through the administrator portal', () => {
+    expect(portalAllowsRoles([], 'admin')).toBe(false);
+    expect(portalAllowsRoles([], 'admin', true)).toBe(true);
+    expect(portalAllowsRoles([], 'employee', true)).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { PropsWithChildren } from 'react';
 import { useAuth } from './AuthProvider';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -20,7 +20,7 @@ export function PermissionGuard({ permission, children }: PropsWithChildren<{ pe
   if (!membership) return <Redirect href="/" />;
   const required = Array.isArray(permission) ? permission : [permission];
   if (!hasAnyPermission(membership, required)) {
-    return <Redirect href={'/employee' as never} />;
+    return <ErrorState title="Accès non attribué" message="Votre rôle ne permet pas de consulter cet écran. Demandez l’accès au propriétaire de l’entreprise." retryLabel="Retour à mon espace" onRetry={() => router.replace('/')} />;
   }
   return children;
 }

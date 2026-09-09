@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { Alert, AppState, Platform } from 'react-native';
 import { supabase } from '@/services/supabase/client';
 import { retryJwtClockSkew } from '@/services/supabase/jwtRetry';
+import { withRequestTimeout } from '@/services/supabase/requestTimeout';
 import { createRealtimeTopic } from '@/services/supabase/realtime';
 import { getAccessibleBusinesses, getAccessibleStores, getWorkspaceContext } from '@/features/workspace/api';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -22,6 +23,7 @@ import {
 } from './offlineAccess';
 import { clearOfflineCaches } from '@/features/offline/storage';
 import { isDeviceOffline, probeBackendAccess } from '@/features/offline/connectivity';
+import { canUseOfflineFallback, errorKind, userErrorMessage } from '@/utils/errors';
 
 async function confirmSignOutWithPendingOperations(){
   const count=(await getCurrentUserOfflineQueue()).length;
@@ -32,9 +34,7 @@ async function confirmSignOutWithPendingOperations(){
 }
 
 function canRestoreAfterError(error: unknown) {
-  const value = error as { status?: number; code?: string; message?: string } | null;
-  if (value?.status && [401, 403].includes(value.status)) return false;
-  return !/permission denied|not authorized|row.level|jwt expired|invalid jwt|PGRST301/i.test(`${value?.code ?? ''} ${value?.message ?? ''}`);
+  return canUseOfflineFallback(error);
 }
 
 type AuthValue = {
@@ -63,7 +63,9 @@ type AuthValue = {
 const AuthContext = createContext<AuthValue | null>(null);
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSessionState] = useState<Session | null>(null);
+  const sessionRef = useRef<Session | null>(null);
+  const setSession = useCallback((next: Session | null) => { sessionRef.current = next; setSessionState(next); }, []);
   const [membership, setMembership] = useState<MembershipContext | null>(null);
   const [businesses, setBusinesses] = useState<BusinessAccess[]>([]);
   const [stores, setStores] = useState<StoreAccess[]>([]);
@@ -103,17 +105,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const refreshMembership = useCallback(async () => {
     const sequence = ++refreshSequence.current;
+    const { companyId: selectedCompanyId, storeId: selectedStoreId } = useWorkspaceStore.getState();
     setWorkspaceLoading(true);
     setMembershipError(null);
     setNeedsOnboarding(false);
     try {
-      const { data, error } = await retryJwtClockSkew(() => supabase.rpc('get_my_context'));
+      const { data, error } = await withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_my_context').abortSignal(signal)));
       if (sequence !== refreshSequence.current) return;
       if (error) {
-        const { data: localSession } = await supabase.auth.getSession();
-        if (accessWasVerifiedRef.current && canRestoreAfterError(error) && localSession.session && await restoreOfflineAccess(localSession.session.user.id)) return;
-        setAccessBlocked(false);
-        setMembershipError('Impossible de charger votre entreprise. Vérifiez votre connexion internet puis réessayez.');
+        if (accessWasVerifiedRef.current && canRestoreAfterError(error) && sessionRef.current && await restoreOfflineAccess(sessionRef.current.user.id)) return;
+        setAccessBlocked(['permission', 'session'].includes(errorKind(error)));
+        setMembershipError(userErrorMessage(error, 'Impossible de charger votre entreprise. Réessayez.'));
         return;
       }
       const row = Array.isArray(data) ? data[0] : data;
@@ -146,7 +148,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setMembership(null);
         setStores([]);
         if (selectedCompanyId) clearWorkspace();
-        const { data: accessStatus, error: statusError } = await retryJwtClockSkew(() => supabase.rpc('get_account_access_status'));
+        const { data: accessStatus, error: statusError } = await withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_account_access_status').abortSignal(signal)));
         if (sequence !== refreshSequence.current) return;
         if (statusError) {
           setMembershipError('Impossible de vérifier votre entreprise. Réessayez dans quelques instants.');
@@ -221,7 +223,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
 
       setMembership(null);
-      const { data: accessStatus, error: statusError } = await retryJwtClockSkew(() => supabase.rpc('get_account_access_status'));
+      const { data: accessStatus, error: statusError } = await withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_account_access_status').abortSignal(signal)));
       if (sequence !== refreshSequence.current) return;
       if (statusError) {
         setAccessBlocked(false);
@@ -240,14 +242,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
     } catch (error) {
       if (sequence === refreshSequence.current) {
-        const { data: localSession } = await supabase.auth.getSession();
-        if (accessWasVerifiedRef.current && canRestoreAfterError(error) && localSession.session && await restoreOfflineAccess(localSession.session.user.id)) return;
-        setMembershipError('Connexion au serveur impossible. Vérifiez votre réseau puis réessayez.');
+        if (accessWasVerifiedRef.current && canRestoreAfterError(error) && sessionRef.current && await restoreOfflineAccess(sessionRef.current.user.id)) return;
+        setAccessBlocked(['permission', 'session'].includes(errorKind(error)));
+        setMembershipError(userErrorMessage(error, 'Impossible de charger vos accès. Réessayez.'));
       }
     } finally {
       if (sequence === refreshSequence.current) setWorkspaceLoading(false);
     }
-  }, [clearWorkspace, restoreOfflineAccess, selectedCompanyId, selectedStoreId, setSelectedBusiness, setSelectedStore]);
+  }, [clearWorkspace, restoreOfflineAccess, setSelectedBusiness, setSelectedStore]);
 
   useEffect(() => {
     if (!session?.user.id || !membership?.companyId || !membership.storeId || membership.role === 'super_admin' || !lastServerVerification) return;
@@ -323,7 +325,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setLastServerVerification(null);
     accessWasVerifiedRef.current = true;
     return result;
-  }, [setSelectedBusiness, setSelectedStore]);
+  }, [setSelectedBusiness, setSelectedStore, setSession]);
 
   const revalidateBeforeSynchronization = useCallback(async () => {
     const probe = await probeBackendAccess(true);
@@ -356,7 +358,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setOfflineUnlockRequired(false);
     await refreshMembership();
     return true;
-  }, [refreshMembership]);
+  }, [refreshMembership, setSession]);
 
   const retryOnlineAccess = useCallback(async () => revalidateBeforeSynchronization(), [revalidateBeforeSynchronization]);
 
@@ -408,9 +410,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
     });
 
-    void supabase.auth.getSession().then(async ({ data }) => {
+    void withRequestTimeout(() => supabase.auth.getSession()).then(async ({ data }) => {
       if (data.session) {
-        const { error: userError } = await retryJwtClockSkew(() => supabase.auth.getUser());
+        const { error: userError } = await withRequestTimeout(() => retryJwtClockSkew(() => supabase.auth.getUser()));
         if (userError && [401, 403].includes(userError.status ?? 0)) {
           await supabase.auth.signOut({ scope: 'local' });
           setSession(null);
@@ -457,8 +459,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const { data } = supabase.auth.onAuthStateChange((event, next) => {
       if (event === 'INITIAL_SESSION') return;
+      const newLogin = event === 'SIGNED_IN' && next?.user.id !== sessionRef.current?.user.id;
       setSession(next);
       if (!next) {
+        refreshSequence.current += 1;
+        setWorkspaceLoading(false);
         setMembership(null);
         setBusinesses([]);
         setStores([]);
@@ -471,12 +476,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
         useSaleCart.getState().clear();
         setLoading(false);
       } else {
-        if (event === 'SIGNED_IN') {
+        if (newLogin) {
           setMembership(null);
           setOfflineAuthenticated(false);
           setOfflineUnlockRequired(false);
           setLoading(true);
-          void (async () => {
+          setTimeout(() => { void (async () => {
             try {
               const { error } = await supabase.rpc('record_security_event', {
                 p_event_type: 'login',
@@ -486,11 +491,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
             } catch (error) {
               await logger.warning('login_security_event_failed', error);
             }
-          })();
+          })(); }, 0);
         }
         setTimeout(async () => {
           await refreshMembership();
-          if (event === 'SIGNED_IN') setLoading(false);
+          if (newLogin) setLoading(false);
         }, 0);
       }
       if (event === 'PASSWORD_RECOVERY') setTimeout(() => router.replace('/reset-password'), 0);
@@ -510,7 +515,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       linkSubscription.remove();
       appStateSubscription.remove();
     };
-  }, [refreshMembership, revalidateBeforeSynchronization]);
+  }, [refreshMembership, revalidateBeforeSynchronization, setSession]);
 
   useEffect(() => {
     if (!session?.user.id || offlineAuthenticated) return;
@@ -601,7 +606,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         router.replace('/(auth)/login');
       }
     },
-  }), [session, membership, businesses, stores, membershipError, isAccessBlocked, needsOnboarding, isLoading, isWorkspaceLoading, isSwitchingWorkspace, offlineUnlockRequired, offlineAuthenticated, refreshMembership, unlockOfflineSession, retryOnlineAccess, revalidateBeforeSynchronization, lockOfflineSession, selectBusiness, selectStore, clearWorkspace]);
+  }), [session, membership, businesses, stores, membershipError, isAccessBlocked, needsOnboarding, isLoading, isWorkspaceLoading, isSwitchingWorkspace, offlineUnlockRequired, offlineAuthenticated, refreshMembership, unlockOfflineSession, retryOnlineAccess, revalidateBeforeSynchronization, lockOfflineSession, selectBusiness, selectStore, clearWorkspace, setSession]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

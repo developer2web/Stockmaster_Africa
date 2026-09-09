@@ -1,3 +1,4 @@
+import { localDateValue } from '@/utils/calendar';
 import { getSales } from '@/features/sales/api';
 import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,7 +21,7 @@ export default function AdminDashboard() {
   const companyId = membership?.companyId ?? '';
   const storeId = membership?.storeId ?? '';
   const enabled = !!companyId && !!storeId;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateValue();
   const overview = useQuery({ queryKey: ['admin-overview', companyId, storeId], queryFn: () => getAdminOverview(companyId, storeId), enabled });
   const cash = useQuery({ queryKey: ['cash-summary', companyId, storeId], queryFn: () => getCashSummary(storeId), enabled });
   const report = useQuery({

@@ -34,7 +34,7 @@ export default function PurchasesScreen() {
   const canCreateSupplierDebt = canUseFeature('supplier_debt');
 
   const suppliers = useQuery({ queryKey: ['suppliers', company, store], queryFn: () => getSuppliers(company, store), enabled: !!store });
-  const products = useQuery({ queryKey: ['purchase-products', company, store, debouncedSearch], queryFn: () => getProducts(company, store, debouncedSearch, 0), enabled: !!store });
+  const products = useQuery({ queryKey: ['purchase-products', company, store, debouncedSearch, 'cost'], queryFn: () => getProducts(company, store, debouncedSearch, 0, true), enabled: !!store });
   const total = useMemo(() => items.reduce((sum, item) => sum + item.quantity * item.unitCost, 0), [items]);
 
   const add = () => {

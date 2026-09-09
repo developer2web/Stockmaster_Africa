@@ -34,7 +34,7 @@ export default function ProductsScreen() {
   const [feedback,setFeedback]=useState(notice??'');
   const debounced = useDebouncedValue(search);
   const products = useInfiniteQuery({
-    queryKey: ['products', company, store, debounced],
+    queryKey: ['products', company, store, debounced, 'without-cost'],
     queryFn: ({ pageParam }) => getProducts(company, store, debounced, pageParam),
     initialPageParam: 0,
     getNextPageParam: (lastPage, pages) => lastPage.length === PRODUCT_PAGE_SIZE ? pages.length : undefined,

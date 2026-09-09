@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { ScrollViewStyleReset } from 'expo-router/html';
+import { autofillStyles } from '@/constants/formStyles';
 
 const bootDiagnostics = `
 (function () {
@@ -36,6 +37,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="theme-color" content="#084B50" />
         <title>StockMaster</title>
         <ScrollViewStyleReset />
+        <style dangerouslySetInnerHTML={{ __html: autofillStyles }} />
       </head>
       <body>
         <div id="web-boot-status" style={{ display: 'none', position: 'fixed', zIndex: 999999, inset: 0, padding: 20, placeItems: 'center', overflow: 'auto', background: '#f7faf8' }} />
@@ -45,4 +47,3 @@ export default function Root({ children }: PropsWithChildren) {
     </html>
   );
 }
-

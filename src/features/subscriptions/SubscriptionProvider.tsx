@@ -1,5 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { createContext, PropsWithChildren, useContext } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { createContext, PropsWithChildren, useContext, useEffect } from 'react';
+import { AppState } from 'react-native';
+import { canUsePlanFeature } from './featureAccess';
 
 import { useAuth } from '@/features/auth/AuthProvider';
 import { checkSubscriptionUsage, getCurrentSubscription, getPlans } from './api';
@@ -27,15 +29,30 @@ const SubscriptionContext = createContext<SubscriptionValue | null>(null);
 export function SubscriptionProvider({ children }: PropsWithChildren) {
   const { session, membership } = useAuth();
   const companyId = membership?.companyId ?? '';
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!companyId) return;
+    const listener = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        void queryClient.invalidateQueries({ queryKey: ['plans', companyId] });
+        void queryClient.invalidateQueries({ queryKey: ['subscription-context', companyId] });
+      }
+    });
+    return () => listener.remove();
+  }, [companyId, queryClient]);
   const plansQuery = useQuery({
     queryKey: ['plans', companyId],
     queryFn: () => getPlans(companyId),
     enabled: !!session && !!companyId && membership?.role !== 'super_admin',
+    refetchOnWindowFocus: 'always',
+    refetchInterval: 60_000,
   });
   const subscriptionQuery = useQuery({
     queryKey: ['subscription-context', companyId],
     queryFn: () => getCurrentSubscription(companyId),
     enabled: !!session && !!companyId && membership?.role !== 'super_admin',
+    refetchOnWindowFocus: 'always',
+    refetchInterval: 60_000,
   });
 
   const subscription = subscriptionQuery.data ?? null;
@@ -47,8 +64,8 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
     error: (plansQuery.error ?? subscriptionQuery.error) as Error | null,
     canUseFeature: (featureKey) => {
       if (membership?.role === 'super_admin') return true;
-      if (!subscription || subscription.isReadOnly) return false;
-      return !!plan?.features.find((feature) => feature.featureKey === featureKey)?.isEnabled;
+      if (plansQuery.error || subscriptionQuery.error) return false;
+      return canUsePlanFeature(subscription, plan, featureKey);
     },
     getUsageLimit: (featureKey) =>
       plan?.features.find((feature) => feature.featureKey === featureKey)?.usageLimit ?? null,
@@ -58,7 +75,7 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
       maxEmployees: subscription?.maxEmployees ?? 0,
     }),
     checkUsageLimit: async (featureKey) => {
-      if (!subscription?.subscriptionId || !plan) return false;
+      if (!subscription?.subscriptionId || !plan || plansQuery.error || subscriptionQuery.error || !canUsePlanFeature(subscription, plan, featureKey)) return false;
       const limit = plan.features.find((feature) => feature.featureKey === featureKey)?.usageLimit ?? null;
       return checkSubscriptionUsage(subscription.subscriptionId, featureKey, limit);
     },

@@ -38,6 +38,7 @@ export async function openAccountPortal(companyId: string) {
   if (result.error) throw new Error(await edgeMessage(result.error));
   const url = typeof result.data?.url === 'string' ? result.data.url : '';
   if (!url) throw new Error('Lien Account indisponible.');
+  if (new URL(url).origin !== new URL(accountPortalBaseUrl()).origin) throw new Error('Le lien reçu ne correspond pas au portail propriétaire configuré. Vérifiez les adresses des portails.');
   if (Platform.OS === 'web') await Linking.openURL(url);
   else await WebBrowser.openBrowserAsync(url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN });
 }
