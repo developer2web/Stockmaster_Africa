@@ -59,9 +59,6 @@ export default function StockScreen() {
 
       <View style={styles.tools}>
         <AppSearchBar style={[styles.search, compact && styles.compactSearch]} placeholder="Produit ou boutique" value={search} onChangeText={setSearch} />
-        <AppButton style={compact ? styles.fullWidth : undefined} mode="outlined" icon="shape-outline" onPress={() => router.push('/categories' as never)}>
-          Catégories
-        </AppButton>
         <AppButton style={compact ? styles.fullWidth : undefined} icon="plus" onPress={() => router.push('/products/new' as never)}>
           Ajouter un produit
         </AppButton>

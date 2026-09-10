@@ -10,7 +10,7 @@ vi.mock('expo-crypto',()=>({randomUUID:()=> 'operation-test'}));
 
 import { lookupProductCode } from '../src/features/inventory/api';
 
-const cached=[{stockLevelId:'stock-1',productId:'nido',variantId:null,categoryId:null,categoryName:null,unit:'piece',name:'NIDO',sku:'NIDO-1',lookupCodes:['1234567890123'],salePrice:100,purchasePrice:70,available:3,imageUrl:null}];
+const cached=[{stockLevelId:'stock-1',productId:'nido',variantId:null,unit:'piece',name:'NIDO',sku:'NIDO-1',lookupCodes:['1234567890123'],salePrice:100,purchasePrice:70,available:3,imageUrl:null}];
 
 describe('recherche par code-barres',()=>{
   beforeEach(()=>{rpc.mockReset();from.mockReset();getItem.mockReset();});

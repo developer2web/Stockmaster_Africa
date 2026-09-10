@@ -26,7 +26,7 @@ export default function AdminDashboard() {
   const cash = useQuery({ queryKey: ['cash-summary', companyId, storeId], queryFn: () => getCashSummary(storeId), enabled });
   const report = useQuery({
     queryKey: ['dashboard-report', companyId, storeId, today],
-    queryFn: () => getBusinessReport({ startDate: today, endDate: today, storeId, employeeId: null, productId: null, categoryId: null }),
+    queryFn: () => getBusinessReport({ startDate: today, endDate: today, storeId, employeeId: null, productId: null }),
     enabled,
   });
   const firstSales = useQuery({ queryKey: ['dashboard-first-sale', companyId, storeId], queryFn: () => getSales(companyId, storeId, 0, false), enabled });

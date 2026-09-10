@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(51);
+select plan(67);
 
 insert into auth.users(id,email,aud,role)
 values
@@ -340,6 +340,64 @@ select is(
   1,
   'expense retry creates one expense'
 );
+
+-- Filtering never widens access to sales or their private financial columns.
+select ok(
+  jsonb_array_length(get_filtered_sales_history('20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001')) > 0,
+  'owner can use filtered history'
+);
+select is(
+  jsonb_array_length(get_filtered_sales_history('20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001',p_search=>'does-not-exist')),
+  0,'search is applied before pagination'
+);
+select is(
+  jsonb_array_length(get_filtered_sales_history('20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001',p_after=>now()+interval '1 day')),
+  0,'date lower bound excludes old sales'
+);
+select is(
+  jsonb_array_length(get_filtered_sales_history('20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001',p_before=>now())),
+  0,'exclusive upper bound excludes sales created at the boundary'
+);
+select ok(
+  not (get_filtered_sales_history('20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001')->0 ?| array['cost_total','gross_profit']),
+  'filtered history does not expose cost or profit'
+);
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
+select is(
+  jsonb_array_length(get_filtered_sales_history('20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001',p_search=>'')),
+  0,'another owner cannot filter company A sales'
+);
+-- sales.write also implies sales.read; remove both before the denial assertion.
+reset role;
+delete from public.role_permissions where role_id='40000000-0000-4000-8000-000000000002'
+  and permission_id in (select id from public.permissions where code in ('sales.read','sales.write'));
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
+select is(
+  jsonb_array_length(get_filtered_sales_history('20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001')),
+  0,'employee without sales.read cannot filter history'
+);
+select ok(not has_function_privilege('anon','public.get_filtered_sales_history(uuid,uuid,integer,integer,text,timestamptz,timestamptz,text,text)','EXECUTE'),'anonymous filtered history is denied');
+
+reset role;
+insert into public.notifications(id,company_id,user_id,title,body,type,created_at,read_at)
+values
+ ('a0000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','expired unread','test','test',now()-interval '48 hours',null),
+ ('a0000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','expired read','test','test',now()-interval '49 hours',now()),
+ ('a0000000-0000-4000-8000-000000000003','20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','recent','test','test',now()-interval '47 hours',null);
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select is((select count(*)::integer from notifications where id in ('a0000000-0000-4000-8000-000000000001','a0000000-0000-4000-8000-000000000002','a0000000-0000-4000-8000-000000000003')),1,'expired notifications are hidden before the cron purge');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
+select is((select count(*)::integer from notifications where id='a0000000-0000-4000-8000-000000000003'),0,'notification recipient isolation is preserved');
+reset role;
+select ok(not has_function_privilege('authenticated','private.purge_expired_notifications()','EXECUTE'),'client cannot execute global purge');
+select ok(not has_function_privilege('anon','private.purge_expired_notifications()','EXECUTE'),'anonymous client cannot execute global purge');
+select private.purge_expired_notifications();
+select is((select count(*)::integer from notifications where id in ('a0000000-0000-4000-8000-000000000001','a0000000-0000-4000-8000-000000000002')),0,'purge deletes both read and unread expired notifications');
+select is((select count(*)::integer from notifications where id='a0000000-0000-4000-8000-000000000003'),1,'purge preserves recent notifications');
+select ok((select count(*) from sales)>0,'notification purge preserves sales');
+select is((select count(*)::integer from cron.job where jobname='stockmaster-notification-retention' and active),1,'one active retention cron job is installed');
 
 select * from finish();
 rollback;

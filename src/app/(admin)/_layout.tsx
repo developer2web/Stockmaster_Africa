@@ -53,7 +53,6 @@ export default function Layout() {
 
         {/* Modules de gestion : accessibles via le menu, masqués de la barre d'onglets. */}
         <Tabs.Screen name="products" options={{ href: null }} />
-        <Tabs.Screen name="categories" options={{ href: null }} />
         <Tabs.Screen name="suppliers" options={{ href: null }} />
         <Tabs.Screen name="stores" options={{ href: null }} />
         <Tabs.Screen name="employees" options={{ href: null }} />

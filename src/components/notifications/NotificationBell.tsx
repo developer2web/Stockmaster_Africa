@@ -1,3 +1,4 @@
+import { useActiveNotifications } from '@/features/notifications/useActiveNotifications';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
@@ -15,7 +16,8 @@ export function NotificationBell({color}:{color?:string}){
   const companyId=membership?.companyId??'';
   const enabled=membership?.role==='company_admin'&&!!companyId;
   const query=useQuery({queryKey:['persistent-notifications',companyId],queryFn:()=>getPersistentNotifications(companyId),enabled,staleTime:20_000,refetchInterval:60_000});
-  const unread=(query.data??[]).filter(item=>!item.read_at).length;
+  const active=useActiveNotifications(query.data);
+  const unread=active.filter(item=>!item.read_at).length;
 
   useEffect(()=>{
     if(!enabled)return;

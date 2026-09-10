@@ -33,7 +33,7 @@ export default function EmployeeProducts() {
   return <PermissionGuard permission="products.read"><AdminPage title="Produits" action={canWrite ? <FAB size="small" icon="plus" onPress={() => router.push('/employee/products/new' as never)} /> : undefined}>
     <AppSearchBar placeholder="Nom ou code-barres" value={search} onChangeText={value=>setSearch(listScope,value)} loading={search !== debounced} />
     {!!query.error&&<HelperText type="error" visible>{readableError(query.error)}</HelperText>}
-    {products.map((product) => <Card key={product.id} mode="contained" onPress={canWrite ? () => router.push(`/employee/products/${product.id}` as never) : undefined}><Card.Title left={()=><ProductThumbnail url={product.image_urls?.[0]}/>} title={product.name} subtitle={product.category?.name ?? 'Sans catégorie'} right={() => <Text style={{ marginRight: 16 }}>{formatMoney(Number(product.sale_price))}</Text>} /></Card>)}
+    {products.map((product) => <Card key={product.id} mode="contained" onPress={canWrite ? () => router.push(`/employee/products/${product.id}` as never) : undefined}><Card.Title left={()=><ProductThumbnail url={product.image_urls?.[0]}/>} title={product.name} right={() => <Text style={{ marginRight: 16 }}>{formatMoney(Number(product.sale_price))}</Text>} /></Card>)}
     {query.hasNextPage&&<AppButton mode="outlined" loading={query.isFetchingNextPage} onPress={()=>void query.fetchNextPage()}>Charger plus de produits</AppButton>}
     {!query.isLoading && !products.length && <EmptyState icon="package-variant" title={search ? 'Aucun résultat' : 'Aucun produit'} message={search ? 'Modifiez votre recherche.' : 'Aucun produit dans le catalogue.'} />}
     <AppFeedback message={feedback} onDismiss={()=>setFeedback('')}/>

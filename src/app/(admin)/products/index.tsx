@@ -46,7 +46,7 @@ export default function ProductsScreen() {
   return (
     <AdminPage
       title="Produits"
-      action={<View style={styles.actions}><Menu visible={actionsOpen} onDismiss={()=>setActionsOpen(false)} anchor={<AppButton mode="outlined" icon="dots-horizontal" accessibilityLabel="Actions produits" onPress={()=>setActionsOpen(true)}>Actions</AppButton>}><Menu.Item leadingIcon="shape-outline" title="Gérer les catégories" onPress={()=>{setActionsOpen(false);router.push('/categories' as never)}}/><Menu.Item leadingIcon="whatsapp" title="Partager le catalogue" onPress={()=>void runAction(()=>shareProductCatalog(membership?.companyName??'StockMaster',rows,formatMoney))}/><Menu.Item leadingIcon="file-excel" title="Importer Excel" onPress={()=>{setActionsOpen(false);router.push('/products/import' as never)}}/></Menu><AppButton icon="plus" onPress={() => router.push('/products/new' as never)}>Ajouter</AppButton></View>}
+      action={<View style={styles.actions}><Menu visible={actionsOpen} onDismiss={()=>setActionsOpen(false)} anchor={<AppButton mode="outlined" icon="dots-horizontal" accessibilityLabel="Actions produits" onPress={()=>setActionsOpen(true)}>Actions</AppButton>}><Menu.Item leadingIcon="whatsapp" title="Partager le catalogue" onPress={()=>void runAction(()=>shareProductCatalog(membership?.companyName??'StockMaster',rows,formatMoney))}/><Menu.Item leadingIcon="file-excel" title="Importer Excel" onPress={()=>{setActionsOpen(false);router.push('/products/import' as never)}}/></Menu><AppButton icon="plus" onPress={() => router.push('/products/new' as never)}>Ajouter</AppButton></View>}
     >
       <AppSearchBar
         placeholder="Nom ou code-barres"
@@ -64,7 +64,6 @@ export default function ProductsScreen() {
           <Card.Title
             left={() => <ProductThumbnail url={product.image_urls?.[0]} />}
             title={product.name}
-            subtitle={product.category?.name ?? 'Sans catégorie'}
             right={() => <View style={styles.price}><Text variant="titleMedium" style={styles.bold}>{formatMoney(Number(product.sale_price))}</Text><StatusChip status={product.is_active?'active':'inactive'}/></View>}
           />
         </Card>

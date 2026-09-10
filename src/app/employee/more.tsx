@@ -10,7 +10,7 @@ export default function EmployeeMoreScreen() {
   const { membership } = useAuth();
   const items = [
     { label: 'Fournisseurs', description: 'Consulter les partenaires', icon: 'truck-outline', path: '/employee/suppliers', permissions: ['suppliers.read', 'suppliers.write'] },
-    { label: 'Catalogue', description: 'Produits et fournisseurs autorisés', icon: 'book-open-page-variant-outline', path: '/employee/catalog', permissions: ['products.read', 'categories.read', 'suppliers.read'] },
+    { label: 'Catalogue', description: 'Produits et fournisseurs autorisés', icon: 'book-open-page-variant-outline', path: '/employee/catalog', permissions: ['products.read', 'suppliers.read'] },
     { label: 'Comptabilité', description: 'Achats, dépenses et paiements', icon: 'calculator-variant-outline', path: '/employee/accounting', permissions: ['purchases.read', 'payments.read', 'expenses.read'] },
     { label: 'Dépenses', description: 'Consulter ou enregistrer les charges', icon: 'cash-minus', path: '/employee/expenses', permissions: ['expenses.read', 'expenses.write'] },
     { label: 'Rapports', description: 'Ventes et performances', icon: 'chart-box-outline', path: '/employee/reports', permissions: ['daily_reports.read', 'monthly_reports.read'] },

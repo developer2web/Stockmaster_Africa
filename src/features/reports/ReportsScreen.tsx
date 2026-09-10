@@ -74,7 +74,6 @@ export default function ReportsScreen() {
   const storeId = membership?.storeId ?? null;
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [productId, setProductId] = useState<string | null>(null);
-  const [categoryId, setCategoryId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -82,7 +81,7 @@ export default function ReportsScreen() {
   const dates = useMemo(() => preset === 'custom' ? { start: startDate, end: endDate } : range(preset), [preset, startDate, endDate]);
   const validDates = /^\d{4}-\d{2}-\d{2}$/.test(dates.start) && /^\d{4}-\d{2}-\d{2}$/.test(dates.end) && dates.start <= dates.end;
   const filters = useQuery({ queryKey: ['report-filters', company, storeId], queryFn: () => getReportFilters(storeId!), enabled: !!company && !!storeId });
-  const report = useQuery({ queryKey: ['business-report', company, dates.start, dates.end, storeId, employeeId, productId, categoryId], queryFn: () => getBusinessReport({ startDate: dates.start, endDate: dates.end, storeId, employeeId, productId, categoryId }), enabled: !!company && validDates });
+  const report = useQuery({ queryKey: ['business-report', company, dates.start, dates.end, storeId, employeeId, productId], queryFn: () => getBusinessReport({ startDate: dates.start, endDate: dates.end, storeId, employeeId, productId }), enabled: !!company && validDates });
   const canReadCash = membership?.role === 'company_admin' || membership?.permissions.some((permission) => ['cash_transactions.read', 'expenses.read'].includes(permission));
   const cash = useQuery({ queryKey: ['report-cash-balance', company, storeId], queryFn: () => getCashBalance(company,storeId), enabled: !!company && !employee && canReadCash });
   const details = useQuery({ queryKey: ['report-financial-details', company, dates.start, dates.end, storeId], queryFn: () => getFinancialDetails(company,dates.start,dates.end,storeId), enabled: !!company && !employee && validDates });
@@ -92,9 +91,8 @@ export default function ReportsScreen() {
   const activeFilters = [
     employeeId && `Employé : ${filters.data?.employees.find(item => item.id === employeeId)?.name ?? 'sélectionné'}`,
     productId && `Produit : ${filters.data?.products.find(item => item.id === productId)?.name ?? 'sélectionné'}`,
-    categoryId && `Catégorie : ${filters.data?.categories.find(item => item.id === categoryId)?.name ?? 'sélectionnée'}`,
   ].filter(Boolean);
-  const clearFilters = () => { setEmployeeId(null); setProductId(null); setCategoryId(null); };
+  const clearFilters = () => { setEmployeeId(null); setProductId(null); };
   const runExport = async () => {
     if (!data) return;
     if (!canUseFeature('pdf_export')) {
@@ -107,8 +105,7 @@ export default function ReportsScreen() {
       const preparedBy = membership?.role === 'company_admin' ? 'Administrateur' : String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
       const selectedEmployee=filters.data?.employees.find(item=>item.id===employeeId)?.name;
       const selectedProduct=filters.data?.products.find(item=>item.id===productId)?.name;
-      const selectedCategory=filters.data?.categories.find(item=>item.id===categoryId)?.name;
-      const scopeLabel=[membership?.storeName??'Toutes les boutiques',selectedEmployee&&`Employé : ${selectedEmployee}`,selectedProduct&&`Produit : ${selectedProduct}`,selectedCategory&&`Catégorie : ${selectedCategory}`].filter(Boolean).join(' • ');
+      const scopeLabel=[membership?.storeName??'Toutes les boutiques',selectedEmployee&&`Employé : ${selectedEmployee}`,selectedProduct&&`Produit : ${selectedProduct}`].filter(Boolean).join(' • ');
       const context = { report: data, companyName: reportBranding.company, storeName:reportBranding.store, currencyCode: primaryCode, periodLabel, cashBalance, details: details.data ?? { sales: [], expenses: [], cash: [] }, preparedBy, scopeLabel, address:reportBranding.address,phone:reportBranding.phone,email:reportBranding.email,logoUrl:reportBranding.logoUrl,footer:reportBranding.footer,accentColor:reportBranding.accentColor };
       await exportFinancialPdf(context);
     } catch (error) {
@@ -164,7 +161,6 @@ export default function ReportsScreen() {
               {filtersOpen && <View style={styles.grid}>
                 <View style={styles.field}><SelectField label="Employé" value={employeeId} options={options(filters.data?.employees ?? [], 'Tous les employés')} onChange={setEmployeeId} /></View>
                 <View style={styles.field}><SelectField label="Produit" value={productId} options={options(filters.data?.products ?? [], 'Tous les produits')} onChange={setProductId} /></View>
-                <View style={styles.field}><SelectField label="Catégorie" value={categoryId} options={options(filters.data?.categories ?? [], 'Toutes les catégories')} onChange={setCategoryId} /></View>
               </View>}
             </>}
           </Card.Content>

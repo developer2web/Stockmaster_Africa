@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Card, Dialog, HelperText, Icon, Portal, Switch, Text, TextInput } from 'react-native-paper';
+import { Card, Dialog, HelperText, Icon, Portal, Switch, Text } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -17,7 +17,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { hasPermission } from '@/features/auth/permissions';
 import { getStockLevels } from '@/features/inventory/api';
 import { useStockRealtime } from '@/hooks/useStockRealtime';
-import { deleteProduct, deleteVariant, getCategories, getProduct, getSuppliers, saveCategory, saveProduct, saveVariant } from './api';
+import { deleteProduct, deleteVariant, getProduct, getSuppliers, saveProduct, saveVariant } from './api';
 import { productSchema, ProductInput, variantSchema, VariantInput } from '@/schemas/catalog';
 import type { ProductVariant } from '@/types/database';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
@@ -25,13 +25,13 @@ import { formatQuantity } from '@/utils/number';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
 import { readableError } from '@/utils/errors';
 
-const defaults: ProductInput = { name:'', description:'', sku:'SKU-AUTO', barcode:'', categoryId:null, supplierId:null, unit:'piece', purchasePrice:'0', salePrice:'0', initialQuantity:'0', lowStockThreshold:'5', isActive:true };
+const defaults: ProductInput = { name:'', description:'', sku:'SKU-AUTO', barcode:'',  supplierId:null, unit:'piece', purchasePrice:'0', salePrice:'0', initialQuantity:'0', lowStockThreshold:'5', isActive:true };
 const unitOptions = [
   { label:'Pièce', value:'piece' }, { label:'Carton', value:'carton' },
   { label:'Kilogramme', value:'kg' }, { label:'Litre', value:'litre' },
   { label:'Sac', value:'sac' }, { label:'Paquet', value:'paquet' },
 ] as const;
-const additionalFields = ['description', 'sku', 'barcode', 'categoryId', 'supplierId', 'unit', 'lowStockThreshold', 'isActive'] as const;
+const additionalFields = ['description', 'sku', 'barcode', 'supplierId', 'unit', 'lowStockThreshold', 'isActive'] as const;
 
 export function ProductFormScreen({ id,initialBarcode,basePath='/products',returnTo }: { id?: string;initialBarcode?:string;basePath?:string;returnTo?:string }) {
   const { formatMoney,primaryCode } = useCurrency();
@@ -41,12 +41,11 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   const qc = useQueryClient();
   useStockRealtime(company);
   const product = useQuery({ queryKey:['product',id], queryFn:()=>getProduct(id!), enabled:!!id });
-  const categories = useQuery({ queryKey:['categories',company,store], queryFn:()=>getCategories(company,store), enabled:!!company&&!!store });
   const suppliers = useQuery({ queryKey:['suppliers',company,store], queryFn:()=>getSuppliers(company,store), enabled:!!company&&!!store });
   const { control, handleSubmit, reset, formState:{errors,isDirty} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
   const levels = useQuery({queryKey:['stock-levels',company,store,id],queryFn:()=>getStockLevels(company,id,store),enabled:!!company&&!!store&&!!id});
 
-  useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? 'SKU-AUTO', barcode:product.data.barcode??'', categoryId:product.data.category_id, supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:String(product.data.purchase_price), salePrice:String(product.data.sale_price), initialQuantity:'0', lowStockThreshold:String(product.data.low_stock_threshold), isActive:product.data.is_active }); }, [product.data,reset]);
+  useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? 'SKU-AUTO', barcode:product.data.barcode??'', supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:String(product.data.purchase_price), salePrice:String(product.data.sale_price), initialQuantity:'0', lowStockThreshold:String(product.data.low_stock_threshold), isActive:product.data.is_active }); }, [product.data,reset]);
 
   const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onSuccess:async(saved)=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['employee-products',company,store]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace({pathname:basePath as never,params:{notice:id?'Modification enregistrée':'Produit enregistré'}}); } });
   const [confirm,setConfirm] = useState(false);
@@ -55,9 +54,6 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   useEffect(() => {
     if (hasAdditionalErrors) setMoreOpen(true);
   }, [hasAdditionalErrors]);
-    const [categoryOpen,setCategoryOpen] = useState(false);
-    const [categoryName,setCategoryName] = useState('');
-    const [categoryError,setCategoryError] = useState('');
   const [adjust,setAdjust] = useState<'in'|'out'|null>(null);
   const remove = useMutation({ mutationFn:()=>deleteProduct(id!), onSuccess:async()=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company]}),qc.invalidateQueries({queryKey:['employee-products',company]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company]})]); router.replace(basePath as never); } });
   const stockQuantity=(levels.data??[]).reduce((sum,row)=>sum+Number(row.quantity),0);
@@ -102,13 +98,6 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
             <FormField control={control} name="barcode" label="Code-barres (facultatif)" keyboardType="numeric" />
             <FormField control={control} name="sku" label="Référence du produit (facultative)" />
             <ResponsiveFormGrid>
-              <Controller control={control} name="categoryId" render={({ field, fieldState }) => <SelectField
-                label="Catégorie"
-                value={field.value}
-                options={[{ label: 'Sans catégorie', value: null }, ...(categories.data ?? []).filter(v => v.is_active).map(v => ({ label: v.name, value: v.id }))]}
-                onChange={field.onChange}
-                error={fieldState.error?.message}
-              />} />
               <Controller control={control} name="unit" render={({ field, fieldState }) => <SelectField
                 label="Unité"
                 required
@@ -149,11 +138,10 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
       >Enregistrer</AppButton>
     </View>
     {id&&<Card mode="contained" style={{backgroundColor:stockQuantity>0?'#E1F1F2':'#FFF3E0'}}><Card.Title title="Stock de la boutique active" subtitle={membership?.storeName??'Boutique'} left={()=><Icon source="package-variant-closed" size={28} color="#084B50"/>}/><Card.Content style={{gap:8}}><Text variant="displaySmall" style={{fontWeight:'900',color:stockQuantity>0?'#084B50':'#C25B00'}}>{formatQuantity(stockQuantity)}</Text><Text>Valeur au prix d’achat : {formatMoney(stockValue)}</Text>{!canAdjustStock&&<Text>Vous pouvez consulter ce stock, mais votre rôle ne permet pas de le modifier.</Text>}</Card.Content>{canAdjustStock&&<Card.Actions><AppButton mode="contained" icon="plus" onPress={()=>setAdjust('in')}>Ajouter du stock</AppButton><AppButton mode="outlined" icon="minus" disabled={stockQuantity<=0} onPress={()=>setAdjust('out')}>Retirer</AppButton></Card.Actions>}</Card>}
-    {id&&product.data&&<Card mode="outlined"><Card.Title title="Indicateurs du produit"/><Card.Content style={{gap:6}}><Text>Marge unitaire : {formatMoney(margin)}</Text><Text>Taux de marge : {Number(product.data.purchase_price)>0?`${((margin/Number(product.data.purchase_price))*100).toFixed(1)} %`:'Non calculable'}</Text><Text>Unité : {unitOptions.find(option=>option.value===product.data.unit)?.label??'Pièce'}</Text><Text>Valeur du stock : {formatMoney(stockValue)}</Text><Text>Catégorie : {product.data.category?.name??'Sans catégorie'}</Text><Text>Fournisseur : {product.data.supplier?.name??'Sans fournisseur'}</Text></Card.Content></Card>}
+    {id&&product.data&&<Card mode="outlined"><Card.Title title="Indicateurs du produit"/><Card.Content style={{gap:6}}><Text>Marge unitaire : {formatMoney(margin)}</Text><Text>Taux de marge : {Number(product.data.purchase_price)>0?`${((margin/Number(product.data.purchase_price))*100).toFixed(1)} %`:'Non calculable'}</Text><Text>Unité : {unitOptions.find(option=>option.value===product.data.unit)?.label??'Pièce'}</Text><Text>Valeur du stock : {formatMoney(stockValue)}</Text><Text>Fournisseur : {product.data.supplier?.name??'Sans fournisseur'}</Text></Card.Content></Card>}
     {id&&!!levels.data?.some(level=>level.variant)&&<Card><Card.Title title="Détail par variante"/><Card.Content>{levels.data.map(level=><Text key={level.id}>{level.variant?.name??'Produit simple'} : {formatQuantity(level.quantity)}</Text>)}</Card.Content></Card>}
     {id&&<AppButton mode="outlined" destructive icon="delete-outline" onPress={()=>setConfirm(true)}>Supprimer le produit</AppButton>}
     <ConfirmDialog visible={confirm} title="Supprimer ce produit ?" message="Cette action est refusée si le produit est déjà utilisé dans une opération." destructive loading={remove.isPending} onCancel={()=>setConfirm(false)} onConfirm={()=>remove.mutate()}/>
-      <Portal><Dialog visible={categoryOpen} onDismiss={()=>setCategoryOpen(false)}><Dialog.Title>Nouvelle catégorie</Dialog.Title><Dialog.Content><TextInput mode="outlined" label="Nom de la catégorie" value={categoryName} onChangeText={setCategoryName}/><HelperText type="error" visible={!!categoryError}>{categoryError}</HelperText></Dialog.Content><Dialog.Actions><AppButton mode="text" onPress={()=>setCategoryOpen(false)}>Annuler</AppButton><AppButton disabled={!categoryName.trim()} onPress={async()=>{try{await saveCategory(company,store,{name:categoryName.trim(),description:'',isActive:true});await qc.invalidateQueries({queryKey:['categories',company,store]});setCategoryOpen(false)}catch(error){setCategoryError(error instanceof Error?error.message:'Création impossible')}}}>Créer</AppButton></Dialog.Actions></Dialog></Portal>
     {id&&<StockAdjustmentDialog visible={!!adjust} onDismiss={()=>setAdjust(null)} companyId={company} storeId={store} storeName={membership?.storeName} productId={id} currentQuantity={stockQuantity} initialDirection={adjust??'in'} variants={productVariants}/>}
   </AdminPage>;
 }

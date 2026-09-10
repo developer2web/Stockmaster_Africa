@@ -10,7 +10,6 @@ import { Card, Chip, HelperText, Icon, IconButton, SegmentedButtons, Text, TextI
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { ProductThumbnail } from '@/components/products/ProductThumbnail';
-import { SelectField } from '@/components/forms/SelectField';
 import { getCheckoutCustomers } from '@/features/customers/api';
 import { getCompany } from '@/features/employees/api';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -46,7 +45,6 @@ export default function NewSale() {
   const [search, setSearch] = useState('');
   const debouncedSearch=useDebouncedValue(search,120);
   const [visibleCount, setVisibleCount] = useState(30);
-  const [categoryId, setCategoryId] = useState<string | null>(null);
   const [payment, setPayment] = useState('cash');
   const [amountPaid, setAmountPaid] = useState('');
   const [customerId, setCustomerId] = useState<string | null>(null);
@@ -79,13 +77,12 @@ export default function NewSale() {
     }
   }, [productId, variantId, scanToken, stock.data, companySettings.data?.allow_negative_stock, add]);
 
-  const categories = useMemo(()=>Array.from(new Map((stock.data ?? []).filter(item=>item.categoryId).map(item=>[item.categoryId!,item.categoryName??'Catégorie'])).entries()),[stock.data]);
   const matchingProducts = useMemo(()=>{
     const term=debouncedSearch.trim().toLocaleLowerCase('fr');
-    return (stock.data ?? []).filter(item=>(!categoryId||item.categoryId===categoryId)&&(!term||item.name.toLocaleLowerCase('fr').includes(term)||item.lookupCodes?.some(code=>code.toLocaleLowerCase('fr').includes(term))));
-  },[categoryId,debouncedSearch,stock.data]);
+    return (stock.data ?? []).filter(item=>(!term||item.name.toLocaleLowerCase('fr').includes(term)||item.lookupCodes?.some(code=>code.toLocaleLowerCase('fr').includes(term))));
+  },[debouncedSearch,stock.data]);
   const shown = matchingProducts.slice(0, visibleCount);
-  useEffect(() => { setVisibleCount(30); }, [categoryId, debouncedSearch]);
+  useEffect(() => { setVisibleCount(30); }, [debouncedSearch]);
   const totals = useMemo(() => {
     const subtotal=items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
     const discount=items.reduce((sum,item)=>sum+item.discount,0);
@@ -180,7 +177,6 @@ export default function NewSale() {
       {(desktop || step === 'products') && <View style={styles.catalogPane}>
       <Text style={{ color: theme.colors.onSurfaceVariant }}>Touchez un article pour l’ajouter au panier, ou scannez son code-barres.</Text>
       <AppSearchBar placeholder="Nom ou code-barres" value={search} onChangeText={setSearch} loading={search!==debouncedSearch} />
-      {categories.length > 1 && <SelectField label="Catégorie" value={categoryId} onChange={setCategoryId} options={[{ label: 'Toutes les catégories', value: null }, ...categories.map(([value, label]) => ({ value, label }))]} />}
       {stock.isLoading && <Text>Chargement des articles…</Text>}
       {!!stock.error && <HelperText type="error" visible>{readableError(stock.error)}</HelperText>}
       <View style={styles.list}>
@@ -199,7 +195,7 @@ export default function NewSale() {
           );
         })}
         {shown.length < matchingProducts.length && <AppButton mode="outlined" onPress={() => setVisibleCount(value => value + 30)}>Afficher plus d’articles ({shown.length}/{matchingProducts.length})</AppButton>}
-        {!stock.isLoading && !shown.length && <EmptyState icon="package-variant" title="Aucun produit trouvé" message="Effacez la recherche ou choisissez une autre catégorie."/>}
+        {!stock.isLoading && !shown.length && <EmptyState icon="package-variant" title="Aucun produit trouvé" message="Modifiez ou effacez la recherche."/>}
       </View>
       </View>}
       {(desktop || step === 'checkout') && <View style={[styles.cartPane, desktop && styles.cartPaneDesktop]}>
@@ -270,7 +266,6 @@ const styles = StyleSheet.create({
   chip: { marginRight: 12 },
   field: { width: '100%', maxWidth: 320 },
   notice: { gap: 10 },
-  categoryFilters: { flexDirection:'row', flexWrap:'wrap', gap:8 },
   quantityRow: { flexDirection:'row', alignItems:'center', gap:8 },
   quantityInput: { flex:1, maxWidth:180 },
   checkout: { borderRadius:22 },

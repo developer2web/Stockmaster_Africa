@@ -6,7 +6,7 @@ import { AdminPage } from '@/components/ui/AdminPage';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { PermissionGuard } from '@/features/auth/PermissionGuard';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { getCategories, getProducts, getSuppliers } from '@/features/products/api';
+import { getProducts, getSuppliers } from '@/features/products/api';
 import { ProductThumbnail } from '@/components/products/ProductThumbnail';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { hasPermission } from '@/features/auth/permissions';
@@ -22,21 +22,19 @@ export default function EmployeeCatalog() {
   const store = membership?.storeId ?? '';
   const can = (permission: string) => hasPermission(membership, permission);
   const products = useQuery({ queryKey: ['employee-catalog-products', company, store, 'without-cost'], queryFn: () => getProducts(company, store), enabled: !!company && !!store && can('products.read') });
-  const categories = useQuery({ queryKey: ['categories', company, store], queryFn: () => getCategories(company, store), enabled: !!company && !!store && can('categories.read') });
   const suppliers = useQuery({ queryKey: ['suppliers', company, store], queryFn: () => getSuppliers(company, store), enabled: !!company && !!store && can('suppliers.read') });
   const normalized = search.trim().toLowerCase();
   const visibleProducts = (products.data ?? []).filter((product) =>
     !normalized || product.name.toLowerCase().includes(normalized) || product.barcode?.toLowerCase().includes(normalized),
   );
-  const error = products.error ?? categories.error ?? suppliers.error;
+  const error = products.error ?? suppliers.error;
 
   return (
-    <PermissionGuard permission={['products.read', 'categories.read', 'suppliers.read']}>
+    <PermissionGuard permission={['products.read', 'suppliers.read']}>
       <AdminPage title="Catalogue">
         <View style={styles.stats}>
           {[
             can('products.read') && ['Produits', products.data?.length ?? 0, 'package-variant-closed', '#084B50'],
-            can('categories.read') && ['Catégories', categories.data?.length ?? 0, 'shape-outline', '#1971C2'],
             can('suppliers.read') && ['Fournisseurs', suppliers.data?.length ?? 0, 'truck-outline', '#E67700'],
           ].filter(Boolean).map((item) => {
             const [label, value, icon, color] = item as [string, number, string, string];
@@ -53,7 +51,7 @@ export default function EmployeeCatalog() {
         {can('products.read') && (
           <AppSearchBar placeholder="Rechercher un nom ou code-barres" value={search} onChangeText={setSearch} />
         )}
-        {error && <ErrorState message={error.message} onRetry={() => { void products.refetch(); void categories.refetch(); void suppliers.refetch(); }} />}
+        {error && <ErrorState message={error.message} onRetry={() => { void products.refetch(); void suppliers.refetch(); }} />}
         {can('products.read') && visibleProducts.length === 0 && !products.isLoading && (
           <Card mode="outlined"><Card.Content style={styles.empty}><Icon source="package-variant" size={34} color={theme.colors.onSurfaceVariant} /><Text>Aucun produit trouvé.</Text></Card.Content></Card>
         )}
@@ -64,7 +62,6 @@ export default function EmployeeCatalog() {
                 <ProductThumbnail url={product.image_urls?.[0]} size={44} />
                 <View style={styles.productCopy}>
                   <Text variant="titleMedium" numberOfLines={1} style={styles.bold}>{product.name}</Text>
-                  <Text style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>{product.category?.name ?? 'Sans catégorie'}</Text>
                 </View>
                 <Text variant="titleMedium" style={{ color: theme.colors.primary, fontWeight: '800' }}>{formatMoney(Number(product.sale_price))}</Text>
               </Card.Content>

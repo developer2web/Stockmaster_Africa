@@ -27,20 +27,20 @@ export default function RolesScreen() {
   const permissions = useQuery({queryKey:['permissions'],queryFn:getPermissions});
   const { control,handleSubmit,reset } = useForm<RoleInput>({resolver:zodResolver(roleSchema),defaultValues:{name:'',permissions:[]}});
 
-  useEffect(()=>reset(editing?{name:editing.name,permissions:editing.permissions}:{name:'',permissions:[]}),[editing,reset]);
+  useEffect(()=>reset(editing?{name:editing.name,permissions:editing.permissions.filter(code=>!code.startsWith('categories.'))}:{name:'',permissions:[]}),[editing,reset]);
   const save = useMutation({mutationFn:(v:RoleInput)=>saveRole(companyId,v,editing?.id),onSuccess:async()=>{await qc.invalidateQueries({queryKey:['roles',companyId]});setOpen(false);setEditing(null)}});
   const remove = useMutation({mutationFn:deleteRole,onSuccess:async()=>{await qc.invalidateQueries({queryKey:['roles',companyId]});setDeleting(null)}});
   const employeeRoles=(roles.data??[]).filter(role=>role.code==='employee');
   const show=(role?:EmployeeRole)=>{save.reset();setEditing(role??null);setOpen(true)};
   const presets = [
-    { label: 'Manager', codes: ['stores.read','stores.write','products.read','products.write','categories.read','categories.write','suppliers.read','suppliers.write','product_variants.read','product_variants.write','stock_movements.read','stock_movements.write','sales.read','sales.write','expenses.read','expenses.write','cash_transactions.read','cash_transactions.write','cash.open','cash.reopen','daily_reports.read','monthly_reports.read'] },
-    { label: 'Employé', codes: ['stores.read','products.read','categories.read','suppliers.read','stock_movements.read','sales.read','sales.write','cash_transactions.read','cash_transactions.write','cash.open','cash.reopen'] },
+    { label: 'Manager', codes: ['stores.read','stores.write','products.read','products.write','suppliers.read','suppliers.write','product_variants.read','product_variants.write','stock_movements.read','stock_movements.write','sales.read','sales.write','expenses.read','expenses.write','cash_transactions.read','cash_transactions.write','cash.open','cash.reopen','daily_reports.read','monthly_reports.read'] },
+    { label: 'Employé', codes: ['stores.read','products.read','suppliers.read','stock_movements.read','sales.read','sales.write','cash_transactions.read','cash_transactions.write','cash.open','cash.reopen'] },
     { label: 'Comptable', codes: ['stores.read','sales.read','purchases.read','payments.read','expenses.read','expenses.write','cash_transactions.read','daily_reports.read','monthly_reports.read'] },
   ];
 
   return <FeatureGate feature="advanced_permissions" label="Rôles et permissions avancés"><AdminPage title="Rôles et permissions" action={<AppButton icon="plus" onPress={()=>show()}>Ajouter</AppButton>}>
     {!!roles.error&&<HelperText type="error" visible>Impossible de charger les rôles : {roles.error.message}</HelperText>}
-    {employeeRoles.length?employeeRoles.map(role=><Card key={role.id} onPress={()=>show(role)}><Card.Title title={role.name} subtitle={`${role.permissions.length} permission(s)`}/><Card.Actions><AppButton mode="text" onPress={()=>show(role)}>Modifier</AppButton><AppButton mode="text" destructive onPress={()=>setDeleting(role)}>Supprimer</AppButton></Card.Actions></Card>):!roles.isLoading&&<EmptyState icon="shield-plus" title="Aucun rôle employé" message="Créez un rôle avant d’inviter votre premier employé."/>}
+    {employeeRoles.length?employeeRoles.map(role=><Card key={role.id} onPress={()=>show(role)}><Card.Title title={role.name} subtitle={`${role.permissions.filter(code=>!code.startsWith('categories.')).length} permission(s)`}/><Card.Actions><AppButton mode="text" onPress={()=>show(role)}>Modifier</AppButton><AppButton mode="text" destructive onPress={()=>setDeleting(role)}>Supprimer</AppButton></Card.Actions></Card>):!roles.isLoading&&<EmptyState icon="shield-plus" title="Aucun rôle employé" message="Créez un rôle avant d’inviter votre premier employé."/>}
 
     <Portal><Dialog visible={open} onDismiss={()=>setOpen(false)} style={[styles.dialog,{width:Math.min(width-24,680)}]}>
       <Dialog.Title>{editing?'Modifier le rôle':'Nouveau rôle'}</Dialog.Title>
@@ -51,7 +51,7 @@ export default function RolesScreen() {
             <Text variant="labelLarge">Modèles rapides</Text>
             <View style={styles.presetRow}>{presets.map(preset=><AppButton key={preset.label} compact mode="outlined" onPress={()=>field.onChange(preset.codes.filter(code=>(permissions.data??[]).some(permission=>permission.code===code)))}>{preset.label}</AppButton>)}</View>
             <View style={styles.toolbar}><AppButton compact mode="text" onPress={()=>field.onChange([])}>Tout retirer</AppButton></View>
-            {(permissions.data??[]).map(permission=>{const checked=field.value.includes(permission.code);return <Checkbox.Item style={styles.permission} key={permission.id} label={permission.description??permission.code} status={checked?'checked':'unchecked'} onPress={()=>{
+            {(permissions.data??[]).filter(permission=>!permission.code.startsWith('categories.')).map(permission=>{const checked=field.value.includes(permission.code);return <Checkbox.Item style={styles.permission} key={permission.id} label={permission.description??permission.code} status={checked?'checked':'unchecked'} onPress={()=>{
               if(checked){const linked=permission.code.endsWith('.read')?permission.code.replace(/\.read$/,'.write'):'';field.onChange(field.value.filter(code=>code!==permission.code&&code!==linked));return}
               const next=[...field.value,permission.code];const read=permission.code.endsWith('.write')?permission.code.replace(/\.write$/,'.read'):'';field.onChange(read&&(permissions.data??[]).some(item=>item.code===read)?[...new Set([...next,read])]:next);
             }}/>})}

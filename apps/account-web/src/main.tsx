@@ -1,3 +1,5 @@
+import { notificationCutoff } from '../../../src/features/notifications/retention';
+import { useActiveNotifications } from '../../../src/features/notifications/useActiveNotifications';
 import { featureLabelsFor, formatBillingMoney, subscriptionStatusLabel } from '../../../src/constants/commercial';
 import { webSiteUrl } from '../../shared/siteConfig';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -160,7 +162,7 @@ function App() {
         supabase.from('roles').select('id,name,code').eq('company_id', context.company_id).eq('code', 'employee').order('name'),
         supabase.from('stores').select('id,name').eq('company_id', context.company_id).eq('is_active', true).order('name'),
         supabase.from('support_tickets').select('id,subject,description,priority,status,resolution,created_at').eq('company_id', context.company_id).order('created_at', { ascending: false }),
-        supabase.from('notifications').select('id,title,body,type,read_at,created_at').eq('company_id', context.company_id).order('created_at', { ascending: false }).limit(100),
+        supabase.from('notifications').select('id,title,body,type,read_at,created_at').gt('created_at', notificationCutoff()).eq('company_id', context.company_id).order('created_at', { ascending: false }).limit(100),
       ]);
       for (const result of [subResult, planResult, payResult, companyResult, billingResult]) if (result.error) throw result.error;
       const currentSub = (Array.isArray(subResult.data) ? subResult.data[0] : subResult.data) as Subscription | null;
@@ -182,14 +184,15 @@ function App() {
     const companyId = context.company_id;
     const channel = supabase.channel(`account-live:${companyId}:${crypto.randomUUID()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets', filter: `company_id=eq.${companyId}` }, () => { void load(); })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `company_id=eq.${companyId}` }, () => { void load(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `company_id=eq.${companyId}` }, () => { void load(); })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [context?.company_id, load]);
 
   const currentPlan = plans.find(plan => plan.id === subscription?.plan_id);
   const filteredPayments = useMemo(() => payments.filter(payment => (status === 'all' || payment.status === status) && (period === 'all' || Date.now() - new Date(payment.created_at).getTime() < Number(period) * 86400000)), [payments, status, period]);
-  const unread = notifications.filter(item => !item.read_at).length;
+  const activeNotifications = useActiveNotifications(notifications);
+  const unread = activeNotifications.filter(item => !item.read_at).length;
   const initials = (fullName || 'Administrateur').split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
 
   function navigate(next: Section) { setSection(next); setMobileMenu(false); setError(''); setNotice(''); if (next !== 'Paiements') setPaymentStep('method'); }
@@ -230,7 +233,7 @@ function App() {
       {section === 'Utilisateurs' && <UsersPage context={context} employees={employees} roles={roles} stores={stores} open={inviteOpen} setOpen={setInviteOpen} reload={load} notify={setNotice} fail={setError}/>}
       {section === 'Sécurité' && <SecurityPage events={events} resetPassword={resetPassword} logoutAll={logoutAll} notify={setNotice} fail={setError}/>}
       {section === 'Support' && <SupportPage context={context} tickets={tickets} open={ticketOpen} setOpen={setTicketOpen} reload={load} notify={setNotice} fail={setError}/>}
-      {section === 'Notifications' && <NotificationsPage items={notifications} markAll={markNotifications}/>}
+      {section === 'Notifications' && <NotificationsPage items={activeNotifications} markAll={markNotifications}/>}
       {section === 'Profil' && <ProfilePage initials={initials} fullName={fullName} setFullName={setFullName} email={userEmail} company={company} setCompany={setCompany} editing={profileOpen} setEditing={setProfileOpen} save={saveCompany}/>}
       <footer className="legalLinks"><a href={`${marketingUrl()}/privacy/`} target="_blank">Confidentialité</a><a href={`${marketingUrl()}/terms/`} target="_blank">Conditions</a><a href={`${marketingUrl()}/legal-notice/`} target="_blank">Mentions légales</a><a href={`${marketingUrl()}/account-deletion/`} target="_blank">Suppression du compte</a></footer>
     </div></main>
@@ -324,7 +327,7 @@ function SupportPage({ context, tickets, open, setOpen, reload, notify, fail }: 
 function NotificationsPage({ items, markAll }: { items: Notification[]; markAll: () => Promise<void> }) {
   const pager = useStoredPage('notifications', items.length);
   const visibleItems = items.slice(pager.start, pager.end);
-  return <><PageTitle title="Notifications" subtitle="Paiements, factures, abonnement et informations importantes." action={<button className="secondaryButton" onClick={() => void markAll()}>Tout marquer comme lu</button>}/><section className="panel notificationsPanel">{visibleItems.map(item => <article className={!item.read_at ? 'unread' : ''} key={item.id}><i>{item.type.includes('payment') ? '▤' : item.type.includes('subscription') ? '✓' : '♢'}</i><span><b>{item.title}</b><p>{item.body}</p></span><time>{formatDateTime(item.created_at)}</time></article>)}{!items.length && <Empty icon="♢" title="Aucune notification" text="Vous êtes à jour. Les nouvelles informations apparaîtront ici."/>}<Pagination page={pager.page} total={pager.total} setPage={pager.setPage}/></section></>;
+  return <><PageTitle title="Notifications" subtitle="Les notifications sont supprimées automatiquement après 48 heures." action={<button className="secondaryButton" onClick={() => void markAll()}>Tout marquer comme lu</button>}/><section className="panel notificationsPanel">{visibleItems.map(item => <article className={!item.read_at ? 'unread' : ''} key={item.id}><i>{item.type.includes('payment') ? '▤' : item.type.includes('subscription') ? '✓' : '♢'}</i><span><b>{item.title}</b><p>{item.body}</p></span><time>{formatDateTime(item.created_at)}</time></article>)}{!items.length && <Empty icon="♢" title="Aucune notification" text="Vous êtes à jour. Les nouvelles informations apparaîtront ici."/>}<Pagination page={pager.page} total={pager.total} setPage={pager.setPage}/></section></>;
 }
 
 function ProfilePage({ initials, fullName, setFullName, email, company, setCompany, editing, setEditing, save }: { initials: string; fullName: string; setFullName: (value: string) => void; email: string; company: Company; setCompany: (company: Company) => void; editing: boolean; setEditing: (value: boolean) => void; save: () => Promise<void> }) { return <><PageTitle title="Mon profil" subtitle="Vos informations personnelles de propriétaire."/><section className="panel profilePanel"><div className="profileIdentity"><i>{initials}</i><span><small>PROPRIÉTAIRE</small><h2>{fullName || 'Administrateur'}</h2><p>{email}</p><p>{company.phone || 'Téléphone non renseigné'}</p></span></div>{editing ? <div className="profileForm"><label>Nom complet<input value={fullName} onChange={event => setFullName(event.target.value)}/></label><label>Téléphone<input value={company.phone ?? ''} onChange={event => setCompany({ ...company, phone: event.target.value })}/></label><div><button className="secondaryButton" onClick={() => setEditing(false)}>Annuler</button><button className="primaryButton" onClick={() => void save()}>Enregistrer</button></div></div> : <button className="secondaryButton full" onClick={() => setEditing(true)}>Modifier le profil</button>}</section></>;

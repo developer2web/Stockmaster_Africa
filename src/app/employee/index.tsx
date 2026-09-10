@@ -39,7 +39,7 @@ export default function EmployeeEntry() {
   if (membership.role !== 'employee') return <ErrorState title="Espace employé non autorisé" message="Ce compte ne possède pas d’accès employé. Utilisez l’espace qui vous a été attribué." retryLabel="Retour à mon espace" onRetry={() => router.replace('/')} onCancel={() => void signOut()} />;
 
   const hasAny = (permissions: string[]) => hasAnyPermission(membership, permissions);
-  const canCatalog = hasAny(['products.read', 'categories.read', 'suppliers.read']);
+  const canCatalog = hasAny(['products.read', 'suppliers.read']);
   const canProducts = hasAny(['products.read', 'products.write']);
   const canSuppliers = hasAny(['suppliers.read', 'suppliers.write']);
   const canSales = hasAny(['sales.read', 'sales.write']);
