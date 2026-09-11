@@ -16,6 +16,13 @@ export const supabase = createClient(url ?? 'https://example.supabase.co', anonK
   auth: { storage: sessionStorage, storageKey: authStorageKey, autoRefreshToken: true, persistSession: true, detectSessionInUrl: Platform.OS === 'web' },
 });
 
+// Password verification must never replace the primary (possibly AAL2) session.
+export function createPasswordVerificationClient() {
+  return createClient(url ?? 'https://example.supabase.co', anonKey ?? 'missing-anon-key', {
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false, storageKey: `${authStorageKey}-password-check` },
+  });
+}
+
 export async function clearCachedSession() {
   await Promise.allSettled([
     sessionStorage.removeItem(authStorageKey),

@@ -1,3 +1,4 @@
+import { decryptStoredValue, isEncryptedValue, writeEncryptedStorage } from '@/services/storage/encryptedStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { canUseOfflineFallback } from '@/utils/errors';
 
@@ -9,7 +10,7 @@ export async function readOfflineCache<T>(key: string, isValid?: (value: unknown
     const storageKey = `${CACHE_PREFIX}${key}`;
     const raw = await AsyncStorage.getItem(storageKey);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { value?: unknown; savedAt?: string };
+    const parsed = JSON.parse(await decryptStoredValue(storageKey, raw)) as { value?: unknown; savedAt?: string };
     const savedAt = typeof parsed.savedAt === 'string' ? Date.parse(parsed.savedAt) : Number.NaN;
     if (!Number.isFinite(savedAt) || now - savedAt > OFFLINE_CACHE_MAX_AGE_MS || savedAt > now + 5 * 60 * 1000) {
       await AsyncStorage.removeItem(storageKey).catch(() => undefined);
@@ -20,6 +21,7 @@ export async function readOfflineCache<T>(key: string, isValid?: (value: unknown
       await AsyncStorage.removeItem(`${CACHE_PREFIX}${key}`).catch(() => undefined);
       return null;
     }
+    if (!isEncryptedValue(raw)) await writeEncryptedStorage(storageKey, JSON.stringify(parsed));
     return value as T;
   } catch {
     await AsyncStorage.removeItem(`${CACHE_PREFIX}${key}`).catch(() => undefined);
@@ -34,7 +36,7 @@ export async function clearOfflineCaches() {
 }
 
 export async function writeOfflineCache<T>(key: string, value: T) {
-  await AsyncStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify({ value, savedAt: new Date().toISOString() }));
+  await writeEncryptedStorage(`${CACHE_PREFIX}${key}`, JSON.stringify({ value, savedAt: new Date().toISOString() }));
 }
 
 export async function withOfflineCache<T>(key: string, load: () => Promise<T>, isValid?: (value: unknown) => value is T): Promise<T> {

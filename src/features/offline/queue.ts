@@ -1,3 +1,4 @@
+import { decryptStoredValue, isEncryptedValue, writeEncryptedStorage } from '@/services/storage/encryptedStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/services/supabase/client';
 
@@ -34,19 +35,26 @@ function serializeQueueMutation<T>(work: () => Promise<T>): Promise<T> {
   return result;
 }
 
-export async function getOfflineQueue(): Promise<OfflineOperation[]> {
+export function getOfflineQueue(): Promise<OfflineOperation[]> {
+  // A legacy read can migrate storage; serialize it with writes to prevent an
+  // older snapshot from overwriting a sale added during encryption.
+  return serializeQueueMutation(readQueue);
+}
+
+async function readQueue(): Promise<OfflineOperation[]> {
   // Never overwrite pending transactions after a storage or decoding failure.
   const raw = await AsyncStorage.getItem(QUEUE_KEY);
   if (raw === null) return [];
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(await decryptStoredValue(QUEUE_KEY, raw));
   } catch {
     throw new Error('La file hors ligne est illisible. Les données ont été conservées pour récupération.');
   }
   if (!Array.isArray(parsed) || !parsed.every(isOfflineOperation)) {
     throw new Error('La file hors ligne contient des données invalides. Les opérations ont été conservées pour récupération.');
   }
+  if (!isEncryptedValue(raw)) await saveQueue(parsed);
   return parsed;
 }
 
@@ -57,12 +65,12 @@ export async function getCurrentUserOfflineQueue(): Promise<OfflineOperation[]> 
 }
 
 async function saveQueue(queue: OfflineOperation[]) {
-  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+  await writeEncryptedStorage(QUEUE_KEY, JSON.stringify(queue));
 }
 
 export async function enqueueOfflineOperation(operation: Omit<OfflineOperation, 'attempts' | 'userId'>) {
   return serializeQueueMutation(async () => {
-    const queue = await getOfflineQueue();
+    const queue = await readQueue();
     if (queue.some((item) => item.id === operation.id)) return;
     const { data } = await supabase.auth.getSession();
     const userId = data.session?.user.id;
@@ -73,7 +81,7 @@ export async function enqueueOfflineOperation(operation: Omit<OfflineOperation, 
 
 export async function removeOfflineOperation(id: string) {
   return serializeQueueMutation(async () => {
-    const queue = await getOfflineQueue();
+    const queue = await readQueue();
     const {data}=await supabase.auth.getSession();
     const userId=data.session?.user.id;
     await saveQueue(queue.filter((operation) => operation.id !== id || operation.userId !== userId));
@@ -111,7 +119,7 @@ async function send(operation: OfflineOperation) {
 
 export async function synchronizeOfflineQueue() {
   return serializeQueueMutation(async () => {
-    const queue = await getOfflineQueue();
+    const queue = await readQueue();
     const { data } = await supabase.auth.getSession();
     const currentUserId = data.session?.user.id;
     const remaining: OfflineOperation[] = [];

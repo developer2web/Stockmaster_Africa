@@ -12,6 +12,8 @@ Deno.serve(async (request) => {
     );
     const { data: { user }, error: authError } = await caller.auth.getUser();
     if (authError || !user) throw new Error('Non authentifié');
+    const { error: securityError } = await caller.rpc('assert_session_security', { p_allow_temporary_password: false });
+    if (securityError) throw securityError;
     const { transactionId } = await request.json() as { transactionId?: string };
     if (!transactionId) throw new Error('Transaction requise');
     const { data, error } = await caller.from('payment_transactions')

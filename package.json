@@ -10,6 +10,7 @@
     "@expo/ui": "~0.2.0-beta.9",
     "@expo/vector-icons": "^15.0.2",
     "@hookform/resolvers": "^5.4.0",
+    "@noble/ciphers": "1.3.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.4.1",
     "@supabase/supabase-js": "^2.110.7",
@@ -64,6 +65,11 @@
     "vitest": "^4.1.10",
     "vite": "8.1.5"
   },
+  "overrides": {
+    "@expo/metro-config": {
+      "postcss": "8.5.28"
+    }
+  },
   "scripts": {
     "start": "node --experimental-websocket ./node_modules/expo/bin/cli start",
     "start:dev-client": "node --experimental-websocket ./node_modules/expo/bin/cli start --dev-client",
@@ -75,8 +81,11 @@
     "web:account": "vite --config apps/account-web/vite.config.ts",
     "web:public": "vite --config apps/public-web/vite.config.ts",
     "build:web:admin": "vite build --config apps/admin-web/vite.config.ts",
+    "postbuild:web:admin": "node scripts/security-headers.cjs dist/admin-web",
     "build:web:account": "vite build --config apps/account-web/vite.config.ts",
+    "postbuild:web:account": "node scripts/security-headers.cjs dist/account-web",
     "build:web:public": "vite build --config apps/public-web/vite.config.ts",
+    "postbuild:web:public": "node scripts/security-headers.cjs dist/public-web",
     "build:web:all": "npm run build:web:admin && npm run build:web:account && npm run build:web:public",
     "lint": "expo lint",
     "test": "vitest run",
@@ -84,7 +93,9 @@
     "db:reset": "npx supabase db reset --local",
     "typecheck": "tsc --noEmit",
     "doctor": "npx expo-doctor",
-    "export:web": "node --experimental-websocket ./node_modules/expo/bin/cli export --platform web"
+    "export:web": "node --experimental-websocket ./node_modules/expo/bin/cli export --platform web",
+    "postexport:web": "node scripts/security-headers.cjs dist",
+    "security:audit": "node scripts/security-audit.cjs"
   },
   "private": true
 }

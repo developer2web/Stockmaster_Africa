@@ -4,6 +4,7 @@ import type { StockMovementInput } from '@/schemas/inventory';
 import { createOperationId } from '@/utils/operationId';
 import { parseDecimal } from '@/utils/number';
 import { readOfflineCache, withOfflineCache } from '@/features/offline/storage';
+import { readProductCosts } from '@/features/products/costs';
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -71,7 +72,7 @@ export async function getStockLevels(
 ): Promise<StockLevel[]> {
   // Keep read-only quantities separate from previously cached purchase prices.
   return withOfflineCache(`stock-levels:${companyId}:${productId??'all'}:${storeId??'all'}:cost:${includeCost}`, async () => {
-  const productColumns = includeCost ? 'name,sku,purchase_price,sale_price' : 'name,sku,sale_price';
+  const productColumns = 'name,sku,sale_price';
   let query = supabase
     .from('stock_levels')
     .select(`id,company_id,store_id,product_id,product_variant_id,quantity,updated_at,store:stores(name),product:products(${productColumns}),variant:product_variants(name,sku)`)
@@ -82,7 +83,14 @@ export async function getStockLevels(
   if (storeId) query = query.eq('store_id', storeId);
   const { data, error } = await query;
   fail(error);
-  return (data ?? []) as unknown as StockLevel[];
+  const rows = (data ?? []) as unknown as StockLevel[];
+  if (includeCost) {
+    const { products: costs } = await readProductCosts(rows.map(row => row.product_id));
+    for (const row of rows) {
+      if (row.product && costs.has(row.product_id)) row.product.purchase_price = costs.get(row.product_id);
+    }
+  }
+  return rows;
   }, Array.isArray);
 }
 

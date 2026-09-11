@@ -41,7 +41,8 @@ const queryClient = new QueryClient({
 });
 
 function RootNavigator() {
-  const { isLoading, membership, offlineAuthenticated } = useAuth();
+  const { isLoading, membership, offlineAuthenticated, mfaRequired, session } = useAuth();
+  const requestedPortal = usePortalLoginState(state => state.requestedPortal);
   const portalLoginPending = usePortalLoginState(state => state.pending);
   const pathname = usePathname().replace(/\/+$/, '') || '/';
 
@@ -52,8 +53,11 @@ function RootNavigator() {
 
   // Keep login forms mounted while SIGNED_IN is being checked, so a rejected
   // portal can display its message instead of losing local form state.
-  const loginRoute = pathname === '/login' || pathname === '/employee';
+  const loginRoute = ['/login', '/employee', '/mfa', '/change-temporary-password'].includes(pathname);
   if (isLoading && !(loginRoute && portalLoginPending)) return <LoadingScreen label="Ouverture de StockMaster…" />;
+
+  if (!portalLoginPending && !offlineAuthenticated && session && mfaRequired && pathname !== '/mfa') return <Redirect href={{ pathname: '/(auth)/mfa', params: requestedPortal ? { portal: requestedPortal } : {} }} />;
+  if (!portalLoginPending && !offlineAuthenticated && session?.user.app_metadata?.must_change_password === true && pathname !== '/change-temporary-password' && pathname !== '/mfa') return <Redirect href="/(auth)/change-temporary-password" />;
 
   if (offlineAuthenticated) {
     const employee = membership?.role === 'employee';

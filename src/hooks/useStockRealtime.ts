@@ -11,6 +11,7 @@ export function useStockRealtime(companyId: string) {
 
     const refresh = () => {
       void queryClient.invalidateQueries({ queryKey: ['stock-levels', companyId] });
+      void queryClient.invalidateQueries({ queryKey: ['stock-costs', companyId] });
       void queryClient.invalidateQueries({ queryKey: ['stock-movements', companyId] });
     };
 

@@ -1,6 +1,15 @@
 import { create } from 'zustand';
+import type { LoginPortal } from './portalRules';
 
-export const usePortalLoginState = create<{ pending: boolean; setPending: (pending: boolean) => void }>(set => ({
+type PortalLoginState = {
+  pending: boolean;
+  requestedPortal: LoginPortal | null;
+  setPending: (pending: boolean) => void;
+  setRequestedPortal: (portal: LoginPortal | null) => void;
+};
+export const usePortalLoginState = create<PortalLoginState>(set => ({
   pending: false,
+  requestedPortal: null,
   setPending: pending => set({ pending }),
+  setRequestedPortal: requestedPortal => set({ requestedPortal }),
 }));

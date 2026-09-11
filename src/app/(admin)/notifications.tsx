@@ -11,13 +11,15 @@ import { getPersistentNotifications, markNotificationsRead } from '@/features/no
 import { supabase } from '@/services/supabase/client';
 import { createRealtimeTopic } from '@/services/supabase/realtime';
 import { formatDateTime } from '@/utils/format';
+import { canUseNotifications, notificationQueryKey } from '@/features/notifications/access';
 
 export default function NotificationsScreen() {
-  const { membership } = useAuth();
+  const { membership, session } = useAuth();
   const theme = useTheme();
   const cache = useQueryClient();
   const company = membership?.companyId ?? '';
-  const persistent = useQuery({ queryKey: ['persistent-notifications', company], queryFn: () => getPersistentNotifications(company), enabled: !!company, refetchInterval: 60_000 });
+  const userId=session?.user.id??'';
+  const persistent = useQuery({ queryKey: notificationQueryKey(membership,userId), queryFn: () => getPersistentNotifications(company,membership?.role==='employee'?userId:undefined), enabled: canUseNotifications(membership)&&!!userId, refetchInterval: 60_000 });
   const activeNotifications = useActiveNotifications(persistent.data);
   const unread = activeNotifications.filter((item) => !item.read_at);
   const mark = useMutation({ mutationFn: () => markNotificationsRead(unread.map((item) => item.id)), onSuccess: () => cache.invalidateQueries({ queryKey: ['persistent-notifications', company] }) });

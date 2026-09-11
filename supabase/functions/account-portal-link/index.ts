@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { accountHandoffUrl, accountPortalDestination } from '../_shared/portal.ts';
 
 type MembershipRole = { code?: string } | { code?: string }[] | null;
 
@@ -22,24 +23,6 @@ function corsHeaders(request: Request) {
   };
 }
 
-function safePortalUrl(value: unknown) {
-  const configured = Deno.env.get('ACCOUNT_WEB_URL')?.trim();
-  const raw = typeof value === 'string' && value.trim() ? value.trim() : configured || 'http://localhost:4001';
-  const url = new URL(raw);
-  const privateDevelopmentHost = url.hostname === 'localhost'
-    || url.hostname === '127.0.0.1'
-    || /^10\./.test(url.hostname)
-    || /^192\.168\./.test(url.hostname)
-    || /^172\.(1[6-9]|2\d|3[01])\./.test(url.hostname);
-  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && privateDevelopmentHost)) {
-    throw new Error('Adresse du portail Account non autorisée');
-  }
-  url.pathname = '/';
-  url.search = '';
-  url.hash = '';
-  return url;
-}
-
 Deno.serve(async (request) => {
   const cors = corsHeaders(request);
   if (request.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -54,9 +37,12 @@ Deno.serve(async (request) => {
     const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: { user }, error: authError } = await caller.auth.getUser();
     if (authError || !user?.email) throw new Error('Session expirée. Reconnectez-vous dans StockMaster.');
+    const { error: securityError } = await caller.rpc('assert_session_security', { p_allow_temporary_password: false });
+    if (securityError) throw securityError;
 
     const body = await request.json().catch(() => ({})) as { companyId?: string; portalUrl?: string };
     if (!body.companyId) throw new Error('Entreprise requise');
+    const portal = accountPortalDestination(Deno.env.get('ACCOUNT_WEB_URL'), body.portalUrl, Deno.env.get('ACCOUNT_PORTAL_ALLOW_LOCAL_HTTP') === 'true');
     const { data: memberships, error: membershipError } = await admin
       .from('memberships')
       .select('company_id,is_active,role:roles(code)')
@@ -74,11 +60,8 @@ Deno.serve(async (request) => {
       throw generated.error ?? new Error('Connexion Account indisponible');
     }
 
-    const portal = safePortalUrl(body.portalUrl);
-    portal.searchParams.set('portal', 'subscription');
-    portal.searchParams.set('companyId', body.companyId);
-    portal.searchParams.set('handoff', generated.data.properties.hashed_token);
-    return Response.json({ url: portal.toString() }, { headers: { ...cors, 'Cache-Control': 'no-store' } });
+    const url = accountHandoffUrl(portal, body.companyId, generated.data.properties.hashed_token);
+    return Response.json({ url }, { headers: { ...cors, 'Cache-Control': 'no-store' } });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Impossible d’ouvrir le portail Account.';
     return Response.json({ error: message }, { status: /Session|Seul/.test(message) ? 403 : 400, headers: cors });

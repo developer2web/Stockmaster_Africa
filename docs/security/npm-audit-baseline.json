@@ -1,0 +1,27 @@
+{
+  "reviewedAt": "2026-09-10",
+  "reviewAgainBy": "2026-10-10",
+  "scope": "npm audit --omit=dev; exceptions explicites, pas une déclaration d'absence de vulnérabilités",
+  "advisories": [
+    {
+      "url": "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr",
+      "package": "image-size",
+      "reason": "Utilisé par Metro pour les assets de compilation. Aucune version corrigée publiée; ne pas exposer Metro sur Internet ni compiler des images non fiables."
+    },
+    {
+      "url": "https://github.com/advisories/GHSA-5p2g-fcmc-qvqq",
+      "package": "image-size",
+      "reason": "Même dépendance de compilation Metro; aucune version corrigée publiée."
+    },
+    {
+      "url": "https://github.com/advisories/GHSA-vcc3-ghjq-m6fr",
+      "package": "decode-uri-component",
+      "reason": "query-string 7 d'Expo Router 6 requiert CommonJS; le correctif 0.5.0 est ESM. Remplacement forcé incompatible. Conserver le suivi d'un correctif rétroporté ou d'une migration Expo dédiée."
+    },
+    {
+      "url": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+      "package": "uuid",
+      "reason": "xcode 3 utilise uniquement uuid.v4() sans tampon; l'avis cible v3/v5/v6 avec tampon. Ne pas imposer une mise à niveau majeure du générateur natif pour une API non utilisée."
+    }
+  ]
+}

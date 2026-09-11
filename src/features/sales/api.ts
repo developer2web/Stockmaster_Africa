@@ -6,6 +6,7 @@ import { isDeviceOffline } from '@/features/offline/connectivity';
 import { enqueueOfflineOperation } from '@/features/offline/queue';
 import { withOfflineCache } from '@/features/offline/storage';
 import { createOfflineMetadata } from '@/features/offline/device';
+import { readProductCosts } from '@/features/products/costs';
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -63,9 +64,7 @@ export async function getSale(id: string, withFinancials = false): Promise<Sale>
 
 export async function getSaleStock(companyId: string, storeId: string, includeCost = true): Promise<SaleStockItem[]> {
   return withOfflineCache(`sale-stock:${companyId}:${storeId}:${includeCost}`, async () => {
-  const productColumns = includeCost
-    ? 'id,unit,name,sku,barcode,qr_code,sale_price,purchase_price,image_urls,is_active,product_variants(id,name,sku,barcode,sale_price,purchase_price,is_active)'
-    : 'id,unit,name,sku,barcode,qr_code,sale_price,image_urls,is_active,product_variants(id,name,sku,barcode,sale_price,is_active)';
+  const productColumns = 'id,unit,name,sku,barcode,qr_code,sale_price,image_urls,is_active,product_variants(id,name,sku,barcode,sale_price,is_active)';
   const pageSize=1000;
   const loadLevels=async()=>{
     const rows:{id:string;product_id:string;product_variant_id:string|null;quantity:number}[]=[];
@@ -84,6 +83,7 @@ export async function getSaleStock(companyId: string, storeId: string, includeCo
     return rows;
   };
   const [levels,productRows]=await Promise.all([loadLevels(),loadProducts()]);
+  const costs = includeCost ? await readProductCosts((productRows as { id: string }[]).map(row => row.id), true) : null;
   const levelMap=new Map(levels.map(row=>[`${row.product_id}:${row.product_variant_id??''}`,row]));
   const levelFor = (productId: string, variantId: string | null) => levelMap.get(`${productId}:${variantId??''}`);
 
@@ -104,7 +104,7 @@ export async function getSaleStock(companyId: string, storeId: string, includeCo
         sku: variant?.sku ?? product.sku,
         lookupCodes: [variant?.sku, variant?.barcode, product.sku, product.barcode, product.qr_code].filter((value): value is string => !!value),
         salePrice: Number(variant?.sale_price ?? product.sale_price),
-        purchasePrice: includeCost ? Number(variant?.purchase_price ?? product.purchase_price ?? 0) : 0,
+        purchasePrice: costs ? Number((variant ? costs.variants.get(variant.id) : null) ?? costs.products.get(product.id) ?? 0) : 0,
         available: Number(level?.quantity ?? 0),
         imageUrl: product.image_urls?.[0] ?? null,
       };

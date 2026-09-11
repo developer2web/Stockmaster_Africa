@@ -19,7 +19,7 @@ export default function LoginScreen() {
   const [error,setError]=useState('');
   const { refreshMembership } = useAuth();
   const {control,handleSubmit,formState:{isSubmitting}}=useForm<LoginInput>({resolver:zodResolver(loginSchema),defaultValues:{email:'',password:''}});
-  const submit=handleSubmit(async values=>{setError('');const result=await signInForPortal(values.email,values.password,'admin');if(!result.ok)return setError(result.message??'Connexion impossible.');await refreshMembership();router.replace('/')});
+  const submit=handleSubmit(async values=>{setError('');const result=await signInForPortal(values.email,values.password,'admin');if(!result.ok)return setError(result.message??'Connexion impossible.');if(result.mfaRequired){router.replace({pathname:'/(auth)/mfa',params:{portal:'admin'}});return;}await refreshMembership();router.replace('/')});
 
   if(mode==='choice')return <AuthScreen title="Choisir votre espace" subtitle="Connectez-vous selon votre rôle.">
     {!!notice && <HelperText type="info" visible>{String(notice)}</HelperText>}

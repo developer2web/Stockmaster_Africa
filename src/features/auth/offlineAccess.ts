@@ -1,3 +1,4 @@
+import { readEncryptedStorage, writeEncryptedStorage } from '@/services/storage/encryptedStorage';
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -115,7 +116,7 @@ async function readProfile(): Promise<OfflineAccessProfile | null> {
       return parsed;
     }
     if(!isEnvelope(parsed)){await clearStoredProfile();return null;}
-    const contextRaw=await AsyncStorage.getItem(PROFILE_CONTEXT_KEY);
+    const contextRaw=await readEncryptedStorage(PROFILE_CONTEXT_KEY);
     if(!contextRaw||await digest(contextRaw)!==parsed.contextDigest){await clearStoredProfile();return null;}
     const context=JSON.parse(contextRaw) as OfflineProfileContext;
     const profile={...context,deviceBindingId:parsed.deviceBindingId,pinSalt:parsed.pinSalt,pinVerifier:parsed.pinVerifier};
@@ -131,13 +132,13 @@ async function saveProfile(profile: OfflineAccessProfile) {
   const {context,secrets}=splitProfile(profile);
   const contextRaw=JSON.stringify(context);
   const envelope:OfflineProfileEnvelope={version:3,...secrets,contextDigest:await digest(contextRaw)};
-  const previousContext=await AsyncStorage.getItem(PROFILE_CONTEXT_KEY);
+  const previousContext=await readEncryptedStorage(PROFILE_CONTEXT_KEY);
   try{
-    await AsyncStorage.setItem(PROFILE_CONTEXT_KEY,contextRaw);
+    await writeEncryptedStorage(PROFILE_CONTEXT_KEY,contextRaw);
     await SecureStore.setItemAsync(PROFILE_KEY,JSON.stringify(envelope));
   }catch{
     if(previousContext===null)await AsyncStorage.removeItem(PROFILE_CONTEXT_KEY).catch(()=>undefined);
-    else await AsyncStorage.setItem(PROFILE_CONTEXT_KEY,previousContext).catch(()=>undefined);
+    else await writeEncryptedStorage(PROFILE_CONTEXT_KEY,previousContext).catch(()=>undefined);
     throw new Error('Impossible d’enregistrer le PIN sur cet appareil. Vérifiez le verrouillage sécurisé du téléphone puis réessayez.');
   }
 }

@@ -1,3 +1,4 @@
+import { needsMfaChallenge } from '../../src/features/auth/mfaAccess';
 import { sharedPublicValue } from '../../src/constants/publicConfig';
 import { createClient } from '@supabase/supabase-js';
 
@@ -72,12 +73,14 @@ export async function signIn(email: string, password: string) {
 }
 
 export async function getContext(): Promise<UserContext | null> {
+  if (await needsMfaChallenge(supabase)) throw new Error('Confirmez la double authentification.');
   const { data, error } = await retryJwtClockSkew(() => supabase.rpc('get_my_context'));
   if (error) throw error;
   return (Array.isArray(data) ? data[0] : data) as UserContext | null;
 }
 
 export async function getAccessibleBusinesses(): Promise<BusinessAccess[]> {
+  if (await needsMfaChallenge(supabase)) throw new Error('Confirmez la double authentification.');
   const { data, error } = await retryJwtClockSkew(() => supabase.rpc('get_accessible_businesses'));
   if (error) throw error;
   return (Array.isArray(data) ? data : []) as BusinessAccess[];
@@ -94,4 +97,19 @@ export function businessContext(business: BusinessAccess): UserContext {
     permissions: [],
     subscription_status: business.subscription_status,
   };
+}
+
+// Verify a password without replacing a session that already satisfied MFA.
+export async function changeWebPassword(currentPassword: string, newPassword: string) {
+  const user = await supabase.auth.getUser();
+  if (user.error || !user.data.user?.email) throw new Error('Reconnectez-vous avant de modifier votre mot de passe.');
+  const verifier = createClient(url || 'https://example.supabase.co', anonKey || 'missing-anon-key', {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: `${authStorageKey}-password-check` },
+  });
+  try {
+    const verification = await verifier.auth.signInWithPassword({ email: user.data.user.email, password: currentPassword });
+    if (verification.error) throw new Error('Mot de passe actuel incorrect ou vérification indisponible.');
+    const result = await supabase.auth.updateUser({ password: newPassword, current_password: currentPassword });
+    if (result.error) throw result.error;
+  } finally { await verifier.auth.signOut({ scope: 'local' }).catch(() => undefined); }
 }

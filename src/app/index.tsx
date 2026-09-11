@@ -12,7 +12,7 @@ export default function Index() {
   const billingOnboarding=useQuery({queryKey:['billing-onboarding',membership?.companyId],queryFn:async()=>{const{data,error}=await withRequestTimeout(signal=>supabase.rpc('billing_onboarding_required',{p_company_id:membership!.companyId}).abortSignal(signal));if(error)throw error;return!!data},retry:false,enabled:!!session&&!offlineAuthenticated&&membership?.role==='company_admin'&&!!membership.companyId});
   if (offlineUnlockRequired) return <Redirect href="/(auth)/offline-login" />;
   if (!session) return <Redirect href="/(auth)/login" />;
-  if (session.user.user_metadata?.must_change_password === true) return <Redirect href="/(auth)/change-temporary-password" />;
+  if (session.user.app_metadata?.must_change_password === true) return <Redirect href="/(auth)/change-temporary-password" />;
   if (!membership && isWorkspaceLoading) return <LoadingScreen label="Chargement de vos boutiques…" />;
   if (membershipError) {
     return (

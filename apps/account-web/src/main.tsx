@@ -1,11 +1,13 @@
+import { WebSessionGate } from '../../shared/WebSessionGate';
 import { notificationCutoff } from '../../../src/features/notifications/retention';
 import { useActiveNotifications } from '../../../src/features/notifications/useActiveNotifications';
 import { featureLabelsFor, formatBillingMoney, subscriptionStatusLabel } from '../../../src/constants/commercial';
 import { webSiteUrl } from '../../shared/siteConfig';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { businessContext, configured, getAccessibleBusinesses, signIn, supabase, type BusinessAccess, type UserContext } from '../../shared/supabase';
 import { employeeStoreIds, escapeHtml } from './account-logic';
+import { normalizeOrangeReference, orangeMoneyConfigurationIssue, reusePaymentAttempt, validatePaymentProof, type PaymentAttempt } from './manual-payment';
 import './account.css';
 import './multi-business.css';
 import '../../shared/ux.css';
@@ -16,7 +18,7 @@ type Plan = { id: string; code: string; name: string; description: string; month
 type Payment = { id: string; provider: string; provider_reference: string | null; amount: number; base_amount: number; discount_amount: number; currency: string; status: string; failure_reason: string | null; created_at: string; plan: { name: string } | null };
 type Company = { name: string; email: string | null; phone: string | null; address: string | null; default_currency_code: string; logo_url?: string | null; receipt_footer?: string | null };
 type SecurityEvent = { id: string; event_type: string; device_label: string | null; created_at: string };
-type Quote = { base_amount: number; discount_amount: number; final_amount: number; promotion_name: string | null; currency: string };
+type Quote = { requestKey?: string; base_amount: number; discount_amount: number; final_amount: number; promotion_name: string | null; currency: string };
 type Employee = { id: string; user_id: string; role_id: string; store_id: string | null; is_active: boolean; created_at: string; all_stores: boolean; membership_stores: { store_id: string }[] | null; profile: { full_name: string } | null; role: { name: string; code: string } | null; store: { name: string } | null };
 type Role = { id: string; name: string };
 type Store = { id: string; name: string };
@@ -101,6 +103,13 @@ function App() {
   const [fullName, setFullName] = useState(''); const [userEmail, setUserEmail] = useState(''); const [orangeMoney, setOrangeMoney] = useState({ number: '', name: 'StockMaster' });
   const [planId, setPlanId] = useState(''); const [cycle, setCycle] = useState<'monthly' | 'annual'>('monthly'); const [provider, setProvider] = useState<'orange_money_manual' | 'stripe'>('orange_money_manual'); const [paymentStep, setPaymentStep] = useState<'method' | 'checkout'>('method'); const [promo, setPromo] = useState(''); const [reference, setReference] = useState(''); const [proof, setProof] = useState<File | null>(null); const [quote, setQuote] = useState<Quote | null>(null);
   const [status, setStatus] = useState('all'); const [period, setPeriod] = useState('all'); const [loading, setLoading] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [warnings, setWarnings] = useState<string[]>([]); const [mobileMenu, setMobileMenu] = useState(false);
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const [quoteBusy, setQuoteBusy] = useState(false);
+  const paymentLock = useRef(false);
+  const paymentAttempt = useRef<PaymentAttempt | null>(null);
+  const quoteKey = JSON.stringify([context?.company_id, planId, cycle, promo.trim().toUpperCase()]);
+  const activeQuoteKey = useRef(quoteKey);
+  activeQuoteKey.current = quoteKey;
   const [inviteOpen, setInviteOpen] = useState(false); const [ticketOpen, setTicketOpen] = useState(false); const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
@@ -114,11 +123,13 @@ function App() {
     let mounted = true;
     void (async () => {
       const params = new URLSearchParams(location.search);
-      const handoff = params.get('handoff');
+      const fragment = new URLSearchParams(location.hash.slice(1));
+      const handoff = fragment.get('handoff') ?? params.get('handoff');
       const requestedCompanyId = params.get('companyId');
       const requestedPortal = params.get('portal');
       if (handoff) {
         params.delete('handoff');
+        fragment.delete('handoff');
         history.replaceState(null, '', `${location.pathname}${params.size ? `?${params.toString()}` : ''}`);
         const verified = await supabase.auth.verifyOtp({ token_hash: handoff, type: 'magiclink' });
         if (verified.error) {
@@ -199,17 +210,65 @@ function App() {
   function chooseBusiness(business: BusinessAccess) { setContext(businessContext(business)); setSection('Tableau de bord'); setPlanId(''); setSubscription(null); setPayments([]); setEmployees([]); setRoles([]); setStores([]); setTickets([]); setNotifications([]); setCompany({ name: '', email: '', phone: '', address: '', default_currency_code: 'GNF' }); }
   function acceptBusinesses(available: BusinessAccess[]) { setBusinesses(available); if (available.length === 1) chooseBusiness(available[0]); }
   async function signOut() { await supabase.auth.signOut(); setContext(null); setBusinesses([]); }
-  async function getQuote() { if (!context?.company_id || !planId) return; setLoading(true); setError(''); const result = await supabase.rpc('subscription_quote', { p_company_id: context.company_id, p_plan_id: planId, p_billing_cycle: cycle, p_promo_code: promo.trim() || null }); setLoading(false); if (result.error) { setQuote(null); setError(result.error.message); } else setQuote((Array.isArray(result.data) ? result.data[0] : result.data) as Quote); }
-  async function pay() {
-    if (!context?.company_id || !planId) return; setLoading(true); setError(''); setNotice('');
+  async function getQuote() {
+    if (!context?.company_id || !planId || paymentLock.current) return false;
+    const requestedKey = quoteKey;
+    setQuoteBusy(true); setError('');
     try {
-      if (provider === 'stripe') { const result = await supabase.functions.invoke('create-payment', { body: { companyId: context.company_id, planId, billingCycle: cycle, provider: 'stripe', operationId: crypto.randomUUID(), promoCode: promo.trim() || null } }); if (result.error) throw new Error(await edgeErrorMessage(result.error)); if (result.data?.authorizationUrl) return location.assign(result.data.authorizationUrl); throw new Error(result.data?.error || 'Lien de paiement Stripe indisponible.'); }
-      if (reference.trim().length < 4) throw new Error('Saisissez la référence de la transaction Orange Money.');
-      let proofPath: string | null = null;
-      if (proof) { if (proof.size > 4_194_304) throw new Error('Le justificatif dépasse 4 Mo.'); const user = (await supabase.auth.getUser()).data.user; if (!user) throw new Error('Votre session a expiré.'); proofPath = `${user.id}/${crypto.randomUUID()}-${proof.name.replace(/[^a-zA-Z0-9._-]/g, '-')}`; const upload = await supabase.storage.from('payment-proofs').upload(proofPath, proof); if (upload.error) throw upload.error; }
-      const result = await supabase.rpc('submit_manual_subscription_payment', { p_company_id: context.company_id, p_plan_id: planId, p_billing_cycle: cycle, p_reference: reference.trim(), p_proof_path: proofPath, p_promo_code: promo.trim() || null, p_operation_id: crypto.randomUUID() }); if (result.error) throw result.error;
-      setReference(''); setProof(null); navigate('Historique'); setNotice('Paiement transmis. Vous recevrez une notification après validation.'); await load();
-    } catch (caught) { setError(message(caught)); } finally { setLoading(false); }
+      const result = await supabase.rpc('subscription_quote', { p_company_id: context.company_id, p_plan_id: planId, p_billing_cycle: cycle, p_promo_code: promo.trim() || null });
+      if (result.error) throw result.error;
+      const calculated = (Array.isArray(result.data) ? result.data[0] : result.data) as Quote | null;
+      if (!calculated || !Number.isFinite(Number(calculated.final_amount)) || Number(calculated.final_amount) <= 0 || !/^[A-Z]{3}$/.test(calculated.currency)) throw new Error('Montant à payer indisponible. Contactez le support.');
+      if (activeQuoteKey.current !== requestedKey) return false;
+      setQuote({ ...calculated, requestKey: requestedKey });
+      return true;
+    } catch (caught) {
+      if (activeQuoteKey.current === requestedKey) { setQuote(null); setError(message(caught)); }
+      return false;
+    } finally { setQuoteBusy(false); }
+  }
+  async function pay() {
+    if (!context?.company_id || !planId || paymentLock.current) return;
+    paymentLock.current = true; setPaymentBusy(true); setError(''); setNotice('');
+    try {
+      if (!quote || quote.requestKey !== quoteKey) throw new Error('Confirmez le montant avant de continuer.');
+      if (provider === 'orange_money_manual') {
+        const configurationIssue = orangeMoneyConfigurationIssue(orangeMoney);
+        if (configurationIssue) throw new Error(configurationIssue);
+        if (!/^[A-Z0-9_/-]{4,100}$/.test(normalizeOrangeReference(reference))) throw new Error('Saisissez la référence exacte de votre transaction Orange Money (4 à 100 caractères).');
+        if (proof) await validatePaymentProof(proof);
+      }
+      const attemptKey = JSON.stringify([quoteKey, provider, normalizeOrangeReference(reference), proof ? [proof.name, proof.size, proof.lastModified] : null]);
+      const attempt = reusePaymentAttempt(paymentAttempt.current, attemptKey, () => crypto.randomUUID());
+      paymentAttempt.current = attempt;
+      if (provider === 'stripe') {
+        const result = await supabase.functions.invoke('create-payment', { body: { companyId: context.company_id, planId, billingCycle: cycle, provider: 'stripe', operationId: attempt.operationId, promoCode: promo.trim() || null } });
+        if (result.error) throw new Error(await edgeErrorMessage(result.error));
+        if (result.data?.authorizationUrl) return location.assign(result.data.authorizationUrl);
+        if (result.data?.status === 'succeeded') { navigate('Historique'); setNotice('Ce paiement est déjà confirmé.'); await load(); return; }
+        throw new Error(result.data?.instructions || result.data?.error || 'La demande est en cours. Consultez son statut avant de réessayer.');
+      }
+      if (proof && !attempt.proofPath) {
+        const user = (await supabase.auth.getUser()).data.user;
+        if (!user) throw new Error('Votre session a expiré.');
+        const proofPath = `${user.id}/${attempt.operationId}-${proof.name.replace(/[^a-zA-Z0-9._-]/g, '-')}`;
+        const upload = await supabase.storage.from('payment-proofs').upload(proofPath, proof, { contentType: proof.type, upsert: true });
+        if (upload.error) throw upload.error;
+        attempt.proofPath = proofPath;
+      }
+      const result = await supabase.rpc('submit_manual_subscription_payment', {
+        p_company_id: context.company_id, p_plan_id: planId, p_billing_cycle: cycle,
+        p_reference: normalizeOrangeReference(reference), p_proof_path: attempt.proofPath,
+        p_promo_code: promo.trim() || null, p_operation_id: attempt.operationId, p_retained_company_id: null,
+        p_expected_amount: Number(quote.final_amount), p_expected_currency: quote.currency,
+      });
+      if (result.error?.code === 'PGRST202') throw new Error('La déclaration Orange Money nécessite la mise à jour du serveur. Contactez le support et ne refaites pas le transfert.');
+      if (result.error) throw result.error;
+      paymentAttempt.current = null;
+      setReference(''); setProof(null); navigate('Historique');
+      setNotice('Déclaration reçue. Votre abonnement sera activé après vérification de la réception du transfert Orange Money. Ne refaites pas le transfert.');
+      await load();
+    } catch (caught) { setError(message(caught)); } finally { paymentLock.current = false; setPaymentBusy(false); }
   }
   async function saveCompany() { if (!context?.company_id) return; setLoading(true); setError(''); const [userResult, companyResult] = await Promise.all([supabase.auth.updateUser({ data: { full_name: fullName.trim() } }), supabase.from('companies').update({ name: company.name.trim(), email: company.email || null, phone: company.phone || null, address: company.address || null }).eq('id', context.company_id)]); setLoading(false); if (userResult.error || companyResult.error) setError(userResult.error?.message ?? companyResult.error?.message ?? 'Enregistrement impossible.'); else { setNotice('Informations de l’entreprise enregistrées.'); setProfileOpen(false); await load(); } }
   async function resetPassword() { const result = await supabase.auth.resetPasswordForEmail(userEmail, { redirectTo: location.origin }); if (result.error) setError(result.error.message); else setNotice('Un lien sécurisé de changement de mot de passe vous a été envoyé.'); }
@@ -226,7 +285,7 @@ function App() {
     <main className="accountMain"><header className="accountTopbar"><button className="mobileMenuButton" onClick={() => setMobileMenu(true)}>☰</button><div className="activeBusiness"><small>ENTREPRISE ACTIVE</small><b>{company.name || context.company_name || 'StockMaster'}</b>{businesses.length > 1 && <button onClick={() => setContext(null)}>Changer d’entreprise</button>}</div><div className="topActions"><button className="notificationButton" aria-label="Ouvrir le support" title="Support" onClick={() => navigate('Support')}>◌</button><button className="notificationButton" aria-label="Ouvrir les notifications" title="Notifications" onClick={() => navigate('Notifications')}>♢{unread > 0 && <i>{unread}</i>}</button><button className="profileButton" onClick={() => navigate('Profil')}><span>{initials}</span><div><b>{fullName || 'Administrateur'}</b><small>Propriétaire</small></div></button></div></header><div className="pageContent">{loading && <div className="alert floating">Traitement en cours…</div>}{error && <div className="alert danger">{error}<button onClick={() => setError('')}>×</button></div>}{notice && <div className="alert success">✓ {notice.replace(/^✓\s*/, '').replace(/\.$/,'')}<button onClick={() => setNotice('')}>×</button></div>}{warnings.length > 0 && <div className="alert warning">Données temporairement indisponibles : {warnings.join(', ')}.<button onClick={() => setWarnings([])}>×</button></div>}
       {section === 'Tableau de bord' && <Dashboard fullName={fullName} subscription={subscription} currentPlan={currentPlan} payments={payments} go={navigate} company={company}/>}
       {section === 'Abonnement' && <SubscriptionPage subscription={subscription} currentPlan={currentPlan} plans={plans} selectPlan={id => { setPlanId(id); navigate('Paiements'); }}/>}
-      {section === 'Paiements' && <PaymentPage plans={plans} planId={planId} setPlanId={value => { setPlanId(value); setQuote(null); }} cycle={cycle} setCycle={value => { setCycle(value); setQuote(null); }} provider={provider} setProvider={setProvider} step={paymentStep} setStep={setPaymentStep} promo={promo} setPromo={value => { setPromo(value); setQuote(null); }} reference={reference} setReference={setReference} setProof={setProof} proof={proof} quote={quote} orangeMoney={orangeMoney} getQuote={getQuote} pay={pay} goHistory={() => navigate('Historique')}/>}
+      {section === 'Paiements' && <PaymentPage plans={plans} planId={planId} setPlanId={value => { setPlanId(value); setQuote(null); }} cycle={cycle} setCycle={value => { setCycle(value); setQuote(null); }} provider={provider} setProvider={setProvider} step={paymentStep} setStep={setPaymentStep} promo={promo} setPromo={value => { setPromo(value); setQuote(null); }} reference={reference} setReference={setReference} setProof={setProof} proof={proof} quote={quote?.requestKey === quoteKey ? quote : null} busy={paymentBusy || quoteBusy} orangeMoney={orangeMoney} getQuote={getQuote} pay={pay} goHistory={() => navigate('Historique')}/>}
       {section === 'Historique' && <History payments={filteredPayments} status={status} setStatus={setStatus} period={period} setPeriod={setPeriod} company={company}/>}
       {section === 'Reçus' && <Invoices payments={payments} company={company}/>}
       {section === 'Entreprise' && <CompanyPage company={company} setCompany={setCompany} save={saveCompany}/>}
@@ -276,8 +335,50 @@ function SubscriptionPage({ subscription, currentPlan, plans, selectPlan }: { su
   </>;
 }
 
-function PaymentPage({ plans, planId, setPlanId, cycle, setCycle, provider, setProvider, step, setStep, promo, setPromo, reference, setReference, proof, setProof, quote, orangeMoney, getQuote, pay, goHistory }: { plans: Plan[]; planId: string; setPlanId: (value: string) => void; cycle: 'monthly'|'annual'; setCycle: (value: 'monthly'|'annual') => void; provider: 'orange_money_manual'|'stripe'; setProvider: (value: 'orange_money_manual'|'stripe') => void; step: 'method'|'checkout'; setStep: (value: 'method'|'checkout') => void; promo: string; setPromo: (value: string) => void; reference: string; setReference: (value: string) => void; proof: File | null; setProof: (file: File | null) => void; quote: Quote | null; orangeMoney: { number: string; name: string }; getQuote: () => Promise<void>; pay: () => Promise<void>; goHistory: () => void }) {
-  const selected = plans.find(plan => plan.id === planId); return <><PageTitle title="Paiement" subtitle="Choisissez votre forfait et votre moyen de paiement." action={<button className="secondaryButton" onClick={goHistory}>Historique</button>}/><div className="paymentLayout"><section className="panel checkoutPanel"><div className="checkoutSteps"><span className="done">1</span><i/><span className={step === 'checkout' ? 'done' : ''}>2</span><i/><span>3</span></div><div className="formGrid"><label>Forfait<select value={planId} onChange={event => { setPlanId(event.target.value); setStep('method'); }}>{plans.map(plan => <option value={plan.id} key={plan.id}>{plan.name}</option>)}</select></label><label>Période<select value={cycle} onChange={event => setCycle(event.target.value as 'monthly'|'annual')}><option value="monthly">Mensuelle</option><option value="annual">Annuelle</option></select></label><label className="wide">Code promotionnel<div className="inlineField"><input value={promo} onChange={event => setPromo(event.target.value.toUpperCase())} placeholder="FACULTATIF"/><button type="button" onClick={() => void getQuote()}>Appliquer</button></div></label></div>{step === 'method' ? <><h2 className="checkoutTitle">Choisir un moyen de paiement</h2><div className="paymentChoice"><button onClick={() => { setProvider('orange_money_manual'); setStep('checkout'); }}><i className="orangeLogo">↗↙</i><span><b>Orange Money</b><small>Paiement soumis à une vérification manuelle.</small></span><em>Choisir →</em></button><button onClick={() => { setProvider('stripe'); setStep('checkout'); }}><i className="bankCard">••</i><span><b>Carte bancaire</b><small>Carte traitée sur la page hébergée par Stripe.</small></span><em>Choisir →</em></button></div></> : <div className="providerCheckout"><button className="backChoice" onClick={() => setStep('method')}>← Changer de moyen</button>{provider === 'orange_money_manual' ? <><div className="providerTitle"><i className="orangeLogo">↗↙</i><div><span>PAIEMENT ORANGE MONEY</span><h2>{selected?.name ?? 'Abonnement StockMaster'}</h2></div></div><label>Numéro à créditer<input value={orangeMoney.number || 'Non configuré'} readOnly/></label><label>Nom du compte<input value={orangeMoney.name} readOnly/></label><label>Référence de la transaction<input value={reference} onChange={event => setReference(event.target.value)} placeholder="Ex. OM-483921"/></label><label>Justificatif (optionnel)<div className="fileInput"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => setProof(event.target.files?.[0] ?? null)}/><span>{proof?.name ?? 'Choisir une capture'}</span></div></label><div className="orangeNotice">Vous recevrez une notification après vérification du paiement.</div></> : <><div className="providerTitle"><i className="bankCard">••</i><div><span>PAIEMENT PAR CARTE</span><h2>Paiement traité par Stripe</h2></div></div><p className="secureCopy">Vous serez redirigé vers la page de paiement hébergée par Stripe. StockMaster ne reçoit pas le numéro complet de votre carte.</p></>}<button className="primaryButton full" onClick={() => void pay()}>{provider === 'stripe' ? 'Continuer vers Stripe →' : 'Soumettre le paiement →'}</button></div>}</section><aside className="panel orderSummary"><span className="eyebrow">Récapitulatif</span><h2>{selected?.name ?? 'Forfait'}</h2><p>{selected?.description}</p><div><span>Montant</span><b>{quote ? money(quote.base_amount, quote.currency) : selected ? money(cycle === 'annual' ? selected.annual_price : selected.monthly_price, selected.currency) : '—'}</b></div>{quote && <><div><span>Réduction</span><b className="discount">- {money(quote.discount_amount, quote.currency)}</b></div><hr/><div className="total"><span>Total</span><b>{money(quote.final_amount, quote.currency)}</b></div></>}<small>✓ Montant confirmé avant paiement<br/>✓ Activation après confirmation du serveur<br/>✓ Reçu PDF après paiement confirmé</small></aside></div></>;
+function PaymentPage({ plans, planId, setPlanId, cycle, setCycle, provider, setProvider, step, setStep, promo, setPromo, reference, setReference, proof, setProof, quote, busy, orangeMoney, getQuote, pay, goHistory }: { plans: Plan[]; planId: string; setPlanId: (value: string) => void; cycle: 'monthly'|'annual'; setCycle: (value: 'monthly'|'annual') => void; provider: 'orange_money_manual'|'stripe'; setProvider: (value: 'orange_money_manual'|'stripe') => void; step: 'method'|'checkout'; setStep: (value: 'method'|'checkout') => void; promo: string; setPromo: (value: string) => void; reference: string; setReference: (value: string) => void; proof: File | null; setProof: (file: File | null) => void; quote: Quote | null; busy: boolean; orangeMoney: { number: string; name: string }; getQuote: () => Promise<boolean>; pay: () => Promise<void>; goHistory: () => void }) {
+  const selected = plans.find(plan => plan.id === planId);
+  const configurationIssue = orangeMoneyConfigurationIssue(orangeMoney);
+  async function chooseProvider(value: 'orange_money_manual'|'stripe') {
+    if (await getQuote()) { setProvider(value); setStep('checkout'); }
+  }
+  return <>
+    <PageTitle title="Paiement" subtitle="Vérifiez le montant, effectuez le transfert puis transmettez sa référence." action={<button className="secondaryButton" disabled={busy} onClick={goHistory}>Historique</button>}/>
+    <div className="paymentLayout">
+      <section className="panel checkoutPanel">
+        <div className="checkoutSteps" aria-label={step === 'method' ? 'Étape 1 : montant et moyen de paiement' : 'Étape 2 : paiement et déclaration'}><span className="done">1</span><i/><span className={step === 'checkout' ? 'done' : ''}>2</span><i/><span>3</span></div>
+        <div className="formGrid">
+          <label>Forfait<select disabled={busy} value={planId} onChange={event => { setPlanId(event.target.value); setStep('method'); }}>{plans.map(plan => <option value={plan.id} key={plan.id}>{plan.name}</option>)}</select></label>
+          <label>Période<select disabled={busy} value={cycle} onChange={event => { setCycle(event.target.value as 'monthly'|'annual'); setStep('method'); }}><option value="monthly">Mensuelle</option><option value="annual">Annuelle</option></select></label>
+          <label className="wide">Code promotionnel<div className="inlineField"><input disabled={busy} value={promo} onChange={event => { setPromo(event.target.value.toUpperCase()); setStep('method'); }} placeholder="FACULTATIF"/><button type="button" disabled={busy || !planId} onClick={() => void getQuote()}>Vérifier le montant</button></div></label>
+        </div>
+        {step === 'method' ? <>
+          <h2 className="checkoutTitle">Choisir un moyen de paiement</h2>
+          {configurationIssue && <div className="alert warning">{configurationIssue}</div>}
+          <div className="paymentChoice">
+            <button disabled={busy || !!configurationIssue || !planId} onClick={() => void chooseProvider('orange_money_manual')}><i className="orangeLogo">↗↙</i><span><b>Orange Money</b><small>Transfert manuel, puis vérification par StockMaster.</small></span><em>Continuer →</em></button>
+            <button disabled={busy || !planId} onClick={() => void chooseProvider('stripe')}><i className="bankCard">••</i><span><b>Carte bancaire</b><small>Carte traitée sur la page hébergée par Stripe.</small></span><em>Continuer →</em></button>
+          </div>
+        </> : <div className="providerCheckout">
+          <button className="backChoice" disabled={busy} onClick={() => setStep('method')}>← Changer de moyen</button>
+          {provider === 'orange_money_manual' ? <>
+            <div className="providerTitle"><i className="orangeLogo">↗↙</i><div><span>TRANSFERT ORANGE MONEY</span><h2>{selected?.name ?? 'Abonnement StockMaster'}</h2></div></div>
+            {configurationIssue ? <div className="alert danger">{configurationIssue}</div> : quote && <>
+              <h3>1. Effectuez le transfert</h3>
+              <p>Depuis Orange Money, transférez exactement <strong>{money(quote.final_amount, quote.currency)}</strong> au compte ci-dessous. Vérifiez le nom du bénéficiaire avant de confirmer.</p>
+              <label>Numéro à créditer<input value={orangeMoney.number} readOnly/></label><label>Nom du bénéficiaire<input value={orangeMoney.name} readOnly/></label>
+              <h3>2. Déclarez le transfert effectué</h3>
+              <label>Référence du reçu Orange Money<input disabled={busy} maxLength={100} value={reference} onChange={event => setReference(event.target.value)} placeholder="Référence fournie par Orange Money"/></label>
+              <label>Justificatif (optionnel)<div className="fileInput"><input disabled={busy} type="file" accept="image/jpeg,image/png,image/webp" onChange={event => setProof(event.target.files?.[0] ?? null)}/><span>{proof?.name ?? 'Image JPEG, PNG ou WebP, 4 Mo maximum'}</span></div></label>
+              <div className="orangeNotice"><strong>3. StockMaster vérifie la réception</strong><br/>L’envoi de cette déclaration ne débite pas votre compte. L’abonnement reste en attente jusqu’à la vérification du transfert. Une capture seule ne confirme pas le paiement.</div>
+            </>}
+          </> : <><div className="providerTitle"><i className="bankCard">••</i><div><span>PAIEMENT PAR CARTE</span><h2>Paiement traité par Stripe</h2></div></div><p className="secureCopy">Vous serez redirigé vers la page de paiement hébergée par Stripe. StockMaster ne reçoit pas le numéro complet de votre carte.</p></>}
+          <button className="primaryButton full" disabled={busy || !quote || (provider === 'orange_money_manual' && (!!configurationIssue || normalizeOrangeReference(reference).length < 4))} onClick={() => void pay()}>{busy ? 'Traitement en cours…' : provider === 'stripe' ? 'Continuer vers Stripe →' : 'Transmettre la référence →'}</button>
+          {provider === 'orange_money_manual' && <p className="secureCopy">Si l’envoi échoue, réessayez avec la même référence. Ne refaites pas le transfert.</p>}
+        </div>}
+      </section>
+      <aside className="panel orderSummary"><span className="eyebrow">Récapitulatif</span><h2>{selected?.name ?? 'Forfait'}</h2><p>{selected?.description}</p><div><span>{quote ? 'Montant' : 'Estimation'}</span><b>{quote ? money(quote.base_amount, quote.currency) : selected ? money(cycle === 'annual' ? selected.annual_price : selected.monthly_price, selected.currency) : '—'}</b></div>{quote && <><div><span>Réduction</span><b className="discount">- {money(quote.discount_amount, quote.currency)}</b></div><hr/><div className="total"><span>Total à transférer</span><b>{money(quote.final_amount, quote.currency)}</b></div></>}<small>{quote ? '✓ Montant calculé par StockMaster' : 'Le montant exact sera calculé avant de continuer.'}<br/>Activation après vérification du paiement<br/>Reçu PDF après confirmation</small></aside>
+    </div>
+  </>;
 }
 
 function History({ payments, status, setStatus, period, setPeriod, company }: { payments: Payment[]; status: string; setStatus: (value: string) => void; period: string; setPeriod: (value: string) => void; company: Company }) {
@@ -344,7 +445,7 @@ function receipt(payment: Payment, company: Company) {
     method: payment.provider === 'stripe' ? 'Carte bancaire' : 'Orange Money', reference: escapeHtml(payment.provider_reference ?? '—'),
     total: escapeHtml(money(payment.amount, payment.currency)),
   };
-  popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="UTF-8"><title>Reçu de paiement StockMaster</title><style>body{font-family:Arial,sans-serif;color:#183733;padding:48px}.head{display:flex;justify-content:space-between;gap:24px;border-bottom:3px solid #087a59;padding-bottom:22px}.identity{display:flex;align-items:center;gap:16px}.companyLogo{width:64px;height:64px;object-fit:contain;border-radius:12px}.logo{font-size:28px;font-weight:900;color:#087a59}.contact{margin-top:7px;color:#607775;font-size:12px}.badge{height:fit-content;background:#dff4ed;color:#087a59;padding:8px 12px;border-radius:99px;font-weight:800}.box{margin-top:30px;border:1px solid #dce7e2;border-radius:16px;padding:24px}.row{display:flex;justify-content:space-between;gap:20px;padding:13px 0;border-bottom:1px solid #edf3f0}.row strong{text-align:right}.total{font-size:22px;font-weight:900;color:#087a59}.foot{margin-top:38px;color:#607775;text-align:center;line-height:1.65}button{margin-top:25px;padding:12px 18px;border:0;border-radius:8px;background:#087a59;color:#fff;font-weight:bold}@media print{button{display:none}body{padding:20px}}</style></head><body><div class="head"><div class="identity">${values.logo ? `<img class="companyLogo" src="${values.logo}" alt="Logo de l'entreprise">` : ''}<div><div class="logo">${values.company}</div><small>Reçu de paiement d'abonnement StockMaster</small>${values.contact ? `<div class="contact">${values.contact}</div>` : ''}</div></div><span class="badge">${values.status}</span></div><div class="box"><div class="row"><span>Entreprise</span><strong>${values.company}</strong></div><div class="row"><span>Date</span><strong>${values.date}</strong></div><div class="row"><span>Reçu</span><strong>${values.invoice}</strong></div><div class="row"><span>Forfait</span><strong>${values.plan}</strong></div><div class="row"><span>Méthode</span><strong>${values.method}</strong></div><div class="row"><span>Référence</span><strong>${values.reference}</strong></div><div class="row total"><span>Total payé</span><strong>${values.total}</strong></div></div><p class="foot">${values.footer ? `${values.footer}<br>` : ''}Ce document atteste le paiement enregistré. Il ne constitue pas une facture fiscale tant que les mentions fiscales de l'émetteur ne sont pas complétées.<br>Document généré par StockMaster</p><button onclick="window.print()">Imprimer ou enregistrer en PDF</button></body></html>`); popup.document.close();
+  popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="UTF-8"><title>Reçu de paiement StockMaster</title><style>body{font-family:Arial,sans-serif;color:#183733;padding:48px}.head{display:flex;justify-content:space-between;gap:24px;border-bottom:3px solid #087a59;padding-bottom:22px}.identity{display:flex;align-items:center;gap:16px}.companyLogo{width:64px;height:64px;object-fit:contain;border-radius:12px}.logo{font-size:28px;font-weight:900;color:#087a59}.contact{margin-top:7px;color:#607775;font-size:12px}.badge{height:fit-content;background:#dff4ed;color:#087a59;padding:8px 12px;border-radius:99px;font-weight:800}.box{margin-top:30px;border:1px solid #dce7e2;border-radius:16px;padding:24px}.row{display:flex;justify-content:space-between;gap:20px;padding:13px 0;border-bottom:1px solid #edf3f0}.row strong{text-align:right}.total{font-size:22px;font-weight:900;color:#087a59}.foot{margin-top:38px;color:#607775;text-align:center;line-height:1.65}button{margin-top:25px;padding:12px 18px;border:0;border-radius:8px;background:#087a59;color:#fff;font-weight:bold}@media print{button{display:none}body{padding:20px}}</style></head><body><div class="head"><div class="identity">${values.logo ? `<img class="companyLogo" src="${values.logo}" alt="Logo de l'entreprise">` : ''}<div><div class="logo">${values.company}</div><small>Reçu de paiement d'abonnement StockMaster</small>${values.contact ? `<div class="contact">${values.contact}</div>` : ''}</div></div><span class="badge">${values.status}</span></div><div class="box"><div class="row"><span>Entreprise</span><strong>${values.company}</strong></div><div class="row"><span>Date</span><strong>${values.date}</strong></div><div class="row"><span>Reçu</span><strong>${values.invoice}</strong></div><div class="row"><span>Forfait</span><strong>${values.plan}</strong></div><div class="row"><span>Méthode</span><strong>${values.method}</strong></div><div class="row"><span>Référence</span><strong>${values.reference}</strong></div><div class="row total"><span>Total payé</span><strong>${values.total}</strong></div></div><p class="foot">${values.footer ? `${values.footer}<br>` : ''}Ce document atteste le paiement enregistré. Il ne constitue pas une facture fiscale tant que les mentions fiscales de l'émetteur ne sont pas complétées.<br>Document généré par StockMaster</p><button id="receipt-print">Imprimer ou enregistrer en PDF</button></body></html>`); popup.document.close(); popup.document.getElementById('receipt-print')?.addEventListener('click', () => popup.print());
 }
 
-createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
+createRoot(document.getElementById('root')!).render(<React.StrictMode><WebSessionGate><App/></WebSessionGate></React.StrictMode>);

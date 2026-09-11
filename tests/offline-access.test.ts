@@ -1,3 +1,7 @@
+vi.mock('@/services/storage/encryptedStorage', async () => {
+  const { default: storage } = await import('@react-native-async-storage/async-storage');
+  return { decryptStoredValue: async (_key: string, raw: string) => raw, isEncryptedValue: () => true, writeEncryptedStorage: (key: string, value: string) => storage.setItem(key, value), readEncryptedStorage: (key: string) => storage.getItem(key) };
+});
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let storedProfile: string | null = null;

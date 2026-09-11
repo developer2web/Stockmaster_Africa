@@ -1,8 +1,9 @@
-import { Redirect, router } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Appbar, Card, Chip, HelperText, Icon, Text, TextInput, useTheme } from 'react-native-paper';
 import { EmployeeModuleCard } from '@/components/employee/EmployeeModuleCard';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppBackButton } from '@/components/ui/AppBackButton';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -59,6 +60,7 @@ export default function EmployeeEntry() {
       <Appbar.Header elevated style={{ backgroundColor: '#084B50' }}>
         <Appbar.Content title={employeeName} titleStyle={{color:'#FFFFFF',fontWeight:'800'}} subtitle={`${membership.companyName} • ${membership.storeName ?? 'Boutique'}`} subtitleStyle={{color:'#D7EFF0'}} />
         {stores.length > 1 && <Appbar.Action color="#FFFFFF" icon="swap-horizontal" accessibilityLabel="Changer de boutique" onPress={() => router.push('/choose-store')} />}
+        <NotificationBell color="#FFFFFF" />
         <Appbar.Action color="#FFFFFF" icon="logout" accessibilityLabel="Se déconnecter" onPress={signOut} />
       </Appbar.Header>
       <ScrollView
@@ -135,6 +137,7 @@ export default function EmployeeEntry() {
 }
 
 function EmployeeLogin() {
+  const { notice } = useLocalSearchParams<{ notice?: string }>();
   const { refreshMembership } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -152,12 +155,14 @@ function EmployeeLogin() {
       setError(result.message ?? 'Connexion employé impossible.');
       return;
     }
+    if (result.mfaRequired) { router.replace({ pathname: '/(auth)/mfa', params: { portal: 'employee' } }); return; }
     await refreshMembership();
     router.replace('/');
   };
 
   return (
     <AuthScreen title="Espace employé" subtitle="Accédez à votre espace de travail.">
+      {!!notice && <HelperText type="info" visible>{notice}</HelperText>}
       <View style={[styles.loginIcon, { backgroundColor: theme.colors.primaryContainer }]}>
         <Icon source="account-lock-outline" size={40} color={theme.colors.primary} />
       </View>

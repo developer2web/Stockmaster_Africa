@@ -1,0 +1,30 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+select plan(10);
+insert into auth.users(id,email,aud,role,raw_app_meta_data)
+values('e1000000-0000-4000-8000-000000000001','security@test.local','authenticated','authenticated','{}');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"e1000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal1"}',true);
+select ok(public.session_security_satisfied(false),'a user without configured MFA can connect');
+reset role;
+insert into auth.mfa_factors(id,user_id,factor_type,status,secret,created_at,updated_at)
+values('e2000000-0000-4000-8000-000000000001','e1000000-0000-4000-8000-000000000001','totp','verified','test-secret',now(),now());
+set local role authenticated;
+select ok(not public.session_security_satisfied(false),'configured MFA rejects aal1');
+select throws_ok('select public.assert_session_security(false)','42501','Confirmez la double authentification pour continuer.','API assertion cannot bypass MFA');
+select set_config('request.path','/rpc/get_my_context',true);
+select throws_ok('select public.check_request_security()','42501','Confirmez la double authentification pour continuer.','Data API pre-request protects SECURITY DEFINER RPCs');
+select set_config('request.jwt.claims','{"sub":"e1000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}',true);
+select ok(public.session_security_satisfied(false),'verified MFA allows the session');
+reset role;
+update auth.users set raw_app_meta_data='{"must_change_password":true}',raw_user_meta_data='{"must_change_password":false}' where id='e1000000-0000-4000-8000-000000000001';
+set local role authenticated;
+select ok(not public.session_security_satisfied(false),'editable user metadata cannot remove the password requirement');
+select throws_ok('select public.check_request_security()','42501','Remplacez votre mot de passe temporaire pour continuer.','temporary password blocks business RPCs');
+select lives_ok('select public.assert_session_security(true)','password replacement is allowed with verified MFA');
+select set_config('request.jwt.claims','{"sub":"e1000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal1"}',true);
+select throws_ok('select public.assert_session_security(true)','42501','Confirmez la double authentification pour continuer.','password replacement exemption never exempts MFA');
+reset role;
+select ok(exists(select 1 from pg_policies where schemaname='storage' and tablename='objects' and policyname='session_security_required' and permissive='RESTRICTIVE'),'Storage has a restrictive session policy');
+select * from finish();
+rollback;

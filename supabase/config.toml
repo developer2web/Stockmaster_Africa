@@ -37,6 +37,9 @@ additional_redirect_urls = [
 [functions.invite-employee]
 verify_jwt = true
 
+[functions.change-temporary-password]
+verify_jwt = true
+
 [functions.account-portal-link]
 verify_jwt = true
 
@@ -57,3 +60,6 @@ verify_jwt = false
 
 [functions.notification-email]
 verify_jwt = false
+
+[functions.super-admin-configuration]
+verify_jwt = true

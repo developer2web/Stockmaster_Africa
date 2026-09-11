@@ -74,7 +74,7 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
           }
           subtitleStyle={employee ? styles.employeeSubtitle : styles.storeSubtitle}
         />
-        {!offlineAuthenticated && !employee && <NotificationBell />}
+        {!offlineAuthenticated && <NotificationBell color={employee ? '#FFFFFF' : undefined} />}
         {offlineAuthenticated && <Appbar.Action icon="lock-outline" color={employee ? '#FFFFFF' : undefined} accessibilityLabel="Verrouiller l’accès hors ligne" onPress={lockOfflineSession} />}
       </Appbar.Header>
       <ScrollView

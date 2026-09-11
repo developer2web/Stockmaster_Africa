@@ -9,6 +9,7 @@ export function RoleGuard({ roles, children, requireActiveSubscription = true }:
   const { session, membership, businesses, stores, membershipError, isAccessBlocked, isWorkspaceLoading, isSwitchingWorkspace, offlineUnlockRequired, refreshMembership, signOut } = useAuth();
   if (offlineUnlockRequired) return <Redirect href="/(auth)/offline-login" />;
   if (!session) return <Redirect href="/(auth)/login" />;
+  if (session.user.app_metadata?.must_change_password === true) return <Redirect href="/(auth)/change-temporary-password" />;
   if (isSwitchingWorkspace || (!membership && isWorkspaceLoading)) return <LoadingScreen label={isSwitchingWorkspace ? 'Changement de boutique…' : 'Chargement de vos boutiques…'} />;
   if (membershipError) {
     return (

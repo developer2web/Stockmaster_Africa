@@ -1,0 +1,496 @@
+{
+  "date": "2026-09-10",
+  "command": "npm audit --omit=dev --json",
+  "counts": {
+    "info": 0,
+    "low": 0,
+    "moderate": 20,
+    "high": 8,
+    "critical": 0,
+    "total": 28
+  },
+  "note": "Résidus documentés dans npm-audit-baseline.json. Les propagations transitives ne sont pas des attaques distinctes.",
+  "packages": [
+    {
+      "name": "@expo/cli",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@expo/config",
+        "@expo/config-plugins",
+        "@expo/metro",
+        "@expo/metro-config",
+        "@expo/prebuild-config"
+      ],
+      "range": "<=0.0.0-canary-20231123-1b19f96-4 || >=0.0.1-canary-20231125-d600e44",
+      "fixAvailable": {
+        "name": "expo",
+        "version": "57.0.21",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "@expo/config",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@expo/config-plugins"
+      ],
+      "range": "<=0.0.1-canary-20240418-8d74597 || >=3.3.23-alpha.0",
+      "fixAvailable": {
+        "name": "expo",
+        "version": "57.0.21",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "@expo/config-plugins",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "xcode"
+      ],
+      "range": "*",
+      "fixAvailable": {
+        "name": "expo",
+        "version": "57.0.21",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "@expo/metro",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "metro",
+        "metro-config",
+        "metro-transform-worker"
+      ],
+      "range": "<=55.1.1 || 56.0.0-rc.0 - 56.0.1",
+      "fixAvailable": {
+        "name": "expo",
+        "version": "57.0.21",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "@expo/metro-config",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@expo/config",
+        "@expo/metro"
+      ],
+      "range": "<=0.0.1-canary-20240418-8d74597 || >=0.1.49-alpha.0",
+      "fixAvailable": {
+        "name": "expo",
+        "version": "57.0.21",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "@expo/prebuild-config",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@expo/config",
+        "@expo/config-plugins"
+      ],
+      "range": "*",
+      "fixAvailable": {
+        "name": "expo",
+        "version": "57.0.21",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "@react-navigation/bottom-tabs",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@react-navigation/elements",
+        "@react-navigation/native"
+      ],
+      "range": "<=7.18.18",
+      "fixAvailable": {
+        "name": "expo-router",
+        "version": "5.1.11",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "@react-navigation/core",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "query-string"
+      ],
+      "range": "<=8.0.0-alpha.9",
+      "fixAvailable": {
+        "name": "expo-router",
+        "version": "5.1.11",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "@react-navigation/elements",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@react-navigation/native"
+      ],
+      "range": "<=2.9.40",
+      "fixAvailable": {
+        "name": "expo-router",
+        "version": "5.1.11",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "@react-navigation/native",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@react-navigation/core"
+      ],
+      "range": "<=3.0.0-alpha.12 || 3.0.1 - 3.6.5 || 4.0.0-alpha.0 - 7.3.18",
+      "fixAvailable": {
+        "name": "expo-router",
+        "version": "5.1.11",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "@react-navigation/native-stack",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@react-navigation/elements",
+        "@react-navigation/native"
+      ],
+      "range": "<=5.0.4 || 6.0.0-next.1 - 7.18.10",
+      "fixAvailable": {
+        "name": "expo-router",
+        "version": "5.1.11",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "decode-uri-component",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1147955,
+          "name": "decode-uri-component",
+          "dependency": "decode-uri-component",
+          "title": "decode-uri-component: Denial of service via exponential decoding of malformed percent-encoded input",
+          "url": "https://github.com/advisories/GHSA-vcc3-ghjq-m6fr",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-400",
+            "CWE-405",
+            "CWE-407",
+            "CWE-1176"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=0.4.2"
+        }
+      ],
+      "range": "<=0.4.2",
+      "fixAvailable": {
+        "name": "expo-router",
+        "version": "5.1.11",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "expo",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@expo/cli",
+        "@expo/config",
+        "@expo/config-plugins",
+        "@expo/metro",
+        "@expo/metro-config",
+        "expo-asset",
+        "expo-constants"
+      ],
+      "range": ">=41.0.0-alpha.0",
+      "fixAvailable": {
+        "name": "expo",
+        "version": "57.0.21",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "expo-asset",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "expo-constants"
+      ],
+      "range": "<=0.0.1-canary-20240418-8d74597 || 8.6.1 - 55.0.0-canary-20260223-05214f1 || 55.0.3-canary-20260128-67ce8d5 || 55.0.8-canary-20260424-7bedc9d - 55.0.8-canary-20260429-a5e59cf || 55.0.11-canary-20260327-0789fbc - 55.0.11-canary-20260402-9da566b || 56.0.0-canary-20260212-4f61309 - 56.0.0-canary-20260506-964f25d",
+      "fixAvailable": {
+        "name": "expo-asset",
+        "version": "57.0.16",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "expo-constants",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@expo/config"
+      ],
+      "range": "<=0.0.1-canary-20240418-8d74597 || 10.1.2 - 55.0.14 || 56.0.0-canary-20260212-4f61309 - 56.0.0-canary-20260506-964f25d",
+      "fixAvailable": {
+        "name": "expo-constants",
+        "version": "57.0.17",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "expo-dev-client",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "expo-dev-launcher",
+        "expo-manifests"
+      ],
+      "range": "<=0.0.1-canary-20240418-8d74597 || 3.1.0 - 55.0.0-canary-20260223-05214f1 || 55.0.4-canary-20260128-67ce8d5 || 55.0.10-canary-20260424-7bedc9d - 55.0.10-canary-20260429-a5e59cf || 55.0.20-canary-20260327-0789fbc - 55.0.20-canary-20260402-9da566b || 56.0.0-canary-20260212-4f61309 - 56.0.0-canary-20260506-964f25d",
+      "fixAvailable": {
+        "name": "expo-dev-client",
+        "version": "57.0.18",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "expo-dev-launcher",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "expo-manifests"
+      ],
+      "range": "<=0.0.1-canary-20240418-8d74597 || 3.1.0 - 55.0.0-canary-20260223-05214f1 || 55.0.5-canary-20260128-67ce8d5 || 55.0.11-canary-20260424-7bedc9d - 55.0.11-canary-20260429-a5e59cf || 55.0.21-canary-20260327-0789fbc - 55.0.21-canary-20260402-9da566b || 56.0.0-canary-20260212-4f61309 - 56.0.0-canary-20260506-964f25d",
+      "fixAvailable": {
+        "name": "expo-dev-client",
+        "version": "57.0.18",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "expo-linking",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "expo-constants"
+      ],
+      "range": "<=0.0.1-canary-20240418-8d74597 || 2.2.2 - 55.0.0-canary-20260223-05214f1 || 55.0.4-canary-20260128-67ce8d5 || 55.0.8-canary-20260424-7bedc9d - 55.0.8-canary-20260429-a5e59cf || 55.0.10-canary-20260327-0789fbc - 55.0.10-canary-20260402-9da566b || 56.0.0-canary-20260212-4f61309 - 56.0.0-canary-20260506-964f25d || 58.0.0-canary-20260806-8c2d007 - 58.0.0-canary-20260908-e343e6e",
+      "fixAvailable": {
+        "name": "expo-linking",
+        "version": "57.0.9",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "expo-manifests",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@expo/config"
+      ],
+      "range": "<=0.0.1-canary-20240418-8d74597 || 0.9.0 - 55.0.15 || 56.0.0-canary-20260212-4f61309 - 56.0.0-canary-20260506-964f25d",
+      "fixAvailable": {
+        "name": "expo-dev-client",
+        "version": "57.0.18",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "expo-router",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@react-navigation/bottom-tabs",
+        "@react-navigation/native",
+        "@react-navigation/native-stack",
+        "expo-constants",
+        "expo-linking",
+        "query-string"
+      ],
+      "range": "*",
+      "fixAvailable": {
+        "name": "expo-router",
+        "version": "5.1.11",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "expo-splash-screen",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@expo/prebuild-config"
+      ],
+      "range": "<=0.0.1-canary-20240418-8d74597 || 0.11.0 - 56.0.0-canary-20260506-964f25d",
+      "fixAvailable": {
+        "name": "expo-splash-screen",
+        "version": "57.0.8",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "image-size",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1138808,
+          "name": "image-size",
+          "dependency": "image-size",
+          "title": "image-size: ICNS parser allows denial of service through an infinite loop",
+          "url": "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr",
+          "severity": "high",
+          "cwe": [
+            "CWE-835"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<=2.0.2"
+        },
+        {
+          "source": 1138809,
+          "name": "image-size",
+          "dependency": "image-size",
+          "title": "image-size: JXL and HEIF parsers allow denial of service through infinite loops",
+          "url": "https://github.com/advisories/GHSA-5p2g-fcmc-qvqq",
+          "severity": "high",
+          "cwe": [
+            "CWE-835"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<=2.0.2"
+        }
+      ],
+      "range": "*",
+      "fixAvailable": {
+        "name": "expo",
+        "version": "57.0.21",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "metro",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "image-size",
+        "metro-config",
+        "metro-transform-worker"
+      ],
+      "range": "0.22.1 - 0.83.7 || 0.84.0 - 0.84.4 || >=0.85.0",
+      "fixAvailable": {
+        "name": "expo",
+        "version": "57.0.21",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "metro-config",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "metro"
+      ],
+      "range": "<=0.83.7 || 0.84.0 - 0.84.4 || >=0.85.0",
+      "fixAvailable": {
+        "name": "expo",
+        "version": "57.0.21",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "metro-transform-worker",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "metro"
+      ],
+      "range": "0.60.0 - 0.83.7 || 0.84.0 - 0.84.4 || >=0.85.0",
+      "fixAvailable": {
+        "name": "expo",
+        "version": "57.0.21",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "query-string",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "decode-uri-component"
+      ],
+      "range": "5.0.0 - 9.4.1",
+      "fixAvailable": {
+        "name": "expo-router",
+        "version": "5.1.11",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "uuid",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1119441,
+          "name": "uuid",
+          "dependency": "uuid",
+          "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+          "url": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-787",
+            "CWE-1285"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+          },
+          "range": "<11.1.1"
+        }
+      ],
+      "range": "<11.1.1",
+      "fixAvailable": {
+        "name": "expo",
+        "version": "57.0.21",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "xcode",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "uuid"
+      ],
+      "range": ">=0.9.2",
+      "fixAvailable": {
+        "name": "expo",
+        "version": "57.0.21",
+        "isSemVerMajor": true
+      }
+    }
+  ]
+}

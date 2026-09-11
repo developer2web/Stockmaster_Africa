@@ -7,6 +7,7 @@ import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { readProductCosts } from '@/features/products/costs';
 import { getStockLevels, getStockMovements } from '@/features/inventory/api';
 import { useStockRealtime } from '@/hooks/useStockRealtime';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
@@ -26,11 +27,14 @@ export default function StockScreen() {
   const store = membership?.storeId ?? '';
   const canViewPurchaseValue = membership?.role === 'company_admin' || membership?.role === 'super_admin';
   useStockRealtime(company);
-  const levels = useQuery({ queryKey: ['stock-levels', company, store, 'cost', canViewPurchaseValue], queryFn: () => getStockLevels(company, undefined, store, canViewPurchaseValue), enabled: !!company && !!store });
+  const levels = useQuery({ queryKey: ['stock-levels', company, store, 'cost', false], queryFn: () => getStockLevels(company, undefined, store, false), enabled: !!company && !!store });
   const movements = useQuery({ queryKey: ['stock-movements', company, store], queryFn: () => getStockMovements(company, undefined, store), enabled: !!company && !!store });
   const rows = levels.data ?? [];
   const total = rows.reduce((sum, row) => sum + Number(row.quantity), 0);
-  const purchaseValue = rows.reduce((sum, row) => sum + Number(row.quantity) * Number(row.product?.purchase_price ?? 0), 0);
+  const productIds = [...new Set(rows.map(row => row.product_id))].sort();
+  const costs = useQuery({ queryKey: ['stock-costs', company, store, productIds], queryFn: () => readProductCosts(productIds), enabled: canViewPurchaseValue && productIds.length > 0 });
+  const costsAvailable = !levels.isLoading && !levels.error && (rows.length === 0 || (!costs.error && !!costs.data && productIds.every(id => costs.data.products.has(id))));
+  const purchaseValue = costsAvailable ? rows.reduce((sum, row) => sum + Number(row.quantity) * (costs.data?.products.get(row.product_id) ?? 0), 0) : null;
   const expectedRevenue = rows.reduce((sum, row) => sum + Number(row.quantity) * Number(row.product?.sale_price ?? 0), 0);
   const needle = search.trim().toLowerCase();
   const visible = rows.filter((row) => !needle
@@ -52,18 +56,22 @@ export default function StockScreen() {
         <View style={styles.metrics}>
           <Metric compact={compact} label="Produits référencés" value={String(new Set(rows.map((row) => row.product_id)).size)} />
           <Metric compact={compact} label="Quantité totale" value={formatQuantity(total)} />
-          {canViewPurchaseValue && <Metric compact={compact} label="Valeur d’achat" value={money(purchaseValue)} />}
+          {canViewPurchaseValue && <Metric compact={compact} label="Valeur d’achat" value={purchaseValue === null ? 'Indisponible' : money(purchaseValue)} />}
           <Metric compact={compact} label="Valeur de vente du stock" value={money(expectedRevenue)} />
         </View>
       </View>
 
+      {canViewPurchaseValue && !levels.isLoading && rows.length > 0 && !costsAvailable && !costs.isLoading && <View>
+        <HelperText type="info" visible>Les quantités restent disponibles. La valeur d’achat ne peut pas être chargée ; si cela persiste, la configuration des coûts doit être mise à jour sur le serveur.</HelperText>
+        <AppButton mode="text" onPress={() => void costs.refetch()}>Réessayer la valeur d’achat</AppButton>
+      </View>}
       <View style={styles.tools}>
         <AppSearchBar style={[styles.search, compact && styles.compactSearch]} placeholder="Produit ou boutique" value={search} onChangeText={setSearch} />
         <AppButton style={compact ? styles.fullWidth : undefined} icon="plus" onPress={() => router.push('/products/new' as never)}>
           Ajouter un produit
         </AppButton>
       </View>
-      {!!levels.error && <HelperText type="error" visible>{levels.error.message}</HelperText>}
+      {!!levels.error && <View><HelperText type="error" visible>{levels.error.message}</HelperText><AppButton mode="text" onPress={() => void levels.refetch()}>Réessayer le stock</AppButton></View>}
 
       {!compact && (
         <View style={[styles.tableHeader, { borderColor: theme.colors.outlineVariant }]}>
@@ -86,9 +94,10 @@ export default function StockScreen() {
           </Card.Content>
         </Card>
       ))}
-      {!levels.isLoading && !visible.length && <EmptyState icon="warehouse" title="Aucun stock trouvé" message="Scannez un produit, ajoutez-le ou modifiez votre recherche." />}
+      {!levels.isLoading && !levels.error && !visible.length && <EmptyState icon="warehouse" title="Aucun stock trouvé" message="Scannez un produit, ajoutez-le ou modifiez votre recherche." />}
 
       <Text variant="titleLarge" style={styles.bold}>Derniers mouvements</Text>
+      {!!movements.error && <View><HelperText type="error" visible>{movements.error.message}</HelperText><AppButton mode="text" onPress={() => void movements.refetch()}>Réessayer les mouvements</AppButton></View>}
       {(movements.data ?? []).slice(0, 12).map((movement) => {
         const positive = Number(movement.quantity) >= 0;
         return (

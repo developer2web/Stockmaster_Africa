@@ -33,7 +33,7 @@ export default function RolesScreen() {
   const employeeRoles=(roles.data??[]).filter(role=>role.code==='employee');
   const show=(role?:EmployeeRole)=>{save.reset();setEditing(role??null);setOpen(true)};
   const presets = [
-    { label: 'Manager', codes: ['stores.read','stores.write','products.read','products.write','suppliers.read','suppliers.write','product_variants.read','product_variants.write','stock_movements.read','stock_movements.write','sales.read','sales.write','expenses.read','expenses.write','cash_transactions.read','cash_transactions.write','cash.open','cash.reopen','daily_reports.read','monthly_reports.read'] },
+    { label: 'Manager', codes: ['notifications.read','stores.read','stores.write','products.read','products.write','suppliers.read','suppliers.write','product_variants.read','product_variants.write','stock_movements.read','stock_movements.write','sales.read','sales.write','expenses.read','expenses.write','cash_transactions.read','cash_transactions.write','cash.open','cash.reopen','daily_reports.read','monthly_reports.read'] },
     { label: 'Employé', codes: ['stores.read','products.read','suppliers.read','stock_movements.read','sales.read','sales.write','cash_transactions.read','cash_transactions.write','cash.open','cash.reopen'] },
     { label: 'Comptable', codes: ['stores.read','sales.read','purchases.read','payments.read','expenses.read','expenses.write','cash_transactions.read','daily_reports.read','monthly_reports.read'] },
   ];

@@ -1,4 +1,6 @@
 import { Redirect, router } from 'expo-router';
+import { validateCurrentPortal } from '@/features/auth/portalLogin';
+import { usePortalLoginState } from '@/features/auth/portalLoginState';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Card, HelperText, Icon, Text } from 'react-native-paper';
@@ -12,14 +14,15 @@ import { useForm } from 'react-hook-form';
 type PasswordForm = { password: string; confirmation: string };
 
 export default function ChangeTemporaryPasswordScreen() {
-  const { session } = useAuth();
+  const { session, refreshMembership } = useAuth();
+  const portalLoginPending = usePortalLoginState(state => state.pending);
   const [error, setError] = useState('');
   const { control, handleSubmit, formState } = useForm<PasswordForm>({
     defaultValues: { password: '', confirmation: '' },
   });
 
-  if (!session) return <Redirect href="/(auth)/login" />;
-  if (session.user.user_metadata?.must_change_password !== true) return <Redirect href="/" />;
+  if (!session && !portalLoginPending) return <Redirect href="/(auth)/login" />;
+  if (!portalLoginPending && session?.user.app_metadata?.must_change_password !== true) return <Redirect href="/" />;
 
   const submit = handleSubmit(async ({ password, confirmation }) => {
     setError('');
@@ -31,12 +34,23 @@ export default function ChangeTemporaryPasswordScreen() {
       setError('Les mots de passe sont différents.');
       return;
     }
+    const loginState = usePortalLoginState.getState();
+    loginState.setPending(true);
     try {
       await replaceTemporaryPassword(password);
+      if (loginState.requestedPortal) {
+        const access = await validateCurrentPortal(loginState.requestedPortal);
+        if (!access.ok) {
+          router.replace({ pathname: loginState.requestedPortal === 'employee' ? '/employee' : '/(auth)/login', params: { notice: access.message } });
+          return;
+        }
+      }
+      loginState.setRequestedPortal(null);
+      await refreshMembership();
       router.replace('/');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Modification impossible.');
-    }
+    } finally { loginState.setPending(false); }
   });
 
   return <View style={styles.page}>

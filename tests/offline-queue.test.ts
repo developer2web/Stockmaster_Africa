@@ -1,3 +1,8 @@
+const legacyStorage = vi.hoisted(() => ({ enabled: false }));
+vi.mock('@/services/storage/encryptedStorage', async () => {
+  const { default: storage } = await import('@react-native-async-storage/async-storage');
+  return { decryptStoredValue: async (_key: string, raw: string) => raw, isEncryptedValue: () => !legacyStorage.enabled, writeEncryptedStorage: (key: string, value: string) => storage.setItem(key, value), readEncryptedStorage: (key: string) => storage.getItem(key) };
+});
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let storedQueue: string | null = null;
@@ -26,12 +31,29 @@ const operation = (id: string, type: 'sale' | 'expense' | 'cash', userId = 'user
 describe('file de synchronisation hors ligne', () => {
   beforeEach(() => {
     storedQueue = null;
+    legacyStorage.enabled = false;
     asyncStorage.getItem.mockClear();
     asyncStorage.setItem.mockClear();
     asyncStorage.removeItem.mockClear();
     supabaseMock.getSession.mockReset();
     supabaseMock.rpc.mockReset();
     supabaseMock.getSession.mockResolvedValue({ data: { session: { user: { id: 'user-1' } } } });
+  });
+
+  it('serializes legacy encryption with new sales so neither operation is lost', async () => {
+    legacyStorage.enabled = true;
+    storedQueue = JSON.stringify([operation('existing-sale', 'sale')]);
+    let release!: () => void;
+    const pause = new Promise<void>(resolve => { release = resolve; });
+    asyncStorage.setItem.mockImplementationOnce(async (_key, value) => { await pause; storedQueue = value; });
+    const reading = getOfflineQueue();
+    await vi.waitFor(() => expect(asyncStorage.setItem).toHaveBeenCalledTimes(1));
+    const adding = enqueueOfflineOperation(operation('new-sale', 'sale'));
+    await Promise.resolve();
+    expect(asyncStorage.getItem).toHaveBeenCalledTimes(1);
+    release();
+    await Promise.all([reading, adding]);
+    expect((await getOfflineQueue()).map(item => item.id)).toEqual(['existing-sale','new-sale']);
   });
 
   it('n’ajoute jamais deux fois le même identifiant', async () => {

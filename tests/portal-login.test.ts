@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const backend = vi.hoisted(() => ({
   clearCachedSession: vi.fn(), rpc: vi.fn(),
-  auth: { signInWithPassword: vi.fn(), signOut: vi.fn() },
+  auth: { signInWithPassword: vi.fn(), signOut: vi.fn(), mfa: { getAuthenticatorAssuranceLevel: vi.fn() } },
 }));
 vi.mock('@/services/supabase/client', () => ({ supabase: { ...backend, rpc: (name: string) => ({ abortSignal: () => backend.rpc(name) }) }, clearCachedSession: backend.clearCachedSession }));
 import { signInForPortal } from '@/features/auth/portalLogin';
@@ -9,6 +9,7 @@ import { usePortalLoginState } from '@/features/auth/portalLoginState';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  backend.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null });
   usePortalLoginState.getState().setPending(false);
   backend.auth.signInWithPassword.mockResolvedValue({ data: { user: { user_metadata: {} } }, error: null });
   backend.auth.signOut.mockResolvedValue({ error: null });
@@ -100,4 +101,21 @@ describe('portal login validation', () => {
     expect(backend.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(usePortalLoginState.getState().pending).toBe(false);
   });
+});
+
+it('requires an enrolled second factor before any workspace query', async () => {
+  backend.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: { currentLevel: 'aal1', nextLevel: 'aal2' }, error: null });
+  expect(await signInForPortal('test@example.invalid', 'fixture', 'admin')).toEqual({ ok: true, mfaRequired: true });
+  expect(backend.rpc).not.toHaveBeenCalled();
+  expect(backend.auth.signOut).not.toHaveBeenCalled();
+});
+it('does not bypass a failed MFA assurance check', async () => {
+  backend.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: null, error: new Error('unavailable') });
+  expect((await signInForPortal('test@example.invalid', 'fixture', 'admin')).ok).toBe(false);
+  expect(backend.rpc).not.toHaveBeenCalled();
+});
+it('allows the password replacement screen but loads no business with a temporary password', async () => {
+  backend.auth.signInWithPassword.mockResolvedValue({ data: { user: { app_metadata: { must_change_password: true }, user_metadata: { must_change_password: false } } }, error: null });
+  expect(await signInForPortal('test@example.invalid', 'fixture', 'employee')).toEqual({ ok: true });
+  expect(backend.rpc).not.toHaveBeenCalled();
 });

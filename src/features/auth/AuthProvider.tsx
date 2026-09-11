@@ -1,3 +1,5 @@
+import { needsMfaChallenge } from './mfaAccess';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Session } from '@supabase/supabase-js';
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import * as Linking from 'expo-linking';
@@ -50,6 +52,7 @@ type AuthValue = {
   isSwitchingWorkspace: boolean;
   offlineUnlockRequired: boolean;
   offlineAuthenticated: boolean;
+  mfaRequired: boolean;
   refreshMembership: () => Promise<void>;
   unlockOfflineSession: (offlineId: string, pin: string) => Promise<OfflineUnlockResult>;
   retryOnlineAccess: () => Promise<boolean>;
@@ -63,6 +66,8 @@ type AuthValue = {
 const AuthContext = createContext<AuthValue | null>(null);
 
 export function AuthProvider({ children }: PropsWithChildren) {
+  const queryClient = useQueryClient();
+  const [mfaRequired, setMfaRequired] = useState(false);
   const [session, setSessionState] = useState<Session | null>(null);
   const sessionRef = useRef<Session | null>(null);
   const setSession = useCallback((next: Session | null) => { sessionRef.current = next; setSessionState(next); }, []);
@@ -110,6 +115,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setMembershipError(null);
     setNeedsOnboarding(false);
     try {
+      const currentSession = sessionRef.current;
+      if (currentSession && !await isDeviceOffline()) {
+        const required = await withRequestTimeout(() => needsMfaChallenge(supabase));
+        if (sequence !== refreshSequence.current) return;
+        setMfaRequired(required);
+        if (required || currentSession.user.app_metadata?.must_change_password === true) {
+          setMembership(null); setBusinesses([]); setStores([]);
+          return;
+        }
+      }
       const { data, error } = await withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_my_context').abortSignal(signal)));
       if (sequence !== refreshSequence.current) return;
       if (error) {
@@ -462,6 +477,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const newLogin = event === 'SIGNED_IN' && next?.user.id !== sessionRef.current?.user.id;
       setSession(next);
       if (!next) {
+        setMfaRequired(false);
+        queryClient.clear();
+        void clearOfflineCaches();
         refreshSequence.current += 1;
         setWorkspaceLoading(false);
         setMembership(null);
@@ -477,12 +495,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setLoading(false);
       } else {
         if (newLogin) {
+          queryClient.clear();
+          void clearOfflineCaches();
           setMembership(null);
           setOfflineAuthenticated(false);
           setOfflineUnlockRequired(false);
           setLoading(true);
           setTimeout(() => { void (async () => {
             try {
+              if (next.user.app_metadata?.must_change_password === true || await needsMfaChallenge(supabase)) return;
               const { error } = await supabase.rpc('record_security_event', {
                 p_event_type: 'login',
                 p_device_label: `StockMaster • ${Platform.OS}`,
@@ -515,7 +536,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       linkSubscription.remove();
       appStateSubscription.remove();
     };
-  }, [refreshMembership, revalidateBeforeSynchronization, setSession]);
+  }, [refreshMembership, revalidateBeforeSynchronization, setSession, queryClient]);
 
   useEffect(() => {
     if (!session?.user.id || offlineAuthenticated) return;
@@ -577,6 +598,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     isSwitchingWorkspace,
     offlineUnlockRequired,
     offlineAuthenticated,
+    mfaRequired,
     refreshMembership,
     unlockOfflineSession,
     retryOnlineAccess,
@@ -606,7 +628,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         router.replace('/(auth)/login');
       }
     },
-  }), [session, membership, businesses, stores, membershipError, isAccessBlocked, needsOnboarding, isLoading, isWorkspaceLoading, isSwitchingWorkspace, offlineUnlockRequired, offlineAuthenticated, refreshMembership, unlockOfflineSession, retryOnlineAccess, revalidateBeforeSynchronization, lockOfflineSession, selectBusiness, selectStore, clearWorkspace, setSession]);
+  }), [session, membership, businesses, stores, membershipError, isAccessBlocked, needsOnboarding, isLoading, isWorkspaceLoading, isSwitchingWorkspace, offlineUnlockRequired, offlineAuthenticated, mfaRequired, refreshMembership, unlockOfflineSession, retryOnlineAccess, revalidateBeforeSynchronization, lockOfflineSession, selectBusiness, selectStore, clearWorkspace, setSession]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

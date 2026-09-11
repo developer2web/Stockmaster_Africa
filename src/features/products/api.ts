@@ -6,6 +6,7 @@ import { userErrorMessage } from '@/utils/errors';
 import { parseDecimal } from '@/utils/number';
 import { createOperationId } from '@/utils/operationId';
 import { withOfflineCache } from '@/features/offline/storage';
+import { readProductCosts } from './costs';
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(userErrorMessage(error));
@@ -72,10 +73,9 @@ export async function getProducts(
 ): Promise<ProductListItem[]> {
   return withOfflineCache(`products:${companyId}:${storeId}:${search.trim().toLowerCase()}:${page}:cost:${includeCost}`, async () => {
   const start = page * PRODUCT_PAGE_SIZE;
-  const costColumn = includeCost ? ',purchase_price' : '';
   let query = supabase
     .from('products')
-    .select(`id,company_id,store_id,supplier_id,name,description,sku,qr_code,barcode,unit${costColumn},sale_price,low_stock_threshold,image_url,image_urls,is_active,created_at,supplier:suppliers(name)`)
+    .select('id,company_id,store_id,supplier_id,name,description,sku,qr_code,barcode,unit,sale_price,low_stock_threshold,image_url,image_urls,is_active,created_at,supplier:suppliers(name)')
     .eq('company_id', companyId)
     .eq('store_id', storeId)
     .order('created_at', { ascending: false })
@@ -86,10 +86,32 @@ export async function getProducts(
   }
   const { data, error } = await query;
   fail(error);
-  return (data ?? []) as unknown as ProductListItem[];
+  const rows = (data ?? []) as unknown as ProductListItem[];
+  if (includeCost) {
+    const { products: costs } = await readProductCosts(rows.map(row => row.id));
+    for (const row of rows) {
+      if (costs.has(row.id)) row.purchase_price = costs.get(row.id);
+    }
+  }
+  return rows;
   }, Array.isArray);
 }
-export async function getProduct(id:string):Promise<Product>{const{data,error}=await supabase.from('products').select('id,company_id,store_id,supplier_id,name,description,sku,qr_code,barcode,unit,purchase_price,sale_price,low_stock_threshold,image_url,image_urls,is_active,created_at,supplier:suppliers(name),product_variants(id,product_id,name,sku,barcode,attributes,purchase_price,sale_price,is_active)').eq('id',id).single();fail(error);return data as unknown as Product}
+export async function getProduct(id: string): Promise<Product> {
+  const { data, error } = await supabase.from('products')
+    .select('id,company_id,store_id,supplier_id,name,description,sku,qr_code,barcode,unit,sale_price,low_stock_threshold,image_url,image_urls,is_active,created_at,supplier:suppliers(name),product_variants(id,product_id,name,sku,barcode,attributes,sale_price,is_active)')
+    .eq('id', id).single();
+  fail(error);
+  const { products, variants } = await readProductCosts([id], true);
+  // An unavailable cost must never become a zero when saving an existing item.
+  if (!products.has(id)) throw new Error('Vous ne pouvez pas consulter le prix d’achat de ce produit.');
+  const product = data as unknown as Product;
+  product.purchase_price = products.get(id)!;
+  for (const variant of product.product_variants ?? []) {
+    if (!variants.has(variant.id)) throw new Error('Le prix d’achat d’une variante est indisponible. Réessayez avant de modifier le produit.');
+    variant.purchase_price = variants.get(variant.id)!;
+  }
+  return product;
+}
 export async function saveProduct(companyId:string,storeId:string,v:ProductInput,id?:string):Promise<string>{const payload={company_id:companyId,store_id:storeId,name:v.name,description:empty(v.description),sku:(v.sku ?? '').trim() || '',barcode:empty(v.barcode),supplier_id:v.supplierId,unit:v.unit,purchase_price:parseDecimal(v.purchasePrice),sale_price:parseDecimal(v.salePrice),low_stock_threshold:parseDecimal(v.lowStockThreshold),is_active:v.isActive};if(id){const{error}=await supabase.from('products').update(payload).eq('id',id);fail(error);return id}const{data,error}=await supabase.rpc('create_product_with_initial_stock',{p_store_id:storeId,p_name:v.name,p_description:v.description,p_sku:(v.sku ?? '').trim() || '',p_barcode:v.barcode,p_category_id:null,p_supplier_id:v.supplierId,p_unit:v.unit,p_purchase_price:parseDecimal(v.purchasePrice),p_sale_price:parseDecimal(v.salePrice),p_low_stock_threshold:parseDecimal(v.lowStockThreshold),p_is_active:v.isActive,p_initial_quantity:parseDecimal(v.initialQuantity),p_operation_id:createOperationId()});fail(error);if(!data)throw new Error('Le produit n’a pas été créé.');return data as string}
 export async function deleteProduct(id:string){const{error}=await supabase.rpc('archive_product',{p_product_id:id});fail(error)}
 export async function saveVariant(companyId:string,productId:string,v:VariantInput,id?:string){const payload={company_id:companyId,product_id:productId,name:v.name,sku:v.sku,barcode:empty(v.barcode),purchase_price:v.purchasePrice===''?null:parseDecimal(v.purchasePrice),sale_price:v.salePrice===''?null:parseDecimal(v.salePrice),is_active:v.isActive};const{error}=await(id?supabase.from('product_variants').update(payload).eq('id',id):supabase.from('product_variants').insert(payload));fail(error)}

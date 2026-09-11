@@ -46,6 +46,8 @@ Deno.serve(async (request) => {
     const admin = createClient(url, service, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: { user }, error: authError } = await caller.auth.getUser();
     if (authError || !user) throw new Error('Non authentifié');
+    const { error: securityError } = await caller.rpc('assert_session_security', { p_allow_temporary_password: false });
+    if (securityError) throw securityError;
 
     const body = await request.json() as { email?: string; fullName?: string; roleId?: string; storeIds?: string[]; allStores?: boolean; companyId?: string };
     const email = body.email?.trim().toLowerCase() ?? '';
@@ -140,8 +142,8 @@ Deno.serve(async (request) => {
       user_metadata: {
         full_name: fullName,
         invited_company_id: current.company_id,
-        must_change_password: true,
       },
+      app_metadata: { must_change_password: true },
     });
     if (createError) {
       if (createError.status === 422 || /already.*registered|already.*exists/i.test(createError.message)) {
