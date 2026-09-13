@@ -112,8 +112,12 @@
 
 ## P1 — Tests fonctionnels restants
 
-- [ ] Suppression d'un employé (le compte de test Super Admin, la
-  suspension et l'invitation/connexion sont maintenant testées).
+- [x] Suppression d'un employé testée en direct : code bien conçu déjà en
+  place (vérifié par lecture) — suppression définitive si aucun
+  historique (ventes, dépenses, mouvements...), sinon désactivation avec
+  conservation du nom (bénéficie du correctif ci-dessus) + journal
+  d'audit dans les deux cas. Testé avec un employé sans historique :
+  ligne supprimée en base, audit `delete_unused_employee` confirmé.
 - [ ] Devise par pays et verrouillage après la première vente.
 - [ ] Scénarios hors ligne sur Android et iPhone réels (tous les tests de
   cette session ont été faits via navigateur, jamais sur un vrai

@@ -28,6 +28,12 @@ export async function handleCreatePayment(request: Request, renewalOnly = false)
     const { error: securityError } = await caller.rpc('assert_session_security', { p_allow_temporary_password: false });
     if (securityError) throw securityError;
 
+    const { data: withinLimit, error: rateLimitError } = await admin.rpc('check_rate_limit', {
+      p_bucket_key: `create-payment:${user.id}`, p_max_hits: 10, p_window: '10 minutes',
+    });
+    if (rateLimitError) throw rateLimitError;
+    if (!withinLimit) return json(request, { error: 'Trop de tentatives de paiement. Réessayez dans quelques minutes.' }, 429);
+
     const body = await request.json() as PaymentInput;
     if (!body.companyId || !body.planId || !body.operationId) throw new Error('Demande de paiement incomplète');
     if (!['monthly', 'annual'].includes(body.billingCycle ?? '')) throw new Error('Cycle de facturation invalide');

@@ -17,7 +17,7 @@ const initialOperation = () => ({
   provider_reference: null as string | null, provider_payload: null as Record<string, unknown> | null,
 });
 
-function harness(existing: ReturnType<typeof initialOperation> | null = null) {
+function harness(existing: ReturnType<typeof initialOperation> | null = null, withinRateLimit = true) {
   let record = existing;
   let claimed = false;
   let inserts = 0;
@@ -28,6 +28,7 @@ function harness(existing: ReturnType<typeof initialOperation> | null = null) {
       if (result) claimed = true;
       return { data: result, error: null };
     }
+    if (name === 'check_rate_limit') return { data: withinRateLimit, error: null };
     return { data: name === 'subscription_quote' ? { base_amount: 100, discount_amount: 0, final_amount: 100, bonus_days: 0, promotion_id: null, currency: 'GNF' } : null, error: null };
   });
   class Query {
@@ -100,6 +101,14 @@ describe('create-payment handler regression', () => {
     const response = await fixture.handle({ ...requestInput, planId: 'plan-other' });
     expect(response.status).toBe(400);
     expect(fixture.getRecord()?.plan_id).toBe('plan-test');
+    expect(fixture.getInserts()).toBe(0);
+    expect(fixture.fetch).not.toHaveBeenCalled();
+  });
+  it('blocks a caller who exceeded the payment rate limit before touching Stripe or the ledger', async () => {
+    const fixture = harness(null, false);
+    const response = await fixture.handle();
+    expect(response.status).toBe(429);
+    expect(await response.json()).toMatchObject({ error: expect.stringContaining('Trop de tentatives') });
     expect(fixture.getInserts()).toBe(0);
     expect(fixture.fetch).not.toHaveBeenCalled();
   });
