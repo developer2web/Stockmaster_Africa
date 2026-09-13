@@ -39,7 +39,7 @@ const useCases = [
 
 const questions = [
   ['Qu’est-ce que StockMaster ?', 'StockMaster est une plateforme tout-en-un pour gérer ventes, stocks, caisse, clients, fournisseurs, employés et rapports depuis le web ou le mobile.'],
-  ['Puis-je l’utiliser hors ligne ?', 'Les ventes et dépenses compatibles peuvent être placées dans une file locale puis synchronisées lorsque la connexion revient. Les autres opérations nécessitent Internet.'],
+  ['Puis-je l’utiliser hors ligne ?', 'Les ventes, dépenses et mouvements de caisse compatibles peuvent être placés dans une file locale puis synchronisés lorsque la connexion revient. Les autres opérations nécessitent Internet.'],
   ['Comment mes données sont-elles protégées ?', 'StockMaster applique des contrôles d’accès par entreprise, boutique, rôle et permission, ainsi que des journaux de sécurité. Aucun service en ligne ne peut toutefois garantir un risque nul.'],
   ['Comment fonctionne le paiement ?', 'Vous pouvez régler votre abonnement par Orange Money ou par carte via Stripe. Le forfait est activé seulement après confirmation du paiement par le serveur.'],
   ['Puis-je changer de plan plus tard ?', 'Oui. Vous pouvez changer de forfait depuis votre espace Compte selon l’évolution de votre activité.'],
@@ -148,7 +148,7 @@ function App() {
       <section className="finalBanner"><div><span>Prêt à organiser votre commerce ?</span><h2>Découvrez l’offre disponible pour votre entreprise.</h2><p>Les conditions du forfait et de l’éventuel essai sont affichées avant validation.</p></div><button className="lightButton" onClick={() => openAuth('register')}>Créer mon espace →</button></section>
     </main>
 
-    <footer className="siteFooter"><div><Brand/><p>La plateforme de gestion pour les commerces et leurs équipes.</p></div><div><b>Produit</b><a href="#features">Fonctionnalités</a><a href="#pricing">Tarifs</a><a href="#product">Application mobile</a></div><div><b>Informations</b><a href="/legal-notice/">Mentions légales</a><a href="/terms/">Conditions d’utilisation</a><a href="/privacy/">Confidentialité</a></div><div><b>Aide</b><a href="#faq">FAQ</a>{supportEmail && <a href={`mailto:${supportEmail}`}>Support</a>}<a href="/account-deletion/">Supprimer un compte</a></div><div className="footerBottom"><span>© 2026 StockMaster. Tous droits réservés.</span><span>Informations légales à compléter avant publication.</span></div></footer>
+    <footer className="siteFooter"><div><Brand/><p>La plateforme de gestion pour les commerces et leurs équipes.</p></div><div><b>Produit</b><a href="#features">Fonctionnalités</a><a href="#pricing">Tarifs</a><a href="#product">Application mobile</a></div><div><b>Informations</b><a href="/legal-notice/">Mentions légales</a><a href="/terms/">Conditions d’utilisation</a><a href="/privacy/">Confidentialité</a></div><div><b>Aide</b><a href="#faq">FAQ</a>{supportEmail && <a href={`mailto:${supportEmail}`}>Support</a>}<a href="/account-deletion/">Supprimer un compte</a></div><div className="footerBottom"><span>© {new Date().getFullYear()} StockMaster. Tous droits réservés.</span><span>Informations légales à compléter avant publication.</span></div></footer>
 
     {auth && <AuthModal mode={auth} initialPlan={selectedPlan} plans={displayPlans} close={() => setAuth(null)} switchMode={setAuth}/>}
   </div>;
