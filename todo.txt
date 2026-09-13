@@ -189,11 +189,17 @@
 - [ ] Scénarios hors ligne sur Android et iPhone réels : le parcours
   complet (vente hors ligne → conservation locale → resynchronisation)
   est maintenant testé et vérifié en direct sur navigateur (13/09, voir
-  section du haut — bug critique trouvé et corrigé) ; reste à confirmer
-  sur un vrai appareil, en particulier le déverrouillage par ID+PIN
-  natif lui-même (SecureStore, jamais exécutable sur le web par
-  conception) — aucun simulateur iOS ni émulateur Android disponible
-  sur cette machine.
+  section du haut — bug critique trouvé et corrigé). Reste à confirmer
+  sur un vrai appareil le déverrouillage par ID+PIN natif lui-même
+  (SecureStore, jamais exécutable sur le web par conception) — aucun
+  simulateur iOS ni émulateur Android disponible sur cette machine.
+  Testé en direct le 13/09 côté web autant que possible : aucun bouton
+  « Activer » n'existe sur le web (recherché explicitement, zéro
+  résultat — juste un message informatif), donc rien à cliquer côté
+  navigateur. Décision explicite du propriétaire le 13/09 : mis de côté
+  pour l'instant (ni test sur téléphone réel, ni installation de Xcode/
+  Android Studio sur cette machine) — à reprendre seulement sur nouvelle
+  demande, par exemple avec un vrai appareil ou un simulateur disponible.
 - [ ] Tests de bout en bout automatisés (`.maestro/` ne contient qu'un
   smoke test).
 
