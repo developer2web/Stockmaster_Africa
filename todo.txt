@@ -118,7 +118,9 @@
   conservation du nom (bénéficie du correctif ci-dessus) + journal
   d'audit dans les deux cas. Testé avec un employé sans historique :
   ligne supprimée en base, audit `delete_unused_employee` confirmé.
-- [ ] Devise par pays et verrouillage après la première vente.
+- [x] Verrouillage de devise après la première vente testé en direct :
+  champs et bouton « Enregistrer les devises » correctement désactivés,
+  message clair (changement exceptionnel réservé au Super Admin).
 - [ ] Scénarios hors ligne sur Android et iPhone réels (tous les tests de
   cette session ont été faits via navigateur, jamais sur un vrai
   appareil).
@@ -134,8 +136,10 @@
   palier gratuit/le plus petit) — recommandé de passer sur un palier
   payant avant l'ouverture commerciale réelle (vérifié le 13/09, pas de
   test de charge réalisé).
-- [ ] Limitation de débit / protection contre les abus sur les fonctions
-  publiques.
+- [x] Limitation de débit ajoutée sur `create-payment` (aucune protection
+  n'existait nulle part avant) : mécanisme réutilisable, 10 tentatives/10
+  min par utilisateur, vérifié en direct + testé unitairement. À étendre
+  à d'autres fonctions publiques si besoin (mécanisme déjà réutilisable).
 - [ ] Réexaminer les avis npm résiduels avant le 10 octobre 2026.
 - [ ] Écart Node 20 (imposé) / Node ≥22 (exigé par `@supabase/supabase-js`
   récent).
