@@ -7,6 +7,21 @@
 
 ## Fait récemment (10-13 septembre) — pour référence, ne pas refaire
 
+- [x] Revue sécurité ciblée (secrets exposés, XSS, injection SQL, upload
+  de fichiers, CORS) : aucun secret codé en dur ; `.env` jamais commité ;
+  les deux générateurs de reçus/rapports HTML (account-web, admin-web)
+  échappent correctement chaque valeur dynamique ; upload du justificatif
+  Orange Money vérifié par vraie signature d'octets côté client ET
+  imposé côté serveur (bucket privé, taille/type verrouillés) ; aucune
+  construction SQL dynamique sur une entrée utilisateur. Un vrai manque
+  trouvé et corrigé : `ALLOWED_ORIGINS` n'était configuré nulle part, la
+  CORS retombait sur `'*'` partout — corrigé avec la vraie liste de
+  domaines (localhost inclus pour le développement en cours ; à retirer
+  de la liste une fois le site public en ligne).
+- [x] Nettoyage du dépôt : 176 fichiers d'exports de test (`.tmp/`)
+  suivis par erreur par Git depuis avant l'ajout des règles d'exclusion,
+  retirés (64 205 lignes) ; règle ajoutée pour empêcher la récidive.
+  Vérifié qu'aucun autre fichier volumineux suivi n'était superflu.
 - [x] Faille d'élévation de privilège (auto-promotion Super Admin) corrigée.
 - [x] Confidentialité des coûts produit via `product_costs`/`product_variant_costs`.
 - [x] Intégrité des paiements, mot de passe temporaire contrôlé serveur, MFA
@@ -91,6 +106,10 @@
 
 ## P0 — Vérifications techniques avant ouverture publique
 
+- [ ] Une fois les 4 sites réellement en ligne : retirer les origines
+  `localhost` de `ALLOWED_ORIGINS` (secret Supabase), ajoutées
+  uniquement pour permettre de continuer le développement local contre
+  la vraie base de production pendant la préparation du lancement.
 - [ ] Rejouer la suite pgTAP complète sur une base reconstruite dès que
   Docker est disponible localement (non exécutable cette session).
 - [ ] Stripe : expiration de session (24h, non testable en direct dans
