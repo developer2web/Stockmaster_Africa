@@ -35,6 +35,8 @@ export default function StockScreen() {
   const costs = useQuery({ queryKey: ['stock-costs', company, store, productIds], queryFn: () => readProductCosts(productIds), enabled: canViewPurchaseValue && productIds.length > 0 });
   const costsAvailable = !levels.isLoading && !levels.error && (rows.length === 0 || (!costs.error && !!costs.data && productIds.every(id => costs.data.products.has(id))));
   const purchaseValue = costsAvailable ? rows.reduce((sum, row) => sum + Number(row.quantity) * (costs.data?.products.get(row.product_id) ?? 0), 0) : null;
+  // Distinct from a genuine failure: still fetching shouldn't flash "Indisponible" before the real value has had a chance to load.
+  const costsPending = canViewPurchaseValue && rows.length > 0 && (levels.isLoading || costs.isLoading);
   const expectedRevenue = rows.reduce((sum, row) => sum + Number(row.quantity) * Number(row.product?.sale_price ?? 0), 0);
   const needle = search.trim().toLowerCase();
   const visible = rows.filter((row) => !needle
@@ -56,7 +58,7 @@ export default function StockScreen() {
         <View style={styles.metrics}>
           <Metric compact={compact} label="Produits référencés" value={String(new Set(rows.map((row) => row.product_id)).size)} />
           <Metric compact={compact} label="Quantité totale" value={formatQuantity(total)} />
-          {canViewPurchaseValue && <Metric compact={compact} label="Valeur d’achat" value={purchaseValue === null ? 'Indisponible' : money(purchaseValue)} />}
+          {canViewPurchaseValue && <Metric compact={compact} label="Valeur d’achat" value={costsPending ? '…' : purchaseValue === null ? 'Indisponible' : money(purchaseValue)} />}
           <Metric compact={compact} label="Valeur de vente du stock" value={money(expectedRevenue)} />
         </View>
       </View>
