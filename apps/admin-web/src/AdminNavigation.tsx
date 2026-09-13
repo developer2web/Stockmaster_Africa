@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 
 export type AdminView = 'Vue générale' | 'Entreprises' | 'Utilisateurs' | 'Abonnements' | 'Paiements' | 'Promotions' | 'Support' | 'Erreurs' | 'Avertissements' | 'Activité' | 'Paramètres';
 type Group = { label: string; items: AdminView[] };
@@ -24,10 +24,13 @@ export const pageDescriptions: Record<AdminView, string> = {
 };
 type Props = { view: AdminView; onNavigate: (view: AdminView) => void; onLogout: () => void; counts: Partial<Record<AdminView, number>> };
 
-export function AdminSidebar({ view, onNavigate, onLogout, counts }: Props) {
+/** Shared with the desktop sidebar and the mobile drawer so both always list the same pages. */
+function NavList({ view, onNavigate, counts }: Omit<Props, 'onLogout'>) {
   const isAdministration = view === 'Activité' || view === 'Paramètres';
   const [administrationOpen, setAdministrationOpen] = useState(isAdministration);
   useEffect(() => { if (isAdministration) setAdministrationOpen(true); }, [isAdministration]);
+  // NavList renders twice at once (desktop sidebar + mobile drawer): ids must not collide.
+  const administrationLinksId = useId();
   function itemButton(item: AdminView) {
     const count = counts[item] ?? 0;
     return <button key={item} className={view === item ? 'active' : ''} aria-current={view === item ? 'page' : undefined} onClick={() => onNavigate(item)}>
@@ -35,27 +38,67 @@ export function AdminSidebar({ view, onNavigate, onLogout, counts }: Props) {
       {count > 0 && <b className="navCount" aria-label={`${count} à traiter`}>{count > 99 ? '99+' : count}</b>}
     </button>;
   }
+  return <nav aria-label="Navigation principale">
+    {itemButton('Vue générale')}
+    {groups.map(group => <section className="navigationGroup" key={group.label} aria-label={group.label}>
+      {group.label === 'Administration' ? <>
+        <button className="navigationGroupToggle" aria-expanded={administrationOpen} aria-controls={administrationLinksId} onClick={() => setAdministrationOpen(open => !open)}>Administration <span aria-hidden="true">{administrationOpen ? '−' : '+'}</span></button>
+        <div id={administrationLinksId} hidden={!administrationOpen}>{group.items.map(itemButton)}</div>
+      </> : <><h2>{group.label}</h2>{group.items.map(itemButton)}</>}
+    </section>)}
+  </nav>;
+}
+
+function Brand({ children }: { children?: React.ReactNode }) {
+  return <div className="sideBrand"><img src="/stockmaster-icon.png" alt=""/><div><b>StockMaster</b><small>SUPER ADMIN</small></div>{children}</div>;
+}
+
+function AccountBlock({ onNavigate, onLogout }: Pick<Props, 'onNavigate' | 'onLogout'>) {
+  return <div className="accountBlock">
+    <button className="profile" onClick={() => onNavigate('Paramètres')}><span>SA</span><div><b>Super Admin</b><small>Mon compte et réglages</small></div><em aria-hidden="true">›</em></button>
+    <button className="logoutButton" onClick={onLogout}>Déconnexion</button>
+  </div>;
+}
+
+export function AdminSidebar({ view, onNavigate, onLogout, counts }: Props) {
   return <aside className="side structuredSide">
-    <div className="sideBrand"><img src="/stockmaster-icon.png" alt=""/><div><b>StockMaster</b><small>SUPER ADMIN</small></div></div>
-    <nav aria-label="Navigation principale">
-      {itemButton('Vue générale')}
-      {groups.map(group => <section className="navigationGroup" key={group.label} aria-label={group.label}>
-        {group.label === 'Administration' ? <>
-          <button className="navigationGroupToggle" aria-expanded={administrationOpen} aria-controls="administration-links" onClick={() => setAdministrationOpen(open => !open)}>Administration <span aria-hidden="true">{administrationOpen ? '−' : '+'}</span></button>
-          <div id="administration-links" hidden={!administrationOpen}>{group.items.map(itemButton)}</div>
-        </> : <><h2>{group.label}</h2>{group.items.map(itemButton)}</>}
-      </section>)}
-    </nav>
-    <div className="accountBlock"><button className="profile" onClick={() => onNavigate('Paramètres')}><span>SA</span><div><b>Super Admin</b><small>Mon compte et réglages</small></div><em aria-hidden="true">›</em></button><button className="logoutButton" onClick={onLogout}>Déconnexion</button></div>
+    <Brand/>
+    <NavList view={view} onNavigate={onNavigate} counts={counts}/>
+    <AccountBlock onNavigate={onNavigate} onLogout={onLogout}/>
   </aside>;
 }
 
 export function AdminMobileHeader({ view, onNavigate, onLogout, counts }: Props) {
-  return <header className="mobileHead structuredMobileHead">
-    <div><b>StockMaster Admin</b><button onClick={onLogout}>Déconnexion</button></div>
-    <label><span>Aller à</span><select value={view} onChange={event => onNavigate(event.target.value as AdminView)}>
-      <option>Vue générale</option>
-      {groups.map(group => <optgroup label={group.label} key={group.label}>{group.items.map(item => <option value={item} key={item}>{item}{counts[item] ? ` (${counts[item]})` : ''}</option>)}</optgroup>)}
-    </select></label>
-  </header>;
+  const [open, setOpen] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => { if (open) closeButtonRef.current?.focus(); }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(event: KeyboardEvent) { if (event.key === 'Escape') setOpen(false); }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open]);
+  function close() { setOpen(false); hamburgerRef.current?.focus(); }
+  function navigate(item: AdminView) { onNavigate(item); close(); }
+
+  return <>
+    <header className="mobileHead structuredMobileHead">
+      <div>
+        <span className="mobileHeadLeft">
+          <button ref={hamburgerRef} className="hamburgerButton" aria-label="Ouvrir le menu" aria-haspopup="true" aria-expanded={open} aria-controls="admin-mobile-drawer" onClick={() => setOpen(true)}><span aria-hidden="true">☰</span></button>
+          <b>StockMaster Admin</b>
+        </span>
+        <button onClick={onLogout}>Déconnexion</button>
+      </div>
+    </header>
+    {open && <div className="drawerScrim" role="presentation" onClick={close}>
+      <aside id="admin-mobile-drawer" className="side mobileDrawer" role="dialog" aria-modal="true" aria-label="Navigation Super Admin" onClick={event => event.stopPropagation()}>
+        <Brand><button ref={closeButtonRef} className="drawerClose" aria-label="Fermer le menu" onClick={close}>×</button></Brand>
+        <NavList view={view} onNavigate={navigate} counts={counts}/>
+        <AccountBlock onNavigate={navigate} onLogout={onLogout}/>
+      </aside>
+    </div>}
+  </>;
 }

@@ -76,9 +76,37 @@
   .adminApp .structuredMobileHead > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .adminApp .structuredMobileHead b { color: white; font-size: 13px; }
   .adminApp .structuredMobileHead button { min-height: 36px; border: 1px solid #7ca9a2; border-radius: 8px; padding: 0 10px; color: white; background: transparent; font-size: 11px; }
-  .adminApp .structuredMobileHead label { display: flex; align-items: center; gap: 12px; font-size: 12px; }
-  .adminApp .structuredMobileHead select { flex: 1; width: 0; min-width: 0; max-width: none; height: 42px; padding: 0 10px; border: 1px solid #c6ddd6; border-radius: 8px; background: white; color: #173c3b; font-size: 14px; }
+  .adminApp .mobileHeadLeft { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .adminApp .hamburgerButton { flex-shrink: 0; width: 36px; height: 36px; min-height: 0; padding: 0; display: grid; place-items: center; font-size: 17px; line-height: 1; }
+
+  /* Mobile drawer: same NavList as the desktop sidebar, reusing .side's base
+     look (background, colors, hover/active states). The rules below only
+     override the parts of .side that super-admin-layout.css itself keys to
+     narrow viewports (a horizontal scrolling tab bar) — .mobileDrawer is a
+     new class name, so nothing else in the cascade already targets it. */
+  .adminApp .drawerScrim { position: fixed; inset: 0; z-index: 60; display: flex; background: rgba(3, 26, 24, .55); }
+  .adminApp .mobileDrawer { width: min(84vw, 300px); height: 100dvh; max-height: 100dvh; display: flex; flex-direction: column; padding: 18px 14px calc(16px + env(safe-area-inset-bottom)); box-shadow: 10px 0 40px rgba(2, 20, 22, .35); animation: adminDrawerIn .18s ease-out; }
+  .adminApp .mobileDrawer .sideBrand { display: flex; align-items: center; flex-shrink: 0; padding-bottom: 14px; }
+  .adminApp .mobileDrawer .sideBrand div { display: block; flex: 1; min-width: 0; }
+  .adminApp .mobileDrawer .sideBrand img { margin: 0; }
+  .adminApp .drawerClose { flex-shrink: 0; width: 32px; height: 32px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 8px; background: rgba(255, 255, 255, .12); color: white; font-size: 18px; line-height: 1; }
+  .adminApp .mobileDrawer nav { display: block; min-height: 0; overflow-y: auto; overscroll-behavior: contain; flex: 1; }
+  .adminApp .mobileDrawer nav button { display: flex; flex-direction: row; align-items: center; width: 100%; height: 44px; padding: 0 12px; font-size: 13px; text-align: left; }
+  .adminApp .mobileDrawer nav button span { display: inline; overflow: visible; max-width: none; text-overflow: clip; white-space: nowrap; }
+  .adminApp .mobileDrawer nav button i { flex: 0 0 26px; width: 26px; height: 26px; margin: 0 10px 0 0; }
+  .adminApp .mobileDrawer .navigationGroup { margin-top: 14px; }
+  .adminApp .mobileDrawer .navigationGroup h2,
+  .adminApp .mobileDrawer nav .navigationGroupToggle { margin: 0 0 5px; padding: 0 12px; color: #a6c6c0; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+  .adminApp .mobileDrawer nav .navigationGroupToggle { height: 28px; justify-content: space-between; }
+  .adminApp .mobileDrawer .navCount { margin-left: auto; padding: 2px 6px; border-radius: 6px; font-size: 10px; background: #d7eee7; color: #06464a; }
+  .adminApp .mobileDrawer .accountBlock { display: grid; flex-shrink: 0; gap: 7px; margin-top: 12px; padding-top: 13px; }
+  .adminApp .mobileDrawer .profile { justify-content: flex-start; }
+  .adminApp .mobileDrawer .profile div { display: block; }
+  .adminApp .mobileDrawer .logoutButton { font-size: 12px; }
+  .adminApp .mobileDrawer .logoutButton::after { content: none; }
 }
+@keyframes adminDrawerIn { from { transform: translateX(-16px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .adminApp .mobileDrawer { animation: none; } }
 @media (max-width: 620px) {
   .adminApp .homeKpis, .adminApp .trialControlsSimplified { grid-template-columns: 1fr; }
   .adminApp .homeDetails > summary small { display: block; margin: 5px 0 0 17px; }
