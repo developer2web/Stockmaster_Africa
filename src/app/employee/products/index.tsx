@@ -1,3 +1,4 @@
+import { usePermissions } from '@/features/auth/usePermissions';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -17,12 +18,13 @@ import { useProductListView } from '@/stores/productListView';
 import { readableError } from '@/utils/errors';
 
 export default function EmployeeProducts() {
+  const can = usePermissions();
   const {notice}=useLocalSearchParams<{notice?:string}>();
   const { formatMoney } = useCurrency();
   const { membership } = useAuth();
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? '';
-  const canWrite = !!membership?.permissions.includes('products.write');
+  const canWrite = can('products.write');
   const [feedback,setFeedback]=useState(notice??'');
   const listScope=`${company}:${store}:employee`;
   const search=useProductListView(state=>state.searches[listScope]??'');

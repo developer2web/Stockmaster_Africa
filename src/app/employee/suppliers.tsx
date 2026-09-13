@@ -1,3 +1,4 @@
+import { usePermissions } from '@/features/auth/usePermissions';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -16,10 +17,11 @@ import { supplierSchema, type SupplierInput } from '@/schemas/catalog';
 import type { Supplier } from '@/types/database';
 
 export default function EmployeeSuppliers() {
+  const can = usePermissions();
   const { membership } = useAuth();
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? '';
-  const canWrite = !!membership?.permissions.includes('suppliers.write');
+  const canWrite = can('suppliers.write');
   const cache = useQueryClient();
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);

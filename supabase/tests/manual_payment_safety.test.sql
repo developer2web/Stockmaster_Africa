@@ -1,6 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 select no_plan();
+alter table public.notification_email_outbox disable trigger user;
 insert into auth.users(id,email,aud,role) values
 ('e4100000-0000-4000-8000-000000000001','manual-owner@test.local','authenticated','authenticated'),
 ('e4100000-0000-4000-8000-000000000002','other-owner@test.local','authenticated','authenticated');
@@ -22,5 +23,11 @@ select set_config('request.jwt.claims','{"sub":"e4100000-0000-4000-8000-00000000
 select throws_ok($$select public.submit_manual_subscription_payment('e4200000-0000-4000-8000-000000000002',current_setting('test.payment_plan')::uuid,'monthly','OM-123456')$$,'42501',null,'another owner cannot claim the same Orange Money reference');
 reset role;
 select is((select status from public.payment_transactions where id='e4300000-0000-4000-8000-000000000001'),'succeeded','retries preserve confirmed status');
+-- Exercise the new declaration path, not only existing-reference retries.
+update public.billing_settings set orange_money_number='+224600000000',orange_money_account_name='Test only' where id;
+select throws_ok($$select public.submit_manual_subscription_payment('e4200000-0000-4000-8000-000000000002',current_setting('test.payment_plan')::uuid,'monthly','OM-NEW-TEST',p_expected_currency=>'ZZZ')$$,'P0001',null,'changed currency blocks a new declaration');
+select set_config('test.new_payment_id',public.submit_manual_subscription_payment('e4200000-0000-4000-8000-000000000002',current_setting('test.payment_plan')::uuid,'monthly','OM-NEW-TEST')::text,true);
+select is((select status from public.payment_transactions where id=current_setting('test.new_payment_id')::uuid),'processing','a valid declaration awaits manual confirmation');
+select is(public.submit_manual_subscription_payment('e4200000-0000-4000-8000-000000000002',current_setting('test.payment_plan')::uuid,'monthly',' om-new-test '),current_setting('test.new_payment_id')::uuid,'repeating a new declaration preserves its payment id');
 select * from finish();
 rollback;

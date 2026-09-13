@@ -37,7 +37,7 @@ export default function MfaChallenge() {
     }).catch(() => setLoadError('Vérification indisponible. Reconnectez-vous puis réessayez.'));
   }, []);
 
-  const verify = useMutation({
+  const verify = useMutation({ meta: { allowReadOnly: true },
     mutationFn: async () => {
       const loginState = usePortalLoginState.getState();
       loginState.setPending(true);

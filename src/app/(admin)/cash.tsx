@@ -1,3 +1,4 @@
+import { usePermissions } from '@/features/auth/usePermissions';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -21,6 +22,7 @@ import { useOffline } from '@/features/offline/OfflineProvider';
 type TransactionType = 'deposit' | 'withdrawal';
 
 export default function CashScreen() {
+  const can = usePermissions();
   const { formatMoney: money, formatForCurrency } = useCurrency();
   const { membership } = useAuth();
   const theme = useTheme();
@@ -29,10 +31,8 @@ export default function CashScreen() {
   const { refreshQueue } = useOffline();
   const companyId = membership?.companyId ?? '';
   const storeId = membership?.storeId ?? '';
-  const canWrite = membership?.role === 'company_admin' || !!membership?.permissions.includes('cash_transactions.write') || !!membership?.permissions.includes('expenses.write');
-  const canOpen = membership?.role === 'company_admin'
-    || !!membership?.permissions.includes('cash.open')
-    || !!membership?.permissions.includes('cash_transactions.write');
+  const canWrite = can('cash_transactions.write') || can('expenses.write');
+  const canOpen = can('cash.open') || can('cash_transactions.write');
   const query = useInfiniteQuery({
     queryKey: ['cash-transactions', companyId, storeId],
     queryFn: ({ pageParam }) => getCashTransactions(companyId, storeId, pageParam),

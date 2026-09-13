@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, json } from '../_shared/http.ts';
+import { emailConfiguration } from '../_shared/email-config.ts';
 
 type EmailJob = {
   id: string;
@@ -27,6 +28,7 @@ async function pendingJobs(jobId?: string) {
   let query = admin.from('notification_email_outbox')
     .select('id,recipient_email,subject,text_body,status,attempts')
     .in('status', ['pending', 'failed'])
+    .gte('created_at', new Date(Date.now() - 48 * 60 * 60_000).toISOString())
     .lte('next_attempt_at', new Date().toISOString())
     .lt('attempts', 8)
     .order('created_at')
@@ -38,18 +40,15 @@ async function pendingJobs(jobId?: string) {
 }
 
 async function processJob(job: EmailJob) {
-  const { data: claimed, error: claimError } = await admin
-    .from('notification_email_outbox')
-    .update({ status: 'processing', attempts: job.attempts + 1, last_error: null })
-    .eq('id', job.id)
-    .in('status', ['pending', 'failed'])
-    .select('id,recipient_email,subject,text_body,status,attempts')
-    .maybeSingle();
+  const { data: rows, error: claimError } = await admin.rpc('claim_notification_email_job', {
+    p_job_id: job.id, p_attempts: job.attempts,
+  });
   if (claimError) throw claimError;
-  if (!claimed) return { id: job.id, status: 'already-claimed' };
+  const claimed = rows?.[0] as EmailJob | undefined;
+  if (!claimed) return { id: job.id, status: 'skipped' };
+  job = { ...claimed, attempts: claimed.attempts - 1 };
 
-  const apiKey = Deno.env.get('RESEND_API_KEY')?.trim();
-  const from = Deno.env.get('NOTIFICATION_FROM_EMAIL')?.trim();
+  const { apiKey, from } = emailConfiguration((name) => Deno.env.get(name));
   if (!apiKey || !from) {
     await admin.from('notification_email_outbox').update({
       status: 'pending',
@@ -65,6 +64,7 @@ async function processJob(job: EmailJob) {
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
+      signal: AbortSignal.timeout(15_000),
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',

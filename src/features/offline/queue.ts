@@ -1,3 +1,4 @@
+import { assertMutationAllowed } from '@/features/subscriptions/readOnlyAccess';
 import { decryptStoredValue, isEncryptedValue, writeEncryptedStorage } from '@/services/storage/encryptedStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/services/supabase/client';
@@ -69,6 +70,7 @@ async function saveQueue(queue: OfflineOperation[]) {
 }
 
 export async function enqueueOfflineOperation(operation: Omit<OfflineOperation, 'attempts' | 'userId'>) {
+  assertMutationAllowed();
   return serializeQueueMutation(async () => {
     const queue = await readQueue();
     if (queue.some((item) => item.id === operation.id)) return;

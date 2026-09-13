@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto';
 
+import { assertMutationAllowed } from '@/features/subscriptions/readOnlyAccess';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Redirect, Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -32,6 +33,7 @@ const queryClient = new QueryClient({
     },
   }),
   mutationCache: new MutationCache({
+    onMutate: (_variables, mutation) => assertMutationAllowed(mutation.options.meta),
     onError: (error, _variables, _context, mutation) => {
       void logger.error('mutation_failed', error, { mutationKey: mutation.options.mutationKey });
       sanitizeErrorInPlace(error, 'Impossible de terminer cette action. Réessayez.');

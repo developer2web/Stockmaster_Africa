@@ -18,13 +18,13 @@ export function FeatureGate({
   label: string;
   fallback?: ReactNode;
 }>) {
-  const { canUseFeature, isLoading, subscription, error: subscriptionError, refreshSubscription } = useSubscription();
+  const { canViewFeature, isLoading, subscription, error: subscriptionError, refreshSubscription } = useSubscription();
   const { membership } = useAuth();
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState('');
   if (isLoading) return <LoadingScreen label="Vérification du forfait…" />;
   if (subscriptionError) return <Card mode="outlined"><Card.Content><Text>Impossible de vérifier les fonctionnalités de votre abonnement.</Text><AppButton mode="text" onPress={() => void refreshSubscription()}>Réessayer la vérification</AppButton></Card.Content></Card>;
-  if (canUseFeature(feature)) return children;
+  if (canViewFeature(feature)) return children;
   if (fallback !== undefined) return fallback;
   return (
     <Card mode="outlined">

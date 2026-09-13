@@ -1,3 +1,4 @@
+import { usePermissions } from '@/features/auth/usePermissions';
 import { DateField } from '@/components/forms/DateField';
 import { localDateValue } from '@/utils/calendar';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,6 +31,7 @@ import { readableError } from '@/utils/errors';
 const paymentLabels: Record<string, string> = { cash: 'Espèces', card: 'Carte', mobile_money: 'Mobile Money', bank_transfer: 'Virement', mixed: 'Mixte' };
 
 export default function CustomerDetails() {
+  const can = usePermissions();
   const { id,notice } = useLocalSearchParams<{ id: string;notice?:string }>();
   const { membership } = useAuth();
   const { formatMoney } = useCurrency();
@@ -37,7 +39,7 @@ export default function CustomerDetails() {
   const { width, height, fontScale } = useWindowDimensions();
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? null;
-  const canWrite = membership?.role === 'company_admin' || !!membership?.permissions.includes('sales.write');
+  const canWrite = can('sales.write');
   const queryClient = useQueryClient();
   const receiptAction=useReceiptAction();
   const receiptBranding=useReceiptBranding();

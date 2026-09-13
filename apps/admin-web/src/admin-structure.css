@@ -1,0 +1,83 @@
+/* Navigation grouped by task; one navigation control on mobile. */
+@media (min-width: 901px) {
+  .adminApp { display: grid; grid-template-columns: 248px minmax(0, 1fr); }
+  .adminApp .structuredSide { inset: 0 auto 0 0; width: 248px; height: 100dvh; display: flex; }
+  .adminApp .structuredSide .sideBrand { display: flex; flex-shrink: 0; padding-bottom: 14px; }
+  .adminApp .structuredSide .sideBrand div { display: block; }
+  .adminApp .structuredSide .sideBrand img { margin: 0; }
+  .adminApp .structuredSide nav { display: block; min-height: 0; overflow-y: auto; overscroll-behavior: contain; flex: 1; scrollbar-width: thin; }
+  .adminApp .structuredSide nav button { height: 40px; font-size: 13px; }
+  .adminApp .structuredSide nav button span { display: inline; }
+  .adminApp .structuredSide .navigationGroup { margin-top: 14px; }
+  .adminApp .structuredSide .navigationGroup h2,
+  .adminApp .structuredSide nav .navigationGroupToggle { margin: 0 0 5px; padding: 0 12px; color: #a6c6c0; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+  .adminApp .structuredSide nav .navigationGroupToggle { height: 28px; justify-content: space-between; }
+  .adminApp .structuredSide .navCount { margin-left: auto; padding: 2px 6px; border-radius: 6px; font-size: 10px; background: #d7eee7; color: #06464a; }
+  .adminApp .structuredSide .accountBlock { display: grid; flex-shrink: 0; margin-top: 12px; }
+  .adminApp .structuredSide .profile div { display: block; }
+  .adminApp .structuredSide .profile { justify-content: flex-start; }
+  .adminApp .structuredSide .logoutButton { font-size: 12px; }
+  .adminApp .structuredSide .logoutButton::after { content: none; }
+  .adminApp .content { grid-column: 2; padding-bottom: 50px; }
+  .adminApp .structuredMobileHead { display: none; }
+}
+.adminApp .homePriorities { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.adminApp .priorityCard { display: flex; gap: 14px; align-items: center; padding: 18px; text-align: left; color: var(--sm-text); background: white; border: 1px solid var(--sm-border); border-radius: 14px; }
+.adminApp .priorityCard:hover { border-color: var(--sm-accent); background: #f8fcfa; }
+.adminApp .priorityCard > strong { min-width: 42px; padding: 10px 6px; text-align: center; border-radius: 10px; background: var(--sm-primary-soft); color: var(--sm-primary); font-size: 22px; }
+.adminApp .priorityCard.needsAttention > strong { background: #fff2df; color: #92530a; }
+.adminApp .priorityCard span { min-width: 0; flex: 1; }
+.adminApp .priorityCard b { display: block; font-size: 13px; }
+.adminApp .priorityCard small { display: block; margin-top: 4px; color: var(--sm-muted); font-size: 11px; line-height: 1.4; }
+.adminApp .priorityCard em { font-style: normal; }
+.adminApp .homeKpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.adminApp .homeDetails { min-width: 0; border: 1px solid var(--sm-border); border-radius: 14px; background: white; }
+.adminApp .homeDetails > summary { cursor: pointer; padding: 18px; font-size: 14px; color: var(--sm-primary); font-weight: 750; }
+.adminApp .homeDetails > summary small { margin-left: 10px; color: var(--sm-muted); font-weight: 400; font-size: 11px; }
+.adminApp .homeDetailsBody { display: grid; gap: 18px; padding: 0 18px 18px; }
+.adminApp .homeDetailsBody .validatedRevenue { box-shadow: none; }
+.adminApp .homeDetailsBody .twoCols { margin-top: 0; }
+.adminApp .homeDetailsBody .panel { box-shadow: none; }
+.adminApp .homeDetailsBody .panel p { font-size: 12px; color: var(--sm-muted); }
+.adminApp .subscriptionFigures { display: grid; gap: 10px; margin: 0; }
+.adminApp .subscriptionFigures div { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--sm-border); font-size: 12px; }
+.adminApp .subscriptionFigures dd { margin: 0; font-weight: 750; }
+.adminApp .salesFigures { width: 100%; border-collapse: collapse; font-size: 12px; }
+.adminApp .salesFigures th, .adminApp .salesFigures td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--sm-border); }
+.adminApp .salesFigures th:last-child, .adminApp .salesFigures td:last-child { text-align: right; }
+.adminApp .chartCurrency { display: flex; align-items: center; gap: 12px; margin: 14px 0; font-size: 12px; }
+.adminApp .chartCurrency select { min-width: 0; max-width: 100%; height: 40px; padding: 0 8px; background: white; color: var(--sm-text); border: 1px solid var(--sm-border); border-radius: 8px; }
+.adminApp .settingsShortcut { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--sm-border); border-radius: 12px; background: #f6faf8; }
+.adminApp .settingsShortcut p { flex: 1 1 200px; margin: 0; color: var(--sm-muted); font-size: 12px; }
+.adminApp .trialControlsSimplified { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.adminApp .trialControlsSimplified .offerControl { grid-column: auto; }
+.adminApp button:focus-visible, .adminApp summary:focus-visible, .adminApp select:focus-visible { outline: 3px solid #37aa92; outline-offset: 3px; }
+.adminApp .emailConfiguration { padding: 18px; border: 1px solid var(--sm-border); border-radius: 12px; background: white; overflow-wrap: anywhere; }
+.adminApp .emailConfiguration p, .adminApp .emailConfiguration li { font-size: 12px; line-height: 1.65; }
+.adminApp .emailConfiguration h4 { margin: 24px 0 8px; font-size: 14px; }
+.adminApp .emailConfiguration summary { min-height: 40px; padding-block: 10px; cursor: pointer; color: var(--sm-primary); font-size: 12px; font-weight: 750; }
+.adminApp .emailQueueStatus { display: grid; gap: 10px; margin-top: 14px; }
+.adminApp .emailQueueStatus > div { padding: 12px; border-radius: 8px; background: #f4f8f6; font-size: 12px; }
+.adminApp .emailQueueStatus p { margin-bottom: 0; }
+@media (max-width: 1100px) {
+  .adminApp .homePriorities { grid-template-columns: 1fr; }
+  .adminApp .homeDetailsBody .twoCols { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .adminApp { display: block; }
+  .adminApp .structuredSide { display: none; }
+  .adminApp .content { padding: 12px 14px calc(28px + env(safe-area-inset-bottom)); }
+  .adminApp .structuredMobileHead { display: grid; position: sticky; top: 0; gap: 12px; align-items: stretch; justify-content: stretch; z-index: 15; margin: -12px -14px 0; padding: 14px; background: #063f43; color: white; border-radius: 0; }
+  .adminApp .structuredMobileHead > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .adminApp .structuredMobileHead b { color: white; font-size: 13px; }
+  .adminApp .structuredMobileHead button { min-height: 36px; border: 1px solid #7ca9a2; border-radius: 8px; padding: 0 10px; color: white; background: transparent; font-size: 11px; }
+  .adminApp .structuredMobileHead label { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+  .adminApp .structuredMobileHead select { flex: 1; width: 0; min-width: 0; max-width: none; height: 42px; padding: 0 10px; border: 1px solid #c6ddd6; border-radius: 8px; background: white; color: #173c3b; font-size: 14px; }
+}
+@media (max-width: 620px) {
+  .adminApp .homeKpis, .adminApp .trialControlsSimplified { grid-template-columns: 1fr; }
+  .adminApp .homeDetails > summary small { display: block; margin: 5px 0 0 17px; }
+  .adminApp .homeDetailsBody { padding: 0 12px 12px; }
+  .adminApp .titleActions { display: flex; flex-wrap: wrap; }
+  .adminApp .titleActions > * { width: auto; flex: 1; }
+}

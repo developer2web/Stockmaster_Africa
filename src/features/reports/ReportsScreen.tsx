@@ -62,8 +62,8 @@ export default function ReportsScreen() {
   const reportBranding=useReceiptBranding();
   const { membership, session } = useAuth();
   const employee = membership?.role === 'employee';
-  const { canUseFeature } = useSubscription();
-  const advancedReports = canUseFeature('advanced_reports');
+  const { canUseFeature, canViewFeature } = useSubscription();
+  const advancedReports = canViewFeature('advanced_reports');
   const theme = useTheme();
   const company = membership?.companyId ?? '';
   const initial = range('month');

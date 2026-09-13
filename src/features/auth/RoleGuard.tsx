@@ -35,7 +35,7 @@ export function RoleGuard({ roles, children, requireActiveSubscription = true }:
   if (
     requireActiveSubscription &&
     membership.role !== 'super_admin' &&
-    ['pending', 'expired', 'canceled', 'cancelled', 'suspended'].includes(membership.subscriptionStatus ?? '')
+    ['pending', 'suspended'].includes(membership.subscriptionStatus ?? '')
   ) {
     return <Redirect href="/(subscription)" />;
   }

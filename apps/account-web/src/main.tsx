@@ -273,7 +273,18 @@ function App() {
   async function saveCompany() { if (!context?.company_id) return; setLoading(true); setError(''); const [userResult, companyResult] = await Promise.all([supabase.auth.updateUser({ data: { full_name: fullName.trim() } }), supabase.from('companies').update({ name: company.name.trim(), email: company.email || null, phone: company.phone || null, address: company.address || null }).eq('id', context.company_id)]); setLoading(false); if (userResult.error || companyResult.error) setError(userResult.error?.message ?? companyResult.error?.message ?? 'Enregistrement impossible.'); else { setNotice('Informations de l’entreprise enregistrées.'); setProfileOpen(false); await load(); } }
   async function resetPassword() { const result = await supabase.auth.resetPasswordForEmail(userEmail, { redirectTo: location.origin }); if (result.error) setError(result.error.message); else setNotice('Un lien sécurisé de changement de mot de passe vous a été envoyé.'); }
   async function logoutAll() { if (!confirm('Déconnecter tous les appareils de ce compte ?')) return; await supabase.rpc('record_security_event', { p_event_type: 'global_logout', p_device_label: navigator.userAgent.slice(0, 120) }); await supabase.auth.signOut({ scope: 'global' }); setContext(null); }
-  async function markNotifications() { if (!context?.company_id) return; const result = await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('company_id', context.company_id).is('read_at', null); if (result.error) setError(result.error.message); else { setNotifications(items => items.map(item => ({ ...item, read_at: item.read_at ?? new Date().toISOString() }))); setNotice('Toutes les notifications sont marquées comme lues.'); } }
+  async function markNotifications() {
+    if (!context?.company_id) return;
+    setError('');
+    try {
+      const { data, error: markError } = await supabase.rpc('mark_notifications_read', { p_company_id: context.company_id });
+      if (markError) throw markError;
+      const changed = new Set<string>(data ?? []);
+      setNotifications(items => items.map(item => changed.has(item.id) ? { ...item, read_at: new Date().toISOString() } : item));
+      setNotice(changed.size ? `${changed.size} notification(s) marquée(s) comme lue(s).` : 'Aucune nouvelle notification à marquer comme lue.');
+      await load();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Impossible de marquer les notifications comme lues.'); }
+  }
 
   if (recovering) return <PasswordRecovery complete={() => { setRecovering(false); setOpening(false); }} />;
   if (opening) return <main className="opening"><Brand/><span>Ouverture de votre compte…</span></main>;

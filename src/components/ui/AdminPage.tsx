@@ -1,3 +1,4 @@
+import { isSubscriptionReadOnly } from '@/features/subscriptions/readOnlyAccess';
 import { PropsWithChildren, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Appbar, Card, Icon, Text, useTheme } from 'react-native-paper';
@@ -48,7 +49,8 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
   const remainingDays = subscription?.expiresAt
     ? Math.ceil((new Date(subscription.expiresAt).getTime() - Date.now()) / 86_400_000)
     : null;
-  const showRenewalWarning =
+  const readOnly = isSubscriptionReadOnly(subscription);
+  const showRenewalWarning = readOnly ||
     subscription?.status === 'past_due' ||
     (remainingDays !== null && remainingDays >= 0 && remainingDays <= 7);
   return (
@@ -100,8 +102,8 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
               <View style={styles.grow}>
                 <Text variant="titleMedium">Abonnement à renouveler</Text>
                 <Text>
-                  {subscription?.status === 'past_due'
-                    ? 'La période de grâce est en cours. Vos données restent conservées.'
+                  {readOnly
+                    ? 'Lecture seule : consultez vos données. Renouvelez pour ajouter, modifier ou supprimer.'
                     : `Votre forfait expire dans ${remainingDays} jour(s).`}
                 </Text>
               </View>

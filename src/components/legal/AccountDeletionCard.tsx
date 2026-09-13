@@ -20,7 +20,7 @@ export function AccountDeletionCard() {
   const activeRequest = request.data && ['pending', 'processing'].includes(request.data.status)
     ? request.data
     : null;
-  const deletion = useMutation({
+  const deletion = useMutation({ meta: { allowReadOnly: true },
     mutationFn: () => requestAccountDeletion(reason),
     onSuccess: async () => {
       setOpen(false);

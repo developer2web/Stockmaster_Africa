@@ -1,3 +1,4 @@
+import { usePermissions } from '@/features/auth/usePermissions';
 import { getSaleReturns } from '@/features/sales/returns';
 import { useWindowDimensions, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -21,17 +22,18 @@ import { formatDateTime } from '@/utils/format';
 import { readableError } from '@/utils/errors';
 
 export default function SaleDetails() {
+  const can = usePermissions();
   const { membership } = useAuth();
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const [actionsOpen, setActionsOpen] = useState(false);
   const employee = membership?.role === 'employee';
   const canReadFinancials = membership?.role === 'company_admin';
-  const canReturn = membership?.role === 'company_admin' || !!membership?.permissions.includes('sales.refund');
+  const canReturn = can('sales.refund');
   const { id,notice } = useLocalSearchParams<{ id: string;notice?:string }>();
   const [showDetails, setShowDetails] = useState(!notice);
-  const canCreateSale = membership?.role === 'company_admin' || !!membership?.permissions.includes('sales.write');
-  const returns = useQuery({ queryKey: ['sale-returns', id], queryFn: () => getSaleReturns(id!), enabled: !!id && canReturn });
+  const canCreateSale = can('sales.write');
+  const returns = useQuery({ queryKey: ['sale-returns', id], queryFn: () => getSaleReturns(id!), enabled: !!id && can('sales.read') });
   const [feedback,setFeedback]=useState(notice??'');
   const { formatForCurrency } = useCurrency();
   const sale = useQuery({ queryKey: ['sale', id, 'receipt'], queryFn: () => getSale(id!, false), enabled: !!id && !!membership });
@@ -90,7 +92,7 @@ export default function SaleDetails() {
         {canReadFinancials && (!!financials.error || !!financialItems.error || financials.isSuccess && !financials.data) && <AccessDiagnosticsCard saleId={id} />}
         <Text variant="headlineSmall">Articles</Text>
         {(sale.data.sale_items ?? []).map((item) => <Card key={item.id} mode="outlined"><Card.Title title={item.variant ? `${item.product?.name} • ${item.variant.name}` : item.product?.name ?? 'Produit'} subtitle={`${formatQuantity(item.quantity)} × ${money(Number(item.sale_price))}`} /><Card.Content><Text>Total hors taxe : {money(Number(item.line_total))} • Taxe : {money(Number(item.tax_amount??0))}{canReadFinancials && itemFinancials.has(item.id) ? ` • Coût unitaire conservé : ${money(Number(itemFinancials.get(item.id)!.purchase_price_snapshot))}` : ''}</Text>{canReadFinancials && itemFinancials.has(item.id) && <Text style={{ color: theme.colors.primary }}>Bénéfice : {money(Number(itemFinancials.get(item.id)!.gross_profit))}</Text>}</Card.Content></Card>)}
-        {canReturn && <Card mode="outlined"><Card.Content style={{ gap: 8 }}>
+        {can('sales.read') && <Card mode="outlined"><Card.Content style={{ gap: 8 }}>
           <Text variant="titleMedium">Historique des retours</Text>
           <Text>Les retours conservent la vente d’origine.</Text>
           {returns.isLoading && <Text>Chargement des retours…</Text>}

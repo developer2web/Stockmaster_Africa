@@ -34,7 +34,7 @@ const sections = [
 
 export default function MoreScreen() {
   const theme = useTheme();
-  const { canUseFeature, isLoading, error: subscriptionError, refreshSubscription } = useSubscription();
+  const { canViewFeature: canUseFeature, isLoading, error: subscriptionError, refreshSubscription } = useSubscription();
   const { signOut, membership } = useAuth();
   const [showAdvanced, setShowAdvanced] = useState(false);
   useFocusEffect(useCallback(() => { setShowAdvanced(false); }, []));

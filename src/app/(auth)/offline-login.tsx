@@ -28,14 +28,14 @@ export default function OfflineLoginScreen() {
     if (!offlineUnlockRequired) router.replace('/');
   }, [offlineUnlockRequired]);
 
-  const unlock = useMutation({
+  const unlock = useMutation({ meta: { allowReadOnly: true },
     mutationFn: () => unlockOfflineSession(offlineId, pin),
     onSuccess: (result) => {
       if (result.ok) router.replace('/');
     },
   });
 
-  const retry = useMutation({
+  const retry = useMutation({ meta: { allowReadOnly: true },
     mutationFn: retryOnlineAccess,
     onSuccess: (online) => {
       if (online) router.replace('/');

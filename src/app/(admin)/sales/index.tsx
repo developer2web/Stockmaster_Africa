@@ -1,3 +1,4 @@
+import { usePermissions } from '@/features/auth/usePermissions';
 import { PendingSales } from '@/features/offline/PendingSales';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -28,6 +29,7 @@ const paymentLabels: Record<string, string> = {
 };
 
 export default function SalesScreen() {
+  const can = usePermissions();
   const {notice}=useLocalSearchParams<{notice?:string}>();
   const [feedback,setFeedback]=useState(notice??'');
   const [search,setSearch]=useState('');
@@ -82,7 +84,7 @@ export default function SalesScreen() {
   const revenue = rows.reduce((sum, sale) => sum + Number(sale.total), 0);
 
   return (
-    <AdminPage title="Ventes" action={<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{(membership?.role === 'company_admin' || membership?.permissions.includes('sales.write')) && <AppButton icon="plus" onPress={() => router.push((employee ? '/employee/sales/new' : '/sales/new') as never)}>Ajouter</AppButton>}</View>}>
+    <AdminPage title="Ventes" action={<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{(can('sales.write')) && <AppButton icon="plus" onPress={() => router.push((employee ? '/employee/sales/new' : '/sales/new') as never)}>Ajouter</AppButton>}</View>}>
       <PendingSales />
       <Searchbar placeholder="Rechercher une référence ou un client" value={search} onChangeText={setSearch} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -121,7 +123,7 @@ export default function SalesScreen() {
         return <Card key={sale.id} mode="outlined" onPress={() => router.push((employee ? `/employee/sales/${sale.id}` : `/sales/${sale.id}`) as never)}><Card.Title title={sale.reference ?? 'Vente'} subtitle={`${sale.store_id !== store && sale.store?.name ? `${sale.store.name} · ` : ''}${paymentLabels[sale.payment_method ?? ''] ?? sale.payment_method ?? 'Paiement'}`} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{historicalMoney(Number(sale.total))}</Text>} /><Card.Content><Text>{formatDateTime(sale.created_at)}{canReadFinancials ? profit ? ` • Bénéfice : ${historicalMoney(Number(profit.gross_profit))}` : profits.isPending ? ' • Calcul du bénéfice…' : ' • Bénéfice indisponible' : ''}</Text>{sale.secondary_currency_code && sale.secondary_exchange_rate && <Text>Au taux historique : {formatForCurrency(Number(sale.total) * Number(sale.secondary_exchange_rate), sale.secondary_currency_code)}</Text>}</Card.Content></Card>;
       })}
       {sales.hasNextPage && <AppButton mode="outlined" icon="chevron-down" loading={sales.isFetchingNextPage} disabled={sales.isFetchingNextPage} onPress={() => void sales.fetchNextPage()}>Charger plus de ventes</AppButton>}
-      {!sales.isLoading && !sales.error && !rows.length && <EmptyState icon={filtering ? 'magnify' : 'cart-plus'} title={filtering ? 'Aucune vente trouvée' : 'Aucune vente'} message={filtering ? 'Modifiez les filtres ou la recherche.' : 'Enregistrez votre première vente.'} action={filtering ? <AppButton mode="outlined" onPress={resetFilters}>Effacer les filtres</AppButton> : (membership?.role === 'company_admin' || membership?.permissions.includes('sales.write')) ? <AppButton icon="plus" onPress={() => router.push((employee ? '/employee/sales/new' : '/sales/new') as never)}>Nouvelle vente</AppButton> : undefined} />}
+      {!sales.isLoading && !sales.error && !rows.length && <EmptyState icon={filtering ? 'magnify' : 'cart-plus'} title={filtering ? 'Aucune vente trouvée' : 'Aucune vente'} message={filtering ? 'Modifiez les filtres ou la recherche.' : 'Enregistrez votre première vente.'} action={filtering ? <AppButton mode="outlined" onPress={resetFilters}>Effacer les filtres</AppButton> : (can('sales.write')) ? <AppButton icon="plus" onPress={() => router.push((employee ? '/employee/sales/new' : '/sales/new') as never)}>Nouvelle vente</AppButton> : undefined} />}
 
       <AppFeedback message={feedback} onDismiss={()=>setFeedback('')}/>
     </AdminPage>
