@@ -51,8 +51,8 @@ export function AccountDeletionCard() {
         <Dialog.Content style={{ gap: 10 }}>
           <Text>Cette demande concerne le compte et les données personnelles associées. Elle ne remplace pas l’annulation d’un abonnement géré par une boutique d’applications.</Text>
           <Text>Pour confirmer votre intention, écrivez SUPPRIMER ci-dessous.</Text>
-          <TextInput mode="outlined" label="Raison (facultatif)" value={reason} onChangeText={setReason} multiline />
-          <TextInput mode="outlined" label="Confirmation" value={confirmation} onChangeText={setConfirmation} autoCapitalize="characters" />
+          <TextInput mode="outlined" label="Raison (facultatif)" accessibilityLabel="Raison (facultatif)" value={reason} onChangeText={setReason} multiline />
+          <TextInput mode="outlined" label="Confirmation" accessibilityLabel="Confirmation" value={confirmation} onChangeText={setConfirmation} autoCapitalize="characters" />
           {!!deletion.error && <HelperText type="error" visible>{deletion.error.message}</HelperText>}
         </Dialog.Content>
         <Dialog.Actions style={{ flexWrap: 'wrap' }}>

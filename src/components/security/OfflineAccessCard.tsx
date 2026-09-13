@@ -178,8 +178,8 @@ export function OfflineAccessCard() {
         {setupOpen && <View style={styles.pinSetup}>
           <Text variant="titleMedium" style={styles.bold}>Choisissez maintenant votre PIN</Text>
           <Text style={{ color: theme.colors.onSurfaceVariant }}>Saisissez puis confirmez un PIN local de 6 chiffres pour finaliser l’activation.</Text>
-          <TextInput mode="outlined" label="PIN à 6 chiffres" value={pin} onChangeText={(value) => setPin(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" secureTextEntry maxLength={6} />
-          <TextInput mode="outlined" label="Confirmer le PIN" value={confirmPin} onChangeText={(value) => setConfirmPin(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" secureTextEntry maxLength={6} />
+          <TextInput mode="outlined" label="PIN à 6 chiffres" accessibilityLabel="PIN à 6 chiffres" value={pin} onChangeText={(value) => setPin(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" secureTextEntry maxLength={6} />
+          <TextInput mode="outlined" label="Confirmer le PIN" accessibilityLabel="Confirmer le PIN" value={confirmPin} onChangeText={(value) => setConfirmPin(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" secureTextEntry maxLength={6} />
           {!!formError && <HelperText type="error" visible>{formError}</HelperText>}
           <View style={styles.actions}>
             <AppButton mode="text" disabled={activate.isPending} onPress={() => { setSetupOpen(false); setPreparedId(''); }}>Annuler</AppButton>

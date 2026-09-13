@@ -86,9 +86,9 @@ export default function SettingsScreen() {
       <Dialog style={styles.dialog} visible={passwordOpen} onDismiss={() => !passwordMutation.isPending && setPasswordOpen(false)}>
         <Dialog.Title>Modifier le mot de passe</Dialog.Title>
         <Dialog.Content style={{ gap: 10 }}>
-          <TextInput mode="outlined" label="Mot de passe actuel" value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry autoComplete="current-password" />
-          <TextInput mode="outlined" label="Nouveau mot de passe" value={newPassword} onChangeText={setNewPassword} secureTextEntry autoComplete="new-password" />
-          <TextInput mode="outlined" label="Confirmer le nouveau mot de passe" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry autoComplete="new-password" />
+          <TextInput mode="outlined" label="Mot de passe actuel" accessibilityLabel="Mot de passe actuel" value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry autoComplete="current-password" />
+          <TextInput mode="outlined" label="Nouveau mot de passe" accessibilityLabel="Nouveau mot de passe" value={newPassword} onChangeText={setNewPassword} secureTextEntry autoComplete="new-password" />
+          <TextInput mode="outlined" label="Confirmer le nouveau mot de passe" accessibilityLabel="Confirmer le nouveau mot de passe" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry autoComplete="new-password" />
           <HelperText type="info" visible>10 caractères minimum avec majuscule, minuscule, chiffre et caractère spécial.</HelperText>
           {!!passwordValidation && <HelperText type="error" visible>{passwordValidation}</HelperText>}
           {!!passwordMutation.error && <HelperText type="error" visible>{passwordMutation.error.message}</HelperText>}

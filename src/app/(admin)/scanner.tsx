@@ -146,7 +146,7 @@ export default function ScannerScreen() {
       />
       <View style={[styles.status, !!success && styles.statusSuccess, (!!error || !!missing) && styles.statusError]}><Text style={styles.statusText}>{success || (missing ? 'Produit introuvable' : error) || (locked ? 'Lecture en cours…' : 'Placez le code dans le cadre')}</Text></View>
     </View>}
-    <TextInput mode="outlined" label={Platform.OS === 'web' ? 'Scanner USB ou saisie du code-barres' : 'Saisir le code-barres'} value={manual} onChangeText={setManual} autoCapitalize="characters" maxLength={160} autoFocus={Platform.OS === 'web'} blurOnSubmit={false} onSubmitEditing={() => void find(manual)} />
+    <TextInput mode="outlined" label={Platform.OS === 'web' ? 'Scanner USB ou saisie du code-barres' : 'Saisir le code-barres'} accessibilityLabel={Platform.OS === 'web' ? 'Scanner USB ou saisie du code-barres' : 'Saisir le code-barres'} value={manual} onChangeText={setManual} autoCapitalize="characters" maxLength={160} autoFocus={Platform.OS === 'web'} blurOnSubmit={false} onSubmitEditing={() => void find(manual)} />
     <AppButton mode="outlined" loading={locked && !missing && !error} disabled={!manual.trim() || locked} onPress={() => void find(manual)}>Rechercher</AppButton>
     {mode === 'sale' && <AppButton icon="cart-check" onPress={() => router.replace((employee ? '/employee/sales/new' : '/sales/new') as never)}>Retour au panier</AppButton>}
     {!!success && <HelperText type="info" visible>{success}</HelperText>}

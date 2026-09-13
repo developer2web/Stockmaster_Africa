@@ -51,8 +51,8 @@ export default function OfflineLoginScreen() {
     </Card>
 
     {!unavailable && <>
-      <TextInput mode="outlined" label="ID hors ligne" value={offlineId} onChangeText={(value) => setOfflineId(value.toUpperCase())} autoCapitalize="characters" autoCorrect={false} />
-      <TextInput mode="outlined" label="PIN à 6 chiffres" value={pin} onChangeText={(value) => setPin(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" secureTextEntry maxLength={6} onSubmitEditing={() => pin.length === 6 && unlock.mutate()} />
+      <TextInput mode="outlined" label="ID hors ligne" accessibilityLabel="ID hors ligne" value={offlineId} onChangeText={(value) => setOfflineId(value.toUpperCase())} autoCapitalize="characters" autoCorrect={false} />
+      <TextInput mode="outlined" label="PIN à 6 chiffres" accessibilityLabel="PIN à 6 chiffres" value={pin} onChangeText={(value) => setPin(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" secureTextEntry maxLength={6} onSubmitEditing={() => pin.length === 6 && unlock.mutate()} />
       {!!resultError && <HelperText type="error" visible>{resultError}</HelperText>}
       <AppButton icon="lock-open-check" loading={unlock.isPending} disabled={unlock.isPending || !/^SM-\d{5}$/.test(offlineId.trim()) || pin.length !== 6} onPress={() => unlock.mutate()}>Se connecter hors ligne</AppButton>
       <Text style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>Dernière synchronisation : {formatDate(profile.data?.lastSynchronizedAt ?? profile.data?.lastServerValidationAt)}</Text>

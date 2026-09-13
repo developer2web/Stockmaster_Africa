@@ -194,14 +194,14 @@ export default function CustomerDetails() {
         <Dialog visible={!!entryType} dismissable={!entry.isPending&&!amount&&!note} onDismiss={() => !entry.isPending&&!amount&&!note&&setEntryType(null)}>
           <Dialog.Title>{entryType === 'credit' ? 'Ajouter une dette' : entryType==='discount'?'Accorder une remise sur dette':'Encaisser un paiement'}</Dialog.Title>
           <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}><ScrollView nestedScrollEnabled contentContainerStyle={{ gap: 12, paddingHorizontal: 24, paddingBottom: 12 }} keyboardShouldPersistTaps="handled">
-            <TextInput testID="customer-entry-amount" mode="outlined" label="Montant *" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" left={<TextInput.Icon icon="cash" />} autoFocus />
+            <TextInput testID="customer-entry-amount" mode="outlined" label="Montant *" accessibilityLabel="Montant *" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" left={<TextInput.Icon icon="cash" />} autoFocus />
             {entryType==='payment'&&<SelectField
               label="Moyen de paiement"
               value={entryPaymentMethod}
               onChange={value=>setEntryPaymentMethod((value??'cash') as 'cash'|'mobile_money')}
               options={[{label:'Espèces',value:'cash'},{label:'Mobile Money',value:'mobile_money'}]}
             />}
-            <TextInput mode="outlined" label={entryType==='discount'?'Motif obligatoire':'Note (facultatif)'} value={note} onChangeText={setNote} />
+            <TextInput mode="outlined" label={entryType==='discount'?'Motif obligatoire':'Note (facultatif)'} accessibilityLabel={entryType==='discount'?'Motif obligatoire':'Note (facultatif)'} value={note} onChangeText={setNote} />
             {!!entry.error && <HelperText type="error" visible>{readableError(entry.error)}</HelperText>}
           </ScrollView></Dialog.ScrollArea>
           <Dialog.Actions style={{ flexWrap: 'wrap' }}>
