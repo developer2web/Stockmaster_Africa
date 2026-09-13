@@ -7,6 +7,36 @@
 
 ## Fait récemment (10-13 septembre) — pour référence, ne pas refaire
 
+- [x] Mode hors ligne + ID/PIN (Paramètres) vérifiés en direct (pas juste
+  lus dans le code) : bug CRITIQUE trouvé et corrigé — valider une vente
+  hors ligne restait bloqué sur « Traitement… » indéfiniment (30 à 75s
+  observés, potentiellement sans fin) au lieu d'être conservée localement
+  en une fraction de seconde. Cause : TanStack Query met par défaut toute
+  mutation en pause tant que le navigateur se déclare hors ligne
+  (networkMode:'online'), donc isDeviceOffline()/enqueueOfflineOperation()
+  dans createSale() n'étaient jamais exécutés — la file d'attente hors
+  ligne (queue.ts, 17 tests unitaires qui passent tous) était du code
+  mort en usage réel, un angle mort invisible aux tests unitaires qui
+  appellent ces fonctions directement sans passer par react-query. Le même
+  bug touchait aussi le bouton « Se connecter hors ligne » de l'écran
+  ID+PIN (offline-login.tsx, même useMutation). Corrigé globalement
+  (mutations.networkMode:'always' dans _layout.tsx) + garde-fou
+  secondaire (arrêt/relance du ticker de rafraîchissement Supabase avec
+  l'état réseau, évite un verrou interne bloquant jusqu'à ~25s). Vérifié
+  de bout en bout : hors ligne → vente conservée instantanément → retour
+  en ligne → synchronisation automatique → vraie vente créée côté serveur
+  avec métadonnées hors ligne préservées → stock décrémenté correctement.
+  Nuance importante : ce bug précis touchait le WEB (où l'API navigateur
+  online/offline fonctionne réellement) ; sur natif (Android/iPhone),
+  aucun code ne relie le détecteur react-query à NetInfo, donc la mise en
+  pause ne se déclenchait probablement jamais là-bas — mais impossible à
+  confirmer avec certitude sans un vrai test sur appareil (toujours hors
+  de portée sur cette machine, ni simulateur iOS ni émulateur Android
+  disponibles). Le reste du système ID+PIN (verrouillage 15 min après 5
+  essais, expiration 24h, liaison à l'appareil, exclusion Super Admin,
+  révocation si permission de vente retirée) vérifié par lecture de code
+  + 17 tests unitaires dédiés déjà exhaustifs ; repli web propre confirmé
+  en direct (message clair « disponible sur Android et iPhone »).
 - [x] Revue design complète (mobile 8 écrans + 3 sites web) : 4 bugs réels
   trouvés et corrigés. (1) Solde de caisse négatif pas signalé en rouge
   (tableau de bord + écran Caisse). (2) Chevauchement de texte sur la
@@ -156,9 +186,14 @@
 - [x] Verrouillage de devise après la première vente testé en direct :
   champs et bouton « Enregistrer les devises » correctement désactivés,
   message clair (changement exceptionnel réservé au Super Admin).
-- [ ] Scénarios hors ligne sur Android et iPhone réels (tous les tests de
-  cette session ont été faits via navigateur, jamais sur un vrai
-  appareil).
+- [ ] Scénarios hors ligne sur Android et iPhone réels : le parcours
+  complet (vente hors ligne → conservation locale → resynchronisation)
+  est maintenant testé et vérifié en direct sur navigateur (13/09, voir
+  section du haut — bug critique trouvé et corrigé) ; reste à confirmer
+  sur un vrai appareil, en particulier le déverrouillage par ID+PIN
+  natif lui-même (SecureStore, jamais exécutable sur le web par
+  conception) — aucun simulateur iOS ni émulateur Android disponible
+  sur cette machine.
 - [ ] Tests de bout en bout automatisés (`.maestro/` ne contient qu'un
   smoke test).
 
