@@ -49,15 +49,16 @@ async function performPortalSignIn(
   return validateCurrentPortal(portal, data.user);
 }
 
-export async function validateCurrentPortal(portal: LoginPortal, knownUser?: { user_metadata?: Record<string, unknown> }): Promise<PortalLoginResult> {
+export async function validateCurrentPortal(portal: LoginPortal, knownUser?: { id?: string }): Promise<PortalLoginResult> {
   const user = knownUser ?? (await supabase.auth.getUser()).data.user;
   if (!user) return { ok: false, message: 'Reconnectez-vous.' };
-  const [{ data: businesses, error: businessesError }, { data: context, error: contextError }] = await Promise.all([
+  const [{ data: businesses, error: businessesError }, { data: context, error: contextError }, { data: accessStatus, error: statusError }] = await Promise.all([
     withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_accessible_businesses').abortSignal(signal))),
     withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_my_context').abortSignal(signal))),
+    withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_account_access_status').abortSignal(signal))),
   ]);
 
-  if (businessesError || contextError) {
+  if (businessesError || contextError || statusError) {
     await supabase.auth.signOut({ scope: 'local' });
     return { ok: false, message: 'Impossible de vérifier le type de ce compte. Réessayez.' };
   }
@@ -67,10 +68,11 @@ export async function validateCurrentPortal(portal: LoginPortal, knownUser?: { u
   const contextRole = (contextRow as { role?: AppRole } | null)?.role;
   if (contextRole && !roles.includes(contextRole)) roles.push(contextRole);
 
-  const pendingAdministrator =
-    roles.length === 0 &&
-    typeof user.user_metadata?.company_name === 'string' &&
-    user.user_metadata.company_name.trim().length > 0;
+  // A confirmed account with no membership anywhere (server-verified, not a
+  // client-side guess from signup metadata the public site sets but the
+  // mobile app's own two-step registration never does) is presumptively an
+  // owner who still needs to create their business.
+  const pendingAdministrator = roles.length === 0 && accessStatus === 'no_membership';
   const allowed = portalAllowsRoles(roles, portal, pendingAdministrator);
 
   if (!allowed) {

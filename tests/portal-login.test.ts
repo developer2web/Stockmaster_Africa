@@ -37,9 +37,25 @@ describe('portal login validation', () => {
   });
 
   it('keeps new owner onboarding accessible through the administrator login', async () => {
-    backend.auth.signInWithPassword.mockResolvedValue({ data: { user: { user_metadata: { company_name: 'Nouvelle boutique' } } }, error: null });
-    backend.rpc.mockResolvedValue({ data: [], error: null });
+    // A freshly confirmed account has no membership anywhere yet: the mobile
+    // app's own two-step signup never sets a company_name in user_metadata
+    // (only the public site's single-step form does), so this must come from
+    // the server-verified access status, not client-supplied signup metadata.
+    backend.rpc.mockImplementation((name) => Promise.resolve({
+      data: name === 'get_account_access_status' ? 'no_membership' : [],
+      error: null,
+    }));
     expect(await signInForPortal('test@example.invalid', 'fixture', 'admin')).toEqual({ ok: true });
+  });
+
+  it('does not grant onboarding access to a disabled account with no current role', async () => {
+    backend.rpc.mockImplementation((name) => Promise.resolve({
+      data: name === 'get_account_access_status' ? 'membership_disabled' : [],
+      error: null,
+    }));
+    const result = await signInForPortal('test@example.invalid', 'fixture', 'admin');
+    expect(result.ok).toBe(false);
+    expect(backend.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
   });
 
   it('rejects Super Administration even when another app role is assigned', async () => {

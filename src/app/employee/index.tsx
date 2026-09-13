@@ -24,6 +24,11 @@ export default function EmployeeEntry() {
   const employeeName = String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
 
   if (!session || portalLoginPending) return <EmployeeLogin />;
+  // /employee is the one route exempt from RoleGuard (it doubles as the public
+  // employee login form), so it must repeat RoleGuard's own temporary-password
+  // check itself — otherwise a first-time employee lands straight on the full
+  // dashboard instead of being forced to replace their temporary password.
+  if (session.user.app_metadata?.must_change_password === true) return <Redirect href="/(auth)/change-temporary-password" />;
   if (!membership && isWorkspaceLoading) return <LoadingScreen label="Chargement de vos boutiques…" />;
   if (!membership && businesses.length) {
     if (stores.length > 1) return <Redirect href="/choose-store" />;
