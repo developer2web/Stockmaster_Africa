@@ -177,6 +177,7 @@ function EmployeeLogin() {
       <TextInput
         mode="outlined"
         label="Email professionnel"
+        accessibilityLabel="Email professionnel"
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -187,6 +188,7 @@ function EmployeeLogin() {
       <TextInput
         mode="outlined"
         label="Mot de passe"
+        accessibilityLabel="Mot de passe"
         value={password}
         onChangeText={setPassword}
         secureTextEntry={passwordHidden}
