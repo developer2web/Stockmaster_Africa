@@ -6,7 +6,7 @@ import { featureLabelsFor, formatBillingMoney, subscriptionStatusLabel } from '.
 import { webSiteUrl } from '../../shared/siteConfig';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { businessContext, configured, getAccessibleBusinesses, signIn, supabase, type BusinessAccess, type UserContext } from '../../shared/supabase';
+import { businessContext, configured, edgeErrorMessage, getAccessibleBusinesses, signIn, supabase, type BusinessAccess, type UserContext } from '../../shared/supabase';
 import { employeeStoreIds, escapeHtml } from './account-logic';
 import { normalizeOrangeReference, orangeMoneyConfigurationIssue, reusePaymentAttempt, validatePaymentProof, type PaymentAttempt } from './manual-payment';
 import './account.css';
@@ -39,16 +39,6 @@ const formatDateTime = (value: string) => new Date(value).toLocaleString('fr-FR'
 const money = formatBillingMoney;
 const statusLabel = subscriptionStatusLabel;
 const marketingUrl = () => webSiteUrl('marketing');
-
-async function edgeErrorMessage(error: unknown) {
-  const fallback = message(error);
-  const response = (error as { context?: Response } | null)?.context;
-  if (!response) return fallback;
-  try {
-    const payload = await response.clone().json() as { error?: string; message?: string };
-    return payload.error || payload.message || fallback;
-  } catch { return fallback; }
-}
 
 async function loadSubscriptionPlans(companyId: string) {
   const result = await supabase.rpc('company_subscription_plans', { p_company_id: companyId });

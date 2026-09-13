@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { configured, getContext, signIn, supabase } from '../../shared/supabase';
+import { configured, edgeErrorMessage, getContext, signIn, supabase } from '../../shared/supabase';
 import { featureLabelsFor, formatBillingMoney, planDisplayName } from '../../../src/constants/commercial';
 import { supportedCountries } from '../../../src/constants/countries';
 import { sharedPublicValue } from '../../../src/constants/publicConfig';
@@ -160,16 +160,26 @@ function SectionHeading({ eyebrow, title, text }: { eyebrow: string; title: stri
 
 function ContactSection() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' });
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
   if (!supportEmail) return null;
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
-    const body = `Nom : ${form.name}\nEmail : ${form.email}\nTéléphone : ${form.phone || 'Non renseigné'}\n\n${form.message}`;
-    window.location.href = `mailto:${supportEmail}?subject=${encodeURIComponent(form.subject)}&body=${encodeURIComponent(body)}`;
-    setSent(true);
+    setSending(true);
+    setError('');
+    setSent('');
+    const { data, error: invokeError } = await supabase.functions.invoke('contact-form', { body: form });
+    setSending(false);
+    if (invokeError || data?.error) {
+      setError(data?.error || await edgeErrorMessage(invokeError, 'Impossible d’envoyer le message pour le moment. Réessayez ou écrivez-nous directement.'));
+      return;
+    }
+    setSent(form.email);
+    setForm({ name: '', email: '', phone: '', subject: '', message: '' });
   }
   const update = (key: keyof typeof form, value: string) => setForm(current => ({ ...current, [key]: value }));
-  return <section id="contact" className="contentSection contactSection"><div><span className="sectionEyebrow">Contactez-nous</span><h2>Nous sommes là pour vous accompagner</h2><p>Une question, un besoin spécifique ? Notre équipe est à votre écoute.</p><ul><li><i>✉</i><span><b>Email</b>{supportEmail}</span></li>{legalAddress && <li><i>⌖</i><span><b>Adresse</b>{legalAddress}</span></li>}<li><i>◷</i><span><b>Réponse</b>Selon les horaires et la priorité de la demande</span></li></ul></div><form onSubmit={submit}><div><label>Nom complet<input required value={form.name} onChange={event => update('name', event.target.value)} placeholder="Votre nom"/></label><label>Email<input type="email" required value={form.email} onChange={event => update('email', event.target.value)} placeholder="vous@entreprise.com"/></label></div><div><label>Téléphone<input value={form.phone} onChange={event => update('phone', event.target.value)} placeholder="Facultatif"/></label><label>Sujet<input required value={form.subject} onChange={event => update('subject', event.target.value)} placeholder="Comment pouvons-nous aider ?"/></label></div><label>Votre message<textarea required value={form.message} onChange={event => update('message', event.target.value)} placeholder="Décrivez votre besoin..."/></label><small>En envoyant ce message, vous acceptez que les informations saisies soient utilisées pour répondre à votre demande.</small>{sent && <p className="formSuccess">Votre application de messagerie a été ouverte avec le message préparé.</p>}<button className="primaryButton">Envoyer le message →</button></form></section>;
+  return <section id="contact" className="contentSection contactSection"><div><span className="sectionEyebrow">Contactez-nous</span><h2>Nous sommes là pour vous accompagner</h2><p>Une question, un besoin spécifique ? Notre équipe est à votre écoute.</p><ul><li><i>✉</i><span><b>Email</b>{supportEmail}</span></li>{legalAddress && <li><i>⌖</i><span><b>Adresse</b>{legalAddress}</span></li>}<li><i>◷</i><span><b>Réponse</b>Selon les horaires et la priorité de la demande</span></li></ul></div><form onSubmit={submit}><div><label>Nom complet<input required value={form.name} onChange={event => update('name', event.target.value)} placeholder="Votre nom"/></label><label>Email<input type="email" required value={form.email} onChange={event => update('email', event.target.value)} placeholder="vous@entreprise.com"/></label></div><div><label>Téléphone<input value={form.phone} onChange={event => update('phone', event.target.value)} placeholder="Facultatif"/></label><label>Sujet<input required value={form.subject} onChange={event => update('subject', event.target.value)} placeholder="Comment pouvons-nous aider ?"/></label></div><label>Votre message<textarea required value={form.message} onChange={event => update('message', event.target.value)} placeholder="Décrivez votre besoin..."/></label><small>En envoyant ce message, vous acceptez que les informations saisies soient utilisées pour répondre à votre demande.</small>{!!sent && <p className="formSuccess">Message envoyé. Nous vous répondrons directement à {sent} dès que possible.</p>}{!!error && <p className="formError">{error}</p>}<button className="primaryButton" disabled={sending}>{sending ? 'Envoi en cours…' : 'Envoyer le message →'}</button></form></section>;
 }
 
 function AuthModal({ mode, initialPlan, plans, close, switchMode }: { mode: AuthMode; initialPlan: PlanCode; plans: PublicPlan[]; close: () => void; switchMode: (mode: AuthMode) => void }) {

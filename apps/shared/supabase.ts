@@ -99,6 +99,28 @@ export function businessContext(business: BusinessAccess): UserContext {
   };
 }
 
+function friendlyMessage(raw: string, fallback: string) {
+  if (/failed to fetch|network/i.test(raw)) return 'Connexion au serveur impossible. Vérifiez Internet puis réessayez.';
+  if (/permission|row-level security|forbidden/i.test(raw)) return 'Vous n’avez pas l’autorisation d’effectuer cette action.';
+  if (/duplicate|unique|already exists/i.test(raw)) return 'Cette information existe déjà.';
+  return raw || fallback;
+}
+
+// supabase.functions.invoke() does not parse the response body on a non-2xx
+// status — it discards it and returns a generic FunctionsHttpError instead,
+// with the real Response reachable only via error.context. Without this, a
+// specific server-side message (rate limit, validation...) never reaches the
+// UI; the caller falls back to a generic "something went wrong" every time.
+export async function edgeErrorMessage(error: unknown, fallback = 'Opération impossible.') {
+  const raw = error instanceof Error ? error.message : '';
+  const response = (error as { context?: Response } | null)?.context;
+  if (!response) return friendlyMessage(raw, fallback);
+  try {
+    const payload = await response.clone().json() as { error?: string; message?: string };
+    return payload.error || payload.message || friendlyMessage(raw, fallback);
+  } catch { return friendlyMessage(raw, fallback); }
+}
+
 // Verify a password without replacing a session that already satisfied MFA.
 export async function changeWebPassword(currentPassword: string, newPassword: string) {
   const user = await supabase.auth.getUser();
