@@ -39,7 +39,22 @@
 - [x] Stripe configuré et vérifié en direct EN MODE TEST : clé restreinte,
   webhook signé, un vrai paiement de test (carte 4242...) confirmé de
   bout en bout (session créée → paiement → webhook reçu → abonnement
-  activé automatiquement).
+  activé automatiquement). Refus de carte testé (4000...0002) : Stripe
+  gère nativement, rien à corriger côté StockMaster.
+- [x] Orange Money manuel testé en direct : numéro/bénéficiaire affichés
+  correctement, déclaration de référence enregistrée, statut « En
+  vérification » correct. Le volet approbation Super Admin reste à
+  tester (nécessite un compte Super Admin, pas créé sans accord — cf P0).
+- [x] Isolation entre deux entreprises testée en direct (nouvelle
+  entreprise B créée de zéro) : aucune fuite de données dans un sens
+  comme dans l'autre (produits vérifiés explicitement).
+- [x] npm audit : les 28 avis actuels sont déjà documentés et justifiés
+  dans `docs/security/npm-audit-baseline.json` (échéance de révision
+  10/10/2026) ; le correctif suggéré par npm exigerait Expo 57, interdit
+  par AGENTS.md. Rien à changer maintenant.
+- [x] DNS de `stockmaster.africa` confirme le service de renvoi d'email
+  actif (MX + SPF corrects) — la règle précise support@/privacy@ reste à
+  vérifier dans le panneau du registrar (hors de ma portée).
 - [ ] MFA obligatoire pour Super Admin + propriétaires : décision validée
   le 12 septembre, implémentation mise en pause à la demande explicite du
   propriétaire. Ne pas reprendre sans nouveau feu vert.
@@ -69,12 +84,12 @@
 
 - [ ] Rejouer la suite pgTAP complète sur une base reconstruite dès que
   Docker est disponible localement (non exécutable cette session).
-- [ ] Tester le paiement manuel Orange Money de bout en bout en direct
-  (référence soumise, vérification Super Admin, activation) — jamais fait
-  cette session, seul Stripe a été testé en direct.
-- [ ] Stripe : tester aussi l'échec de carte, l'expiration de session,
-  l'annulation, et le renouvellement automatique (seul le paiement réussi
-  a été testé en direct le 13/09).
+- [ ] Terminer le test Orange Money : approbation côté Super Admin (numéro
+  reçu, correspondance, activation). Nécessite un compte Super Admin de
+  test — à créer avec votre accord (privilège plus sensible qu'un compte
+  propriétaire ordinaire, plafond de 3 Super Admins sur le projet).
+- [ ] Stripe : expiration de session (24h, non testable en direct dans
+  l'immédiat) et renouvellement automatique.
 - [ ] Procédure de remboursement et de rapprochement des paiements Stripe
   (aucune actuellement).
 - [ ] Nettoyer les transactions de test Stripe restées en `pending`/
@@ -92,9 +107,6 @@
 
 ## P1 — Tests fonctionnels restants
 
-- [ ] Deux entreprises complètement isolées (jamais testé — tous les
-  tests du 13/09 se sont faits dans une seule entreprise de test, même à
-  deux boutiques).
 - [ ] Suspension et suppression d'un employé ; tous les rôles/permissions
   (l'invitation et la connexion employé sont testées, pas la suspension).
 - [ ] Devise par pays et verrouillage après la première vente.
