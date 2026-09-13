@@ -6,6 +6,7 @@ import { logger } from '@/services/observability/logger';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { getOfflineAccessSummary, markOfflineAccessSynchronized } from '@/features/auth/offlineAccess';
 import { probeBackendAccess } from './connectivity';
+import { supabase } from '@/services/supabase/client';
 
 type OfflineContextValue = {
   isOnline: boolean;
@@ -84,6 +85,13 @@ export function OfflineProvider({ children }: PropsWithChildren) {
     const checkBackend = async () => {
       const probe = await probeBackendAccess(true);
       setOnline(probe.reachable);
+      // Sans ceci, le ticker de rafraîchissement automatique de Supabase continue de
+      // tenter un renouvellement de jeton toutes les 30s même hors ligne ; chaque
+      // tentative échouée relance un backoff exponentiel (~25s) qui bloque tout appel
+      // à supabase.auth.getSession() en attente du même verrou interne — y compris
+      // enqueueOfflineOperation(), rendant la mise en file d'une vente hors ligne
+      // beaucoup plus lente qu'attendu. On arrête/relance le ticker avec l'état réseau.
+      void (probe.reachable ? supabase.auth.startAutoRefresh() : supabase.auth.stopAutoRefresh()).catch(() => undefined);
       let queued;
       try {
         queued = await getCurrentUserOfflineQueue();
@@ -100,6 +108,10 @@ export function OfflineProvider({ children }: PropsWithChildren) {
       const networkAvailable = state.isConnected !== false && state.isInternetReachable !== false;
       if (!networkAvailable) {
         setOnline(false);
+        // Réaction immédiate à la perte de signal, sans attendre le sondage réseau
+        // (plus lent) de checkBackend() : coupe le ticker avant qu'il ne tente son
+        // prochain cycle.
+        void supabase.auth.stopAutoRefresh().catch(() => undefined);
         return;
       }
       void checkBackend();

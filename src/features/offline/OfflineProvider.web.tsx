@@ -3,6 +3,7 @@ import { createContext, PropsWithChildren, useCallback, useContext, useEffect, u
 
 import { getCurrentUserOfflineQueue, synchronizeOfflineQueue } from './queue';
 import { logger } from '@/services/observability/logger';
+import { supabase } from '@/services/supabase/client';
 
 type OfflineContextValue = {
   isOnline: boolean;
@@ -75,14 +76,22 @@ export function OfflineProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     void refreshQueue().catch((error) => logger.warning('offline_queue_boot_failed', error));
-    const online = () => { setOnline(true); void synchronize(); };
-    const offline = () => setOnline(false);
+    // Sans ceci, le ticker de rafraîchissement automatique de Supabase continue de
+    // tenter un renouvellement de jeton toutes les 30s même hors ligne ; chaque
+    // tentative échouée relance un backoff exponentiel (~25s) qui bloque tout appel
+    // à supabase.auth.getSession() en attente du même verrou interne — y compris
+    // enqueueOfflineOperation(), rendant la mise en file d'une vente hors ligne
+    // beaucoup plus lente qu'attendu. On arrête/relance le ticker avec l'état réseau.
+    if (!isOnline) void supabase.auth.stopAutoRefresh().catch(() => undefined);
+    const online = () => { setOnline(true); void supabase.auth.startAutoRefresh().catch(() => undefined); void synchronize(); };
+    const offline = () => { setOnline(false); void supabase.auth.stopAutoRefresh().catch(() => undefined); };
     window.addEventListener('online', online);
     window.addEventListener('offline', offline);
     return () => {
       window.removeEventListener('online', online);
       window.removeEventListener('offline', offline);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshQueue, synchronize]);
 
   const value = useMemo(() => ({ isOnline, isSynchronizing, pendingCount, queueError, lastSyncedCount, lastSynchronizedAt, refreshQueue, synchronize }), [isOnline, isSynchronizing, pendingCount, queueError, lastSyncedCount, lastSynchronizedAt, refreshQueue, synchronize]);

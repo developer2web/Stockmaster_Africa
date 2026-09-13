@@ -39,7 +39,18 @@ const queryClient = new QueryClient({
       sanitizeErrorInPlace(error, 'Impossible de terminer cette action. Réessayez.');
     },
   }),
-  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
+  defaultOptions: {
+    queries: { retry: 1, staleTime: 30_000 },
+    // Sans « always », le networkMode par défaut de TanStack Query ('online') met en
+    // PAUSE toute mutation tant que le navigateur se déclare hors ligne — la fonction
+    // de la mutation n'est jamais appelée. Pour les ventes/dépenses/caisse, cela
+    // empêche isDeviceOffline() et la mise en file locale (enqueueOfflineOperation)
+    // de s'exécuter : la vente reste bloquée sur « Traitement… » indéfiniment au lieu
+    // d'être conservée sur l'appareil, tant que la connexion n'est pas revenue.
+    // 'always' laisse chaque mutation s'exécuter et gérer elle-même la connectivité —
+    // ce que ce projet fait déjà via isDeviceOffline()/enqueueOfflineOperation.
+    mutations: { networkMode: 'always' },
+  },
 });
 
 function RootNavigator() {
