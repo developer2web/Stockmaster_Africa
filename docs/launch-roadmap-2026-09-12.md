@@ -58,8 +58,11 @@ bon modèle : une vérification client peut être contournée, une politique RLS
   l'espace de travail dès qu'un facteur est enrôlé
   (`src/features/auth/mfaAccess.ts`, utilisé dans
   `src/features/auth/AuthProvider.tsx:120-126`). Elle reste **facultative** —
-  seul un compte qui a lui-même activé un second facteur y est soumis. Aucune
-  politique n'impose son activation pour Super Admin ou propriétaire.
+  seul un compte qui a lui-même activé un second facteur y est soumis. Décision
+  du 12 septembre : la rendre obligatoire pour Super Admin + propriétaires est
+  validée en principe, mais **la mise en œuvre est mise en pause** à la
+  demande explicite du propriétaire — ne pas l'implémenter tant qu'un nouveau
+  feu vert n'a pas été donné.
 - **Paiements** : idempotence bout en bout — clé d'opération UUID, upsert
   `ignoreDuplicates`, comparaison stricte de la requête rejouée
   (`supabase/functions/_shared/paymentOperation.ts`), claim/release atomique
@@ -109,15 +112,16 @@ trois pistes démarrent **en parallèle dès la semaine 1**.
 - Trancher le conflit Node 20/22 (constat #4).
 
 ### Semaine 2 (19–25 sept.) — Paiements
-- Décider du prestataire Mobile Money de production et configurer `PAYMENT_PROVIDER_URL`/`PAYMENT_PROVIDER_API_KEY`/`PAYMENT_WEBHOOK_SECRET`.
+- Décision du 12 septembre : **Orange Money manuel + Stripe** pour le lancement — pas d'agrégateur Mobile Money tiers, donc pas d'intégration `PAYMENT_PROVIDER_URL` générique à construire.
 - Configurer Stripe en clés de production, tester en mode test complet : succès, échec, expiration, annulation, rejeu.
+- Reconfirmer le parcours Orange Money manuel de bout en bout (déclaration, preuve, validation Super Admin, reçu).
 - Tester Basic → Pro → Premium, renouvellement, période de grâce, expiration.
 
 ### Semaine 3 (26 sept.–2 oct.) — Builds natifs et continuité
 - Premier build EAS `preview` Android installé et testé sur un appareil réel.
 - Lancer/valider le compte Apple Developer ; démarrer le build iOS.
 - Exercice réel de sauvegarde/restauration sur un projet Supabase isolé ; mesurer RPO/RTO.
-- Décider et, si retenue, implémenter l'obligation de MFA pour Super Admin/propriétaire.
+- MFA obligatoire (Super Admin + propriétaires) : décision prise le 12 septembre, mise en œuvre en pause à la demande du propriétaire — à reprendre seulement sur nouveau feu vert explicite.
 
 ### Semaine 4 (3–9 oct.) — Passe QA fonctionnelle complète
 - Matrice propriétaire/employé mono- et multi-boutique/multi-entreprise sur comptes réels.

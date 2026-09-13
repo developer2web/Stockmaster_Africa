@@ -31,7 +31,7 @@ Configurer les variables `EXPO_PUBLIC_LEGAL_*` et `VITE_LEGAL_*` documentées da
 - [x] Demande initiable dans l’app par administrateur et employé
 - [x] Page publique préparée : `/account-deletion/`
 - [ ] Publier une URL HTTPS stable accessible sans compte
-- [ ] Confirmer que `support@stockmaster.com` existe ou remplacer cette adresse partout
+- [x] Confirmer que `support@stockmaster.africa` existe : domaine enregistré, transfert d’email configuré (`eforwardN.registrar-servers.com`). Vérifier que l’alias `support@` transfère réellement avant publication.
 - [ ] Mettre en place une procédure d’identification, d’exécution et de clôture des demandes
 - [ ] Distinguer les données supprimées, anonymisées et légalement conservées
 - [ ] Informer l’utilisateur de l’avancement et de la clôture

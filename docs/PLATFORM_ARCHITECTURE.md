@@ -32,10 +32,10 @@ Les résultats sont produits dans `dist/admin-web`, `dist/account-web` et `dist/
 
 ## Domaines cibles
 
-- `stockmaster.com` : site public ;
-- `app.stockmaster.com` : application métier ;
-- `account.stockmaster.com` : portail propriétaire ;
-- `admin.stockmaster.com` : Super Administration.
+- `stockmaster.africa` : site public ;
+- `app.stockmaster.africa` : application métier ;
+- `account.stockmaster.africa` : portail propriétaire ;
+- `admin.stockmaster.africa` : Super Administration.
 
 ## Ordre de migration
 

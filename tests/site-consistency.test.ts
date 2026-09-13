@@ -44,8 +44,8 @@ describe('site destinations', () => {
     }
   });
   it('does not send a production visitor to a development port', () => {
-    expect(siteUrl('account', undefined, { hostname: 'app.stockmaster.com', protocol: 'https:' })).toBe('https://account.stockmaster.com');
-    expect(siteUrl('marketing', undefined, { hostname: 'account.stockmaster.com', protocol: 'https:' })).toBe('https://stockmaster.com');
+    expect(siteUrl('account', undefined, { hostname: 'app.stockmaster.africa', protocol: 'https:' })).toBe('https://account.stockmaster.africa');
+    expect(siteUrl('marketing', undefined, { hostname: 'account.stockmaster.africa', protocol: 'https:' })).toBe('https://stockmaster.africa');
   });
 });
 

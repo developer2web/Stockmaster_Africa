@@ -1,8 +1,8 @@
 export const sitePorts = { marketing: 4000, account: 4001, admin: 4002, app: 8081 } as const;
 export type SiteName = keyof typeof sitePorts;
 const productionUrls: Record<SiteName, string> = {
-  marketing: 'https://stockmaster.com', account: 'https://account.stockmaster.com',
-  admin: 'https://admin.stockmaster.com', app: 'https://app.stockmaster.com',
+  marketing: 'https://stockmaster.africa', account: 'https://account.stockmaster.africa',
+  admin: 'https://admin.stockmaster.africa', app: 'https://app.stockmaster.africa',
 };
 
 export function isLocalHost(host: string) {

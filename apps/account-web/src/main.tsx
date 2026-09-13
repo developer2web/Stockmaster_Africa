@@ -1,5 +1,6 @@
 import { WebSessionGate } from '../../shared/WebSessionGate';
 import { notificationCutoff } from '../../../src/features/notifications/retention';
+import { requiresRetainedBusinessChoice } from '../../../src/features/subscriptions/businessLimit';
 import { useActiveNotifications } from '../../../src/features/notifications/useActiveNotifications';
 import { featureLabelsFor, formatBillingMoney, subscriptionStatusLabel } from '../../../src/constants/commercial';
 import { webSiteUrl } from '../../shared/siteConfig';
@@ -102,6 +103,7 @@ function App() {
   const [events, setEvents] = useState<SecurityEvent[]>([]); const [employees, setEmployees] = useState<Employee[]>([]); const [roles, setRoles] = useState<Role[]>([]); const [stores, setStores] = useState<Store[]>([]); const [tickets, setTickets] = useState<Ticket[]>([]); const [notifications, setNotifications] = useState<Notification[]>([]);
   const [fullName, setFullName] = useState(''); const [userEmail, setUserEmail] = useState(''); const [orangeMoney, setOrangeMoney] = useState({ number: '', name: 'StockMaster' });
   const [planId, setPlanId] = useState(''); const [cycle, setCycle] = useState<'monthly' | 'annual'>('monthly'); const [provider, setProvider] = useState<'orange_money_manual' | 'stripe'>('orange_money_manual'); const [paymentStep, setPaymentStep] = useState<'method' | 'checkout'>('method'); const [promo, setPromo] = useState(''); const [reference, setReference] = useState(''); const [proof, setProof] = useState<File | null>(null); const [quote, setQuote] = useState<Quote | null>(null);
+  const [keepCompanyId, setKeepCompanyId] = useState<string | null>(null); const [retainedChoiceOpen, setRetainedChoiceOpen] = useState(false);
   const [status, setStatus] = useState('all'); const [period, setPeriod] = useState('all'); const [loading, setLoading] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [warnings, setWarnings] = useState<string[]>([]); const [mobileMenu, setMobileMenu] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [quoteBusy, setQuoteBusy] = useState(false);
@@ -232,6 +234,11 @@ function App() {
     paymentLock.current = true; setPaymentBusy(true); setError(''); setNotice('');
     try {
       if (!quote || quote.requestKey !== quoteKey) throw new Error('Confirmez le montant avant de continuer.');
+      const targetPlan = plans.find(item => item.id === planId);
+      if (targetPlan && requiresRetainedBusinessChoice(businesses.length, targetPlan.max_businesses) && !keepCompanyId) {
+        setRetainedChoiceOpen(true);
+        return;
+      }
       if (provider === 'orange_money_manual') {
         const configurationIssue = orangeMoneyConfigurationIssue(orangeMoney);
         if (configurationIssue) throw new Error(configurationIssue);
@@ -242,7 +249,7 @@ function App() {
       const attempt = reusePaymentAttempt(paymentAttempt.current, attemptKey, () => crypto.randomUUID());
       paymentAttempt.current = attempt;
       if (provider === 'stripe') {
-        const result = await supabase.functions.invoke('create-payment', { body: { companyId: context.company_id, planId, billingCycle: cycle, provider: 'stripe', operationId: attempt.operationId, promoCode: promo.trim() || null } });
+        const result = await supabase.functions.invoke('create-payment', { body: { companyId: context.company_id, planId, billingCycle: cycle, provider: 'stripe', operationId: attempt.operationId, promoCode: promo.trim() || null, keepCompanyId } });
         if (result.error) throw new Error(await edgeErrorMessage(result.error));
         if (result.data?.authorizationUrl) return location.assign(result.data.authorizationUrl);
         if (result.data?.status === 'succeeded') { navigate('Historique'); setNotice('Ce paiement est déjà confirmé.'); await load(); return; }
@@ -259,13 +266,13 @@ function App() {
       const result = await supabase.rpc('submit_manual_subscription_payment', {
         p_company_id: context.company_id, p_plan_id: planId, p_billing_cycle: cycle,
         p_reference: normalizeOrangeReference(reference), p_proof_path: attempt.proofPath,
-        p_promo_code: promo.trim() || null, p_operation_id: attempt.operationId, p_retained_company_id: null,
+        p_promo_code: promo.trim() || null, p_operation_id: attempt.operationId, p_retained_company_id: keepCompanyId,
         p_expected_amount: Number(quote.final_amount), p_expected_currency: quote.currency,
       });
       if (result.error?.code === 'PGRST202') throw new Error('La déclaration Orange Money nécessite la mise à jour du serveur. Contactez le support et ne refaites pas le transfert.');
       if (result.error) throw result.error;
       paymentAttempt.current = null;
-      setReference(''); setProof(null); navigate('Historique');
+      setReference(''); setProof(null); setKeepCompanyId(null); navigate('Historique');
       setNotice('Déclaration reçue. Votre abonnement sera activé après vérification de la réception du transfert Orange Money. Ne refaites pas le transfert.');
       await load();
     } catch (caught) { setError(message(caught)); } finally { paymentLock.current = false; setPaymentBusy(false); }
@@ -296,7 +303,16 @@ function App() {
     <main className="accountMain"><header className="accountTopbar"><button className="mobileMenuButton" onClick={() => setMobileMenu(true)}>☰</button><div className="activeBusiness"><small>ENTREPRISE ACTIVE</small><b>{company.name || context.company_name || 'StockMaster'}</b>{businesses.length > 1 && <button onClick={() => setContext(null)}>Changer d’entreprise</button>}</div><div className="topActions"><button className="notificationButton" aria-label="Ouvrir le support" title="Support" onClick={() => navigate('Support')}>◌</button><button className="notificationButton" aria-label="Ouvrir les notifications" title="Notifications" onClick={() => navigate('Notifications')}>♢{unread > 0 && <i>{unread}</i>}</button><button className="profileButton" onClick={() => navigate('Profil')}><span>{initials}</span><div><b>{fullName || 'Administrateur'}</b><small>Propriétaire</small></div></button></div></header><div className="pageContent">{loading && <div className="alert floating">Traitement en cours…</div>}{error && <div className="alert danger">{error}<button onClick={() => setError('')}>×</button></div>}{notice && <div className="alert success">✓ {notice.replace(/^✓\s*/, '').replace(/\.$/,'')}<button onClick={() => setNotice('')}>×</button></div>}{warnings.length > 0 && <div className="alert warning">Données temporairement indisponibles : {warnings.join(', ')}.<button onClick={() => setWarnings([])}>×</button></div>}
       {section === 'Tableau de bord' && <Dashboard fullName={fullName} subscription={subscription} currentPlan={currentPlan} payments={payments} go={navigate} company={company}/>}
       {section === 'Abonnement' && <SubscriptionPage subscription={subscription} currentPlan={currentPlan} plans={plans} selectPlan={id => { setPlanId(id); navigate('Paiements'); }}/>}
-      {section === 'Paiements' && <PaymentPage plans={plans} planId={planId} setPlanId={value => { setPlanId(value); setQuote(null); }} cycle={cycle} setCycle={value => { setCycle(value); setQuote(null); }} provider={provider} setProvider={setProvider} step={paymentStep} setStep={setPaymentStep} promo={promo} setPromo={value => { setPromo(value); setQuote(null); }} reference={reference} setReference={setReference} setProof={setProof} proof={proof} quote={quote?.requestKey === quoteKey ? quote : null} busy={paymentBusy || quoteBusy} orangeMoney={orangeMoney} getQuote={getQuote} pay={pay} goHistory={() => navigate('Historique')}/>}
+      {section === 'Paiements' && <>
+        <PaymentPage plans={plans} planId={planId} setPlanId={value => { setPlanId(value); setQuote(null); setKeepCompanyId(null); }} cycle={cycle} setCycle={value => { setCycle(value); setQuote(null); }} provider={provider} setProvider={setProvider} step={paymentStep} setStep={setPaymentStep} promo={promo} setPromo={value => { setPromo(value); setQuote(null); }} reference={reference} setReference={setReference} setProof={setProof} proof={proof} quote={quote?.requestKey === quoteKey ? quote : null} busy={paymentBusy || quoteBusy} orangeMoney={orangeMoney} getQuote={getQuote} pay={pay} goHistory={() => navigate('Historique')}/>
+        {retainedChoiceOpen && <Modal title="Choisir l’entreprise à conserver" close={() => setRetainedChoiceOpen(false)}>
+          <div className="modalForm">
+            <p>Ce forfait autorise {plans.find(item => item.id === planId)?.max_businesses ?? 1} entreprise active. Choisissez celle à conserver. Les autres seront archivées sans supprimer leurs données ; vous pourrez changer de forfait plus tard pour les retrouver.</p>
+            <div className="businessChoiceList">{businesses.map(business => <button type="button" key={business.company_id} className={keepCompanyId === business.company_id ? 'primaryButton' : 'secondaryButton'} onClick={() => setKeepCompanyId(business.company_id)}>{business.company_name}</button>)}</div>
+            <button type="button" className="primaryButton full" disabled={!keepCompanyId} onClick={() => { setRetainedChoiceOpen(false); void pay(); }}>Continuer</button>
+          </div>
+        </Modal>}
+      </>}
       {section === 'Historique' && <History payments={filteredPayments} status={status} setStatus={setStatus} period={period} setPeriod={setPeriod} company={company}/>}
       {section === 'Reçus' && <Invoices payments={payments} company={company}/>}
       {section === 'Entreprise' && <CompanyPage company={company} setCompany={setCompany} save={saveCompany}/>}

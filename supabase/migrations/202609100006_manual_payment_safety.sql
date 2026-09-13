@@ -1,6 +1,6 @@
 begin;
-drop function public.submit_manual_subscription_payment(uuid,uuid,text,text,text,text,uuid,uuid);
-create function public.submit_manual_subscription_payment(
+drop function if exists public.submit_manual_subscription_payment(uuid,uuid,text,text,text,text,uuid,uuid);
+create or replace function public.submit_manual_subscription_payment(
   p_company_id uuid,p_plan_id uuid,p_billing_cycle text,p_reference text,
   p_proof_path text default null,p_promo_code text default null,
   p_operation_id uuid default gen_random_uuid(),p_retained_company_id uuid default null,
