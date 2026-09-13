@@ -65,7 +65,7 @@ export default function AdminDashboard() {
         </Card.Content></Card>}
         <View style={styles.metrics}>
           <Metric title="Ventes du jour" value={report.error ? 'Indisponible' : report.data ? money(report.data.revenue) : '…'} hint="Montant des ventes, crédits compris" onPress={() => router.push('/sales')} />
-          <Metric title="Solde de caisse" value={cash.error ? 'Indisponible' : cash.data ? money(cash.data.balance) : '…'} hint="Entrées moins sorties enregistrées" onPress={() => router.push('/cash')} />
+          <Metric title="Solde de caisse" value={cash.error ? 'Indisponible' : cash.data ? money(cash.data.balance) : '…'} hint="Entrées moins sorties enregistrées" onPress={() => router.push('/cash')} negative={!!cash.data && cash.data.balance < 0} />
           <Metric title="À réapprovisionner" value={overview.error ? 'Indisponible' : overview.data ? String(lowStock) : '…'} hint="Produits dont le stock est faible" onPress={() => router.push('/stock')} />
         </View>
         {hasError && <Card mode="outlined"><Card.Content style={styles.intro}>
@@ -87,12 +87,12 @@ export default function AdminDashboard() {
   );
 }
 
-function Metric({ title, value, hint, onPress }: { title: string; value: string; hint: string; onPress: () => void }) {
+function Metric({ title, value, hint, onPress, negative = false }: { title: string; value: string; hint: string; onPress: () => void; negative?: boolean }) {
   const theme = useTheme();
   return <Card mode="contained" style={[styles.metric, { backgroundColor: theme.colors.surface }]} onPress={onPress}>
     <Card.Content style={styles.intro}>
       <Text variant="titleSmall">{title}</Text>
-      <Text variant="headlineSmall" style={styles.bold}>{value}</Text>
+      <Text variant="headlineSmall" style={[styles.bold, negative && { color: theme.colors.error }]}>{value}</Text>
       <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>{hint}</Text>
     </Card.Content>
   </Card>;

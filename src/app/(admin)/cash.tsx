@@ -97,7 +97,7 @@ export default function CashScreen() {
           <View style={[styles.wallet, { backgroundColor: theme.colors.primary }]}><Icon source="wallet-outline" size={32} color={theme.colors.onPrimary} /></View>
           <View style={styles.grow}>
             <Text style={{ color: theme.colors.onPrimaryContainer }}>Solde de {membership?.storeName ?? 'la boutique'}</Text>
-            <Text variant="displaySmall" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55} style={[styles.bold, { color: theme.colors.onPrimaryContainer }]}>{money(balance)}</Text>
+            <Text variant="displaySmall" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55} style={[styles.bold, { color: balance < 0 ? theme.colors.error : theme.colors.onPrimaryContainer }]}>{money(balance)}</Text>
           </View>
         </Card.Content>
       </Card>
