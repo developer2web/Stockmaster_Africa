@@ -6,6 +6,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { Card, Checkbox, Dialog, HelperText, Portal, Text } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
+import { plural } from '@/utils/plural';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FormField } from '@/components/forms/FormField';
@@ -40,7 +41,7 @@ export default function RolesScreen() {
 
   return <FeatureGate feature="advanced_permissions" label="Rôles et permissions avancés"><AdminPage title="Rôles et permissions" action={<AppButton icon="plus" onPress={()=>show()}>Ajouter</AppButton>}>
     {!!roles.error&&<HelperText type="error" visible>Impossible de charger les rôles : {roles.error.message}</HelperText>}
-    {employeeRoles.length?employeeRoles.map(role=><Card key={role.id} onPress={()=>show(role)}><Card.Title title={role.name} subtitle={`${role.permissions.filter(code=>!code.startsWith('categories.')).length} permission(s)`}/><Card.Actions><AppButton mode="text" onPress={()=>show(role)}>Modifier</AppButton><AppButton mode="text" destructive onPress={()=>setDeleting(role)}>Supprimer</AppButton></Card.Actions></Card>):!roles.isLoading&&<EmptyState icon="shield-plus" title="Aucun rôle employé" message="Créez un rôle avant d’inviter votre premier employé."/>}
+    {employeeRoles.length?employeeRoles.map(role=>{const permissionCount=role.permissions.filter(code=>!code.startsWith('categories.')).length;return <Card key={role.id} onPress={()=>show(role)}><Card.Title title={role.name} subtitle={`${permissionCount} permission${plural(permissionCount)}`}/><Card.Actions><AppButton mode="text" onPress={()=>show(role)}>Modifier</AppButton><AppButton mode="text" destructive onPress={()=>setDeleting(role)}>Supprimer</AppButton></Card.Actions></Card>;}):!roles.isLoading&&<EmptyState icon="shield-plus" title="Aucun rôle employé" message="Créez un rôle avant d’inviter votre premier employé."/>}
 
     <Portal><Dialog visible={open} onDismiss={()=>setOpen(false)} style={[styles.dialog,{width:Math.min(width-24,680)}]}>
       <Dialog.Title>{editing?'Modifier le rôle':'Nouveau rôle'}</Dialog.Title>

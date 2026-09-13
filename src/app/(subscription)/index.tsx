@@ -12,6 +12,7 @@ import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import type { BillingCycle } from '@/features/subscriptions/types';
 import { AppBackButton } from '@/components/ui/AppBackButton';
 import { formatDate } from '@/utils/format';
+import { plural } from '@/utils/plural';
 import { requiresRetainedBusinessChoice } from '@/features/subscriptions/businessLimit';
 import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 
@@ -75,7 +76,7 @@ export default function SubscriptionScreen() {
                   ? formatDate(subscription.expiresAt)
                   : 'non définie'}
               </Text>
-              {subscription.expiresAt&&<Text>{Math.max(0,Math.ceil((new Date(subscription.expiresAt).getTime()-Date.now())/86400000))} jour(s) restant(s)</Text>}
+              {subscription.expiresAt&&(()=>{const days=Math.max(0,Math.ceil((new Date(subscription.expiresAt).getTime()-Date.now())/86400000));return <Text>{days} jour{plural(days)} restant{plural(days)}</Text>;})()}
               {subscription.status==='trialing'&&<Text style={styles.bold}>Essai gratuit en cours · aucune carte bancaire requise pour cet essai</Text>}
               {subscription.status==='past_due'&&<Text style={{color:'#C92A2A'}}>Paiement en retard. Renouvelez avant la fin de la période de grâce.</Text>}
             </Card.Content>
@@ -111,8 +112,8 @@ export default function SubscriptionScreen() {
                     {formatBillingMoney(price, plan.currency)}
                   </Text>
                   <Text>{cycle === 'monthly' ? 'par mois' : 'par année'}</Text>
-                  <Text>{plan.maxBusinesses} entreprise(s) · {plan.maxStores} boutique(s) par entreprise</Text>
-                  <Text>{plan.maxEmployees} employé(s) actif(s) par entreprise</Text>
+                  <Text>{plan.maxBusinesses} entreprise{plural(plan.maxBusinesses)} · {plan.maxStores} boutique{plural(plan.maxStores)} par entreprise</Text>
+                  <Text>{plan.maxEmployees} employé{plural(plan.maxEmployees)} actif{plural(plan.maxEmployees)} par entreprise</Text>
                   {featureLabelsFor(plan.features.filter(feature => feature.isEnabled).map(feature => feature.featureKey)).map(label => <Text key={label}>✓ {label}</Text>)}
                   {membership?.role === 'company_admin' && (
                     <AppButton

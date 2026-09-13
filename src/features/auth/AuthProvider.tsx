@@ -30,7 +30,9 @@ import { canUseOfflineFallback, errorKind, userErrorMessage } from '@/utils/erro
 async function confirmSignOutWithPendingOperations(){
   const count=(await getCurrentUserOfflineQueue()).length;
   if(!count)return true;
-  const message=`${count} opération(s) ne sont pas encore sauvegardée(s) sur le serveur. Elles resteront sur cet appareil, mais vous devez les synchroniser avec ce même compte.`;
+  const message=count>1
+    ?`${count} opérations ne sont pas encore sauvegardées sur le serveur. Elles resteront sur cet appareil, mais vous devez les synchroniser avec ce même compte.`
+    :`1 opération n’est pas encore sauvegardée sur le serveur. Elle restera sur cet appareil, mais vous devez la synchroniser avec ce même compte.`;
   if(Platform.OS==='web')return typeof window!=='undefined'&&window.confirm(`${message}\n\nSe déconnecter quand même ?`);
   return new Promise<boolean>((resolve)=>Alert.alert('Opérations non synchronisées',message,[{text:'Rester connecté',style:'cancel',onPress:()=>resolve(false)},{text:'Se déconnecter',style:'destructive',onPress:()=>resolve(true)}],{cancelable:true,onDismiss:()=>resolve(false)}));
 }

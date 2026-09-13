@@ -6,6 +6,7 @@ import { ScrollView } from 'react-native';
 import { Card, Checkbox, Dialog, HelperText, Portal, Switch, Text } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
+import { plural } from '@/utils/plural';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FormField } from '@/components/forms/FormField';
 import { SelectField } from '@/components/forms/SelectField';
@@ -64,7 +65,7 @@ export default function EmployeesScreen() {
   return <AdminPage title="Employés" action={<AppButton icon={canInvite?'account-plus':'lock-outline'} onPress={()=>canInvite?openInvite():void openAccountPortal(companyId).catch(()=>undefined)}>{canInvite?'Ajouter':'Forfait requis'}</AppButton>}>
     <Card mode="outlined"><Card.Content><Text variant="titleMedium">Accès temporaire sécurisé</Text><Text>StockMaster affiche le mot de passe provisoire une seule fois après la création. Transmettez-le directement à l’employé : il devra le remplacer à sa première connexion.</Text></Card.Content></Card>
     {!!successMessage&&<HelperText type="info" visible>{successMessage}</HelperText>}
-    {!subscriptionLoading&&<HelperText type={canInvite?'info':'error'} visible>{activeEmployeeCount}/{employeeLimit} employé(s) actif(s) autorisé(s) par le forfait.</HelperText>}
+    {!subscriptionLoading&&<HelperText type={canInvite?'info':'error'} visible>{activeEmployeeCount}/{employeeLimit} employé{plural(employeeLimit)} actif{plural(employeeLimit)} autorisé{plural(employeeLimit)} par le forfait.</HelperText>}
     {!!roles.error&&<HelperText type="error" visible>Impossible de charger les rôles : {roles.error.message}</HelperText>}
     {!roles.isLoading&&!roleOptions.length&&<Card mode="outlined"><Card.Content><Text>Créez au moins un rôle employé avant d’envoyer une invitation.</Text></Card.Content></Card>}
     {employees.data?.length?visibleEmployees.map(e=><Card key={e.id} onPress={()=>openEmployee(e)}><Card.Title title={e.fullName} subtitle={`${e.roleName} • ${e.allStores?'Toutes les boutiques':e.storeNames.join(', ')||'Aucune boutique'}`} right={()=><StatusChip style={{marginRight:12}} status={e.isActive?'active':'suspended'}/>} /></Card>):<EmptyState icon="account-multiple-plus" title="Aucun employé" message="Invitez votre équipe et attribuez précisément ses accès."/>}

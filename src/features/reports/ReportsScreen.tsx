@@ -18,6 +18,7 @@ import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import { useReceiptBranding } from '@/features/payments/branding';
 import { FeatureGate } from '@/components/subscriptions/FeatureGate';
 import { formatQuantity } from '@/utils/number';
+import { plural } from '@/utils/plural';
 
 type Preset = 'today' | 'week' | 'month' | 'year' | 'custom';
 type ReportView = 'global' | 'sales' | 'expenses';
@@ -54,7 +55,7 @@ function ReportDisclosure({ label, expanded, onPress }: { label: string; expande
 function Ranking({ title, rows, valueKey = 'gross_profit' }: { title: string; rows: ReportMetricRow[]; valueKey?: 'gross_profit' | 'amount' | 'revenue' }) {
   const { formatMoney: money } = useCurrency();
   const max = Math.max(...rows.map((row) => Number(row[valueKey] ?? 0)), 1);
-  return <Card mode="outlined" style={styles.rankingCard}><Card.Title title={title} titleNumberOfLines={2} /><Card.Content style={styles.list}>{rows.length ? rows.map((row, index) => { const value = Number(row[valueKey] ?? 0); return <View key={`${row.id ?? row.name}-${index}`} style={[styles.rank,index<rows.length-1&&styles.rankSeparated]}><View style={styles.row}><Text style={styles.rankingLabel} numberOfLines={2}>{index + 1}. {paymentLabels[row.name] ?? row.name}</Text><Text variant="titleSmall" numberOfLines={1} style={styles.rankingAmount}>{money(value)}</Text></View>{row.quantity !== undefined && <Text variant="bodySmall" numberOfLines={1} style={styles.rankingDetail}>{formatQuantity(row.quantity)} unité(s) · CA {money(Number(row.revenue ?? 0))}</Text>}<ProgressBar progress={Math.max(0, value / max)} style={styles.progress} /></View>; }) : <Text>Aucune donnée sur cette période.</Text>}</Card.Content></Card>;
+  return <Card mode="outlined" style={styles.rankingCard}><Card.Title title={title} titleNumberOfLines={2} /><Card.Content style={styles.list}>{rows.length ? rows.map((row, index) => { const value = Number(row[valueKey] ?? 0); return <View key={`${row.id ?? row.name}-${index}`} style={[styles.rank,index<rows.length-1&&styles.rankSeparated]}><View style={styles.row}><Text style={styles.rankingLabel} numberOfLines={2}>{index + 1}. {paymentLabels[row.name] ?? row.name}</Text><Text variant="titleSmall" numberOfLines={1} style={styles.rankingAmount}>{money(value)}</Text></View>{row.quantity !== undefined && <Text variant="bodySmall" numberOfLines={1} style={styles.rankingDetail}>{formatQuantity(row.quantity)} unité{plural(Number(row.quantity ?? 0))} · CA {money(Number(row.revenue ?? 0))}</Text>}<ProgressBar progress={Math.max(0, value / max)} style={styles.progress} /></View>; }) : <Text>Aucune donnée sur cette période.</Text>}</Card.Content></Card>;
 }
 
 export default function ReportsScreen() {

@@ -1,6 +1,7 @@
 import { usePermissions } from '@/features/auth/usePermissions';
 import { DateField } from '@/components/forms/DateField';
 import { localDateValue } from '@/utils/calendar';
+import { plural } from '@/utils/plural';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
@@ -132,8 +133,8 @@ export default function CustomerDetails() {
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
                 <View style={{ flexGrow: 1, flexBasis: 220, gap: 4 }}>
                   <Text variant="labelLarge" style={{ color: theme.colors.onSurfaceVariant }}>Fidélité</Text>
-                  <Text style={{ fontWeight: '700' }}>{loyalty.data?.points ?? 0} point(s) fidélité</Text>
-                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>{loyalty.data?.lifetime_earned ?? 0} point(s) gagnés au total</Text>
+                  <Text style={{ fontWeight: '700' }}>{loyalty.data?.points ?? 0} point{plural(loyalty.data?.points ?? 0)} fidélité</Text>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>{loyalty.data?.lifetime_earned ?? 0} point{plural(loyalty.data?.lifetime_earned ?? 0)} gagné{plural(loyalty.data?.lifetime_earned ?? 0)} au total</Text>
                 </View>
                 <View style={{ flexGrow: 1, flexBasis: 220, gap: 4 }}>
                   <Text variant="labelLarge" style={{ color: theme.colors.onSurfaceVariant }}>Limite de crédit</Text>
@@ -151,7 +152,7 @@ export default function CustomerDetails() {
             </Card.Content>}
           </Card>
 
-          {schedule.data&&<Card mode="outlined"><Card.Title title="Échéancier actif" subtitle={`${schedule.data.customer_debt_installments.length} échéance(s)`}/><Card.Content style={{gap:6}}>{schedule.data.customer_debt_installments.map(row=><Text key={row.id}>{formatDate(row.due_date)} • {formatMoney(Number(row.amount)-Number(row.paid_amount))} restant • {row.status}</Text>)}</Card.Content></Card>}
+          {schedule.data&&<Card mode="outlined"><Card.Title title="Échéancier actif" subtitle={`${schedule.data.customer_debt_installments.length} échéance${plural(schedule.data.customer_debt_installments.length)}`}/><Card.Content style={{gap:6}}>{schedule.data.customer_debt_installments.map(row=><Text key={row.id}>{formatDate(row.due_date)} • {formatMoney(Number(row.amount)-Number(row.paid_amount))} restant • {row.status}</Text>)}</Card.Content></Card>}
           {membership?.role==='company_admin'&&balance>0&&<AppButton mode="outlined" icon="calendar-clock" onPress={()=>setScheduleOpen(true)}>Définir l’échéancier</AppButton>}
 
           {canWrite && (

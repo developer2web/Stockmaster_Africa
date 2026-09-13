@@ -8,6 +8,7 @@ import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import { AppButton } from './AppButton';
 import { AppBackButton } from './AppBackButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { plural } from '@/utils/plural';
 import { hasAnyPermission } from '@/features/auth/permissions';
 import { PageIntro } from './PageIntro';
 import { design } from '@/constants/design';
@@ -104,7 +105,7 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
                 <Text>
                   {readOnly
                     ? 'Lecture seule : consultez vos données. Renouvelez pour ajouter, modifier ou supprimer.'
-                    : `Votre forfait expire dans ${remainingDays} jour(s).`}
+                    : `Votre forfait expire dans ${remainingDays} jour${plural(remainingDays ?? 0)}.`}
                 </Text>
               </View>
               {membership?.role === 'company_admin' && (

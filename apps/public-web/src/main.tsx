@@ -4,6 +4,7 @@ import { configured, edgeErrorMessage, getContext, signIn, supabase } from '../.
 import { featureLabelsFor, formatBillingMoney, planDisplayName } from '../../../src/constants/commercial';
 import { supportedCountries } from '../../../src/constants/countries';
 import { sharedPublicValue } from '../../../src/constants/publicConfig';
+import { plural } from '../../../src/utils/plural';
 import { webSiteUrl } from '../../shared/siteConfig';
 import './style.css';
 import '../../shared/ux.css';
@@ -106,7 +107,7 @@ function App() {
           code: plan.code, name: planDisplayName(plan.code, plan.name),
           description: plan.description || 'Offre StockMaster',
           price: formatBillingMoney(Number(plan.monthly_price), plan.currency),
-          features: [`${plan.max_businesses} entreprise(s)`, `${plan.max_stores} boutique(s) par entreprise`, `${plan.max_employees} employé(s) actif(s) par entreprise`, ...featureLabelsFor(plan.feature_keys ?? [])],
+          features: [`${plan.max_businesses} entreprise${plural(plan.max_businesses)}`, `${plan.max_stores} boutique${plural(plan.max_stores)} par entreprise`, `${plan.max_employees} employé${plural(plan.max_employees)} actif${plural(plan.max_employees)} par entreprise`, ...featureLabelsFor(plan.feature_keys ?? [])],
         }));
         if (!cancelled) setDisplayPlans(plans);
       } catch { if (!cancelled) setDisplayPlans([]); }

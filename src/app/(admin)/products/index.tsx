@@ -7,6 +7,7 @@ import { Card, Chip, HelperText, Menu, Text, useTheme } from 'react-native-paper
 import { ProductThumbnail } from '@/components/products/ProductThumbnail';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
+import { plural } from '@/utils/plural';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AppSearchBar } from '@/components/ui/AppSearchBar';
 import { AppFeedback } from '@/components/ui/AppFeedback';
@@ -56,7 +57,7 @@ export default function ProductsScreen() {
       />
       {!!products.error && <HelperText type="error" visible>{readableError(products.error)}</HelperText>}
       <View style={styles.filters}>
-        <Chip icon="package-variant">{rows.length} produit(s)</Chip>
+        <Chip icon="package-variant">{rows.length} produit{plural(rows.length)}</Chip>
         <Chip icon="store-outline">{membership?.storeName ?? 'Boutique active'}</Chip>
       </View>
       {rows.map((product) => (

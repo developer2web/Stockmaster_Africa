@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 import { getOfflineDeviceId } from '@/features/offline/device';
+import { plural } from '@/utils/plural';
 import type { BusinessAccess, MembershipContext, StoreAccess } from '@/types/database';
 
 const PROFILE_KEY = 'stockmaster:offline-access-profile:v2';
@@ -297,7 +298,7 @@ export async function unlockOfflineAccess(offlineId: string, pin: string, now = 
       reason: shouldLock ? 'locked' : 'invalid',
       message: shouldLock
         ? 'Accès verrouillé pendant 15 minutes après cinq tentatives incorrectes.'
-        : `ID ou PIN incorrect. ${OFFLINE_PIN_MAX_ATTEMPTS - failedAttempts} tentative(s) restante(s).`,
+        : `ID ou PIN incorrect. ${OFFLINE_PIN_MAX_ATTEMPTS - failedAttempts} tentative${plural(OFFLINE_PIN_MAX_ATTEMPTS - failedAttempts)} restante${plural(OFFLINE_PIN_MAX_ATTEMPTS - failedAttempts)}.`,
       lockUntil: updated.lockUntil ?? undefined,
     };
   }

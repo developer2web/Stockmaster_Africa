@@ -2,16 +2,17 @@ import { Icon, Text, useTheme } from 'react-native-paper';
 import { router } from 'expo-router';
 import { useOffline } from './OfflineProvider';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { plural } from '@/utils/plural';
 
 export function OfflineStatus() {
   const theme=useTheme();
   const { isOnline, isSynchronizing, pendingCount,queueError,lastSyncedCount, synchronize } = useOffline();
   const visible=!!queueError||!isOnline||isSynchronizing||pendingCount>0||lastSyncedCount>0;
   const message = queueError ? 'À vérifier : suivi local indisponible' : !isOnline
-    ? `Mode hors ligne${pendingCount ? ` • ${pendingCount} opération(s) en attente` : ''}`
+    ? `Mode hors ligne${pendingCount ? ` • ${pendingCount} opération${plural(pendingCount)} en attente` : ''}`
     : isSynchronizing
       ? 'Synchronisation en cours…'
-      : pendingCount?`${pendingCount} opération(s) à synchroniser`:`${lastSyncedCount} opération(s) sauvegardée(s) sur le serveur`;
+      : pendingCount?`${pendingCount} opération${plural(pendingCount)} à synchroniser`:`${lastSyncedCount} opération${plural(lastSyncedCount)} sauvegardée${plural(lastSyncedCount)} sur le serveur`;
   if(!visible)return null;
   const label = message;
   const color=!isOnline?theme.colors.error:isSynchronizing||pendingCount?'#9A5700':theme.colors.primary;

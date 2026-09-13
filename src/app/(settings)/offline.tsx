@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useOffline } from '@/features/offline/OfflineProvider';
 import { getCurrentUserOfflineQueue, OfflineOperation, offlineErrorMessage, removeOfflineOperation } from '@/features/offline/queue';
+import { plural } from '@/utils/plural';
 
 export default function OfflineOperationsScreen() {
   const theme=useTheme();
@@ -39,7 +40,7 @@ export default function OfflineOperationsScreen() {
 
   return <AdminPage title="Synchronisation">
     <Card mode="contained">
-      <Card.Content style={styles.statusRow}><View style={[styles.statusIcon,{backgroundColor:theme.colors.primaryContainer}]}><Icon source={isOnline?'cloud-check-outline':'cloud-off-outline'} size={28} color={theme.colors.primary}/></View><View style={styles.copy}><Text variant="titleMedium" style={styles.bold}>{isOnline?'Connexion disponible':'Mode hors ligne'}</Text><Text style={{color:theme.colors.onSurfaceVariant}}>{loading || loadError ? 'Nombre d’opérations à vérifier' : `${operations.length} opération(s) en attente`}</Text><Text style={{color:theme.colors.onSurfaceVariant}}>Dernière synchronisation : {lastSynchronizedAt ? new Date(lastSynchronizedAt).toLocaleString('fr-FR') : 'non disponible dans cette session'}</Text></View></Card.Content>
+      <Card.Content style={styles.statusRow}><View style={[styles.statusIcon,{backgroundColor:theme.colors.primaryContainer}]}><Icon source={isOnline?'cloud-check-outline':'cloud-off-outline'} size={28} color={theme.colors.primary}/></View><View style={styles.copy}><Text variant="titleMedium" style={styles.bold}>{isOnline?'Connexion disponible':'Mode hors ligne'}</Text><Text style={{color:theme.colors.onSurfaceVariant}}>{loading || loadError ? 'Nombre d’opérations à vérifier' : `${operations.length} opération${plural(operations.length)} en attente`}</Text><Text style={{color:theme.colors.onSurfaceVariant}}>Dernière synchronisation : {lastSynchronizedAt ? new Date(lastSynchronizedAt).toLocaleString('fr-FR') : 'non disponible dans cette session'}</Text></View></Card.Content>
       <Card.Actions style={[styles.actions,compact&&styles.actionsCompact]}><AppButton style={compact&&styles.mobileButton} icon="sync" disabled={!isOnline || isSynchronizing || loading || !!loadError || !operations.length} loading={isSynchronizing} onPress={() => void synchronize()}>Synchroniser maintenant</AppButton></Card.Actions>
     </Card>
     {loading && <Text>Lecture des opérations locales…</Text>}
@@ -55,7 +56,7 @@ export default function OfflineOperationsScreen() {
       return <Card key={operation.id} mode="outlined">
         <Card.Content style={styles.operationContent}><View style={styles.operationHeader}><Icon source={presentation.icon} size={28} color={theme.colors.primary}/><View style={styles.copy}><Text variant="titleMedium" style={styles.bold}>{presentation.title}</Text><Text style={{color:theme.colors.onSurfaceVariant}}>{new Date(operation.createdAt).toLocaleString('fr-FR')} • appareil {operation.deviceId?.slice(0,8)??'ancien'}</Text></View></View><Chip style={styles.chip} icon={failed?'alert-circle-outline':'clock-outline'}>{failed?'À vérifier':'En attente de synchronisation'}</Chip>
           <Text>{offlineErrorMessage(operation)}</Text>
-          {failed && <HelperText type="error" visible>Échec après {operation.attempts} tentative(s). L’opération n’a pas été perdue.</HelperText>}
+          {failed && <HelperText type="error" visible>Échec après {operation.attempts} tentative{plural(operation.attempts)}. L’opération n’a pas été perdue.</HelperText>}
         </Card.Content>
         <Card.Actions style={[styles.actions,compact&&styles.actionsCompact]}><AppButton style={compact&&styles.mobileButton} mode="text" textColor="#C92A2A" onPress={() => setRemoving(operation)}>Annuler l’opération</AppButton></Card.Actions>
       </Card>;

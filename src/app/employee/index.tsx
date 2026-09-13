@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Appbar, Card, Chip, HelperText, Icon, Text, TextInput, useTheme } from 'react-native-paper';
 import { EmployeeModuleCard } from '@/components/employee/EmployeeModuleCard';
+import { plural } from '@/utils/plural';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppBackButton } from '@/components/ui/AppBackButton';
@@ -121,7 +122,7 @@ export default function EmployeeEntry() {
           ))}
         </View>
 
-        <Card mode="outlined" onPress={() => router.push('/employee/more' as never)}><Card.Content style={styles.notice}><Icon source="dots-grid" size={30} color={theme.colors.primary}/><View style={styles.noticeCopy}><Text variant="titleMedium" style={styles.sectionTitle}>Autres outils</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>Fournisseurs, comptabilité, rapports et paramètres · {advancedCount} module(s)</Text></View><Icon source="chevron-right" size={24} color={theme.colors.onSurfaceVariant}/></Card.Content></Card>
+        <Card mode="outlined" onPress={() => router.push('/employee/more' as never)}><Card.Content style={styles.notice}><Icon source="dots-grid" size={30} color={theme.colors.primary}/><View style={styles.noticeCopy}><Text variant="titleMedium" style={styles.sectionTitle}>Autres outils</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>Fournisseurs, comptabilité, rapports et paramètres · {advancedCount} module{plural(advancedCount)}</Text></View><Icon source="chevron-right" size={24} color={theme.colors.onSurfaceVariant}/></Card.Content></Card>
 
         {!canCatalog && !canSales && !canAccounting && !canReports && !canCash && (
           <Card mode="outlined" style={{ backgroundColor: theme.colors.surface }}>

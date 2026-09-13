@@ -20,7 +20,8 @@ describe('messages utilisateur',()=>{
     expect(errorKind(new Error('Could not initialize session storage'))).toBe('unknown');
   });
   it('masque les erreurs réseau techniques',()=>expect(userErrorMessage(new Error('TypeError: Failed to fetch'))).toContain('Connexion internet'));
-  it('traduit le stock insuffisant avec la quantité disponible',()=>expect(userErrorMessage(new Error('Stock insuffisant : quantité disponible 2'))).toBe('Quantité insuffisante : 2 disponible(s).'));
+  it('traduit le stock insuffisant avec la quantité disponible, accord pluriel',()=>expect(userErrorMessage(new Error('Stock insuffisant : quantité disponible 2'))).toBe('Quantité insuffisante : 2 disponibles.'));
+  it('traduit le stock insuffisant avec la quantité disponible, accord singulier',()=>expect(userErrorMessage(new Error('Stock insuffisant : quantité disponible 1'))).toBe('Quantité insuffisante : 1 disponible.'));
   it('traduit les refus RLS',()=>expect(userErrorMessage(new Error('new row violates row-level security policy'))).toContain('autorisation'));
   it('masque les erreurs structurées de Supabase',()=>expect(userErrorMessage({ message: 'relation customer_balances does not exist' })).toContain('configuration de la base'));
   it('traduit une erreur native d’impression',()=>expect(userErrorMessage(new Error('Printing did not complete'))).toContain('Impossible d’imprimer'));
