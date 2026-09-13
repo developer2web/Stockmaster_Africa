@@ -88,7 +88,9 @@ export default function StockScreen() {
           <Card.Content style={[styles.tableRow, compact && styles.compactTableRow]}>
             <View style={[styles.productColumn, compact && styles.compactProductColumn]}>
               <Text variant="titleSmall" style={styles.bold} numberOfLines={2}>{level.product?.name ?? 'Produit'}</Text>
-              <Text style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>{level.variant?.name ?? level.product?.name}</Text>
+              {!!level.variant?.name && level.variant.name !== level.product?.name && (
+                <Text style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>{level.variant.name}</Text>
+              )}
             </View>
             <Text style={[styles.storeColumn, compact && styles.compactValue]} numberOfLines={2}>{compact ? `Boutique : ${level.store?.name ?? 'Boutique'}` : level.store?.name ?? 'Boutique'}</Text>
             <Text style={[styles.numberColumn, compact && styles.compactValue, styles.bold, { color: Number(level.quantity) <= 0 ? theme.colors.error : theme.colors.primary }]}>{compact ? `Quantité : ${formatQuantity(level.quantity)}` : formatQuantity(level.quantity)}</Text>
@@ -146,8 +148,8 @@ const styles = StyleSheet.create({
   tableHeader: { flexDirection: 'row', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1 },
   tableRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   compactTableRow: { flexDirection: 'column', alignItems: 'stretch', gap: 6 },
-  compactValue: { flex: 0, minWidth: 0, width: '100%', textAlign: 'left' },
-  compactProductColumn: { flex: 0, minWidth: 0, width: '100%' },
+  compactValue: { minWidth: 0, width: '100%', textAlign: 'left' },
+  compactProductColumn: { minWidth: 0, width: '100%' },
   productColumn: { flex: 2, minWidth: 100 },
   storeColumn: { flex: 1.3, minWidth: 75 },
   numberColumn: { flex: 1, minWidth: 65, textAlign: 'right' },
