@@ -7,6 +7,22 @@
 
 ## Fait récemment (10-13 septembre) — pour référence, ne pas refaire
 
+- [x] Revue design complète (mobile 8 écrans + 3 sites web) : 4 bugs réels
+  trouvés et corrigés. (1) Solde de caisse négatif pas signalé en rouge
+  (tableau de bord + écran Caisse). (2) Chevauchement de texte sur la
+  ligne de stock compacte — `flex:0` compilé en CSS `flex-basis:0%`
+  effondrait la hauteur d'une View à 0 dans un layout en colonne. (3)
+  Incohérence « FG » vs « GNF » pour la même devise : GNF partout dans
+  l'app sauf les écrans de facturation/abonnement (site marketing,
+  abonnement mobile, admin-web, account-web) qui affichaient « FG » —
+  uniformisé sur GNF partout. (4) Champ Devise en lecture seule
+  (account-web) indiscernable d'un champ modifiable — style grisé +
+  légende ajoutés. Le reste (property par property : boutons retour,
+  home/ventes/stock/caisse/plus/rapports/clients/produits mobile,
+  tarifs/mentions légales/confidentialité/CGU marketing, entreprises/
+  utilisateurs/paiements/paramètres admin-web, abonnement/paiements/
+  reçus/sécurité/utilisateurs account-web, responsive mobile
+  account-web) vérifié propre, aucun autre bug visuel trouvé.
 - [x] Revue sécurité ciblée (secrets exposés, XSS, injection SQL, upload
   de fichiers, CORS) : aucun secret codé en dur ; `.env` jamais commité ;
   les deux générateurs de reçus/rapports HTML (account-web, admin-web)
