@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Card, Chip, Dialog, HelperText, IconButton, Menu, Portal, Switch, Text, TextInput, useTheme } from 'react-native-paper';
@@ -16,7 +16,8 @@ import { AppSearchBar } from '@/components/ui/AppSearchBar';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { cancelPurchase, getSupplierAccount, recordSupplierPayment, type SupplierPayment } from '@/features/operations/api';
-import { getSuppliers, getSupplierStats, saveSupplier } from '@/features/products/api';
+import { getSuppliers, getSupplierStats, saveSupplier, SUPPLIER_PAGE_SIZE } from '@/features/products/api';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { supplierSchema, type SupplierInput } from '@/schemas/catalog';
 import type { Supplier } from '@/types/database';
 import { parseDecimal } from '@/utils/number';
@@ -58,17 +59,21 @@ export default function Suppliers() {
   const receiptAction=useReceiptAction();
   const receiptBranding=useReceiptBranding();
 
-  const query = useQuery({ queryKey: ['suppliers', company, store], queryFn: () => getSuppliers(company, store), enabled: !!company && !!store });
+  const debouncedSearch = useDebouncedValue(search);
+  const query = useInfiniteQuery({
+    queryKey: ['suppliers', company, store, debouncedSearch],
+    queryFn: ({ pageParam }) => getSuppliers(company, store, debouncedSearch, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) => lastPage.length === SUPPLIER_PAGE_SIZE ? pages.length : undefined,
+    enabled: !!company && !!store,
+  });
   const stats = useQuery({ queryKey: ['supplier-stats', company, store], queryFn: () => getSupplierStats(company, store), enabled: !!company && !!store });
   const account = useQuery({
     queryKey: ['supplier-account', company, store, selected?.id],
     queryFn: () => getSupplierAccount(company, store, selected!.id),
     enabled: !!company && !!store && !!selected,
   });
-  const shown = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return (query.data ?? []).filter((item) => !term || `${item.name} ${item.email ?? ''} ${item.phone ?? ''}`.toLowerCase().includes(term));
-  }, [query.data, search]);
+  const shown = query.data?.pages.flat() ?? [];
 
   const { control, handleSubmit, reset, formState: { isDirty, isValid } } = useForm<SupplierInput>({
     resolver: zodResolver(supplierSchema),
@@ -120,8 +125,8 @@ export default function Suppliers() {
   const parsedAmount = parseDecimal(amount);
 
   return <AdminPage title="Fournisseurs" action={<AppButton icon="plus" accessibilityLabel="Ajouter un fournisseur" onPress={() => show()}>Ajouter</AppButton>}>
-    <AppSearchBar placeholder="Nom, email ou téléphone" value={search} onChangeText={setSearch} />
-    {!!query.error && <HelperText type="error" visible>{query.error.message}</HelperText>}
+    <AppSearchBar placeholder="Nom, email ou téléphone" value={search} onChangeText={setSearch} loading={search !== debouncedSearch} />
+    {!!query.error && <HelperText type="error" visible>{(query.error as Error).message}</HelperText>}
     {!!stats.error && <HelperText type="error" visible>{stats.error.message}</HelperText>}
     {shown.map((item) => {
       const summary = stats.data?.[item.id];
@@ -152,6 +157,7 @@ export default function Suppliers() {
         </Card.Content>
       </Card>;
     })}
+    {query.hasNextPage && <AppButton mode="outlined" loading={query.isFetchingNextPage} onPress={() => void query.fetchNextPage()}>Charger plus de fournisseurs</AppButton>}
     <AppButton icon="truck-check-outline" onPress={() => router.push('/purchases' as never)}>Nouvel approvisionnement</AppButton>
     {!query.isLoading && !shown.length && <EmptyState icon={search ? 'magnify' : 'truck-plus'} title={search ? 'Aucun résultat' : 'Aucun fournisseur'} message={search ? 'Modifiez votre recherche.' : 'Ajoutez votre premier fournisseur.'} />}
     <Portal>

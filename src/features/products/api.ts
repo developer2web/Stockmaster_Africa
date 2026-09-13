@@ -14,15 +14,24 @@ function fail(error: { message: string } | null) {
 
 const empty = (value?: string) => value?.trim() || null;
 
-export async function getSuppliers(companyId: string, storeId: string): Promise<Supplier[]> {
-  return withOfflineCache(`suppliers:${companyId}:${storeId}`, async () => {
-  const { data, error } = await supabase
+export const SUPPLIER_PAGE_SIZE = 30;
+
+export async function getSuppliers(companyId: string, storeId: string, search = '', page = 0): Promise<Supplier[]> {
+  return withOfflineCache(`suppliers:${companyId}:${storeId}:${search.trim().toLowerCase()}:${page}`, async () => {
+  const start = page * SUPPLIER_PAGE_SIZE;
+  let query = supabase
     .from('suppliers')
     .select('id,company_id,store_id,name,email,phone,address,is_active,created_at')
     .eq('company_id', companyId)
     .eq('store_id', storeId)
     .order('name')
-    .limit(250);
+    .order('id')
+    .range(start, start + SUPPLIER_PAGE_SIZE - 1);
+  if (search.trim()) {
+    const safeSearch = search.trim().replaceAll(',', ' ');
+    query = query.or(`name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%,phone.ilike.%${safeSearch}%`);
+  }
+  const { data, error } = await query;
   fail(error);
   return (data ?? []) as Supplier[];
   }, Array.isArray);

@@ -12,14 +12,16 @@ export type ExpenseRequest={id:string;label:string;amount:number;expense_date:st
 export async function getExpenseRequests(companyId:string,storeId:string){const{data,error}=await supabase.from('expense_requests').select('id,label,amount,expense_date,status,review_note,created_at').eq('company_id',companyId).eq('store_id',storeId).order('created_at',{ascending:false}).limit(100);if(error)throw new Error(error.message);return(data??[]) as ExpenseRequest[]}
 export async function reviewExpenseRequest(id:string,approve:boolean,note?:string){const{data,error}=await supabase.rpc('review_expense_request',{p_request_id:id,p_approve:approve,p_note:note??null});if(error)throw new Error(error.message);return data as string}
 
-export async function getExpenses(companyId: string, storeId: string): Promise<Expense[]> {
-  return withOfflineCache(`expenses:${companyId}:${storeId}`, async () => {
+export async function getExpenses(companyId: string, storeId: string, page = 0): Promise<Expense[]> {
+  return withOfflineCache(`expenses:${companyId}:${storeId}:${page}`, async () => {
+  const start = page * EXPENSE_PAGE_SIZE;
   const { data, error } = await supabase.from('expenses')
     .select('id,company_id,store_id,label,amount,currency_code,secondary_currency_code,secondary_exchange_rate,exchange_rate_effective_at,expense_date,created_at,store:stores(name)')
     .eq('company_id', companyId)
     .eq('store_id', storeId)
     .order('expense_date', { ascending: false })
-    .limit(100);
+    .order('created_at', { ascending: false })
+    .range(start, start + EXPENSE_PAGE_SIZE - 1);
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as Expense[];
   }, Array.isArray);

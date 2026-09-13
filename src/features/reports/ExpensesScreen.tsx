@@ -1,7 +1,7 @@
 import { DateField } from '@/components/forms/DateField';
 import { localDateValue } from '@/utils/calendar';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Card, Dialog, HelperText, Portal, Text } from 'react-native-paper';
@@ -16,7 +16,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { PermissionGuard } from '@/features/auth/PermissionGuard';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { expenseSchema, type ExpenseInput } from '@/schemas/reports';
-import { createExpense, getExpenseRequests, getExpenses, reviewExpenseRequest, type ExpenseRequest } from './expensesApi';
+import { createExpense, EXPENSE_PAGE_SIZE, getExpenseRequests, getExpenses, reviewExpenseRequest, type ExpenseRequest } from './expensesApi';
 import { useOffline } from '@/features/offline/OfflineProvider';
 
 const today = () => localDateValue();
@@ -31,7 +31,14 @@ export default function ExpensesScreen() {
   const [open, setOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [reviewing,setReviewing]=useState<{request:ExpenseRequest;approve:boolean}|null>(null);
-  const list = useQuery({ queryKey: ['expenses', company, store], queryFn: () => getExpenses(company, store), enabled: !!company && !!store });
+  const list = useInfiniteQuery({
+    queryKey: ['expenses', company, store],
+    queryFn: ({ pageParam }) => getExpenses(company, store, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) => lastPage.length === EXPENSE_PAGE_SIZE ? pages.length : undefined,
+    enabled: !!company && !!store,
+  });
+  const expenses = list.data?.pages.flat() ?? [];
   const requests=useQuery({queryKey:['expense-requests',company,store],queryFn:()=>getExpenseRequests(company,store),enabled:!!company&&!!store});
   const { control, handleSubmit, reset } = useForm<ExpenseInput>({ resolver: zodResolver(expenseSchema), defaultValues: { label: '', amount: '', expenseDate: today(), storeId: store || null } });
   const refresh = async () => {
@@ -59,9 +66,10 @@ export default function ExpensesScreen() {
       <AdminPage title="Dépenses" action={canWrite ? <AppButton icon="plus" onPress={() => setOpen(true)}>Ajouter</AppButton> : undefined}>
         <HelperText type="info" visible>Une dépense validée est immuable. Toute correction doit être tracée par une nouvelle opération autorisée.</HelperText>
         {(requests.data??[]).filter(item=>item.status==='pending').map(item=><Card key={item.id} mode="contained"><Card.Title title={`En attente • ${item.label}`} subtitle={`${item.expense_date} • ${formatMoney(Number(item.amount))}`}/>{membership?.role==='company_admin'&&<Card.Actions><AppButton mode="text" textColor="#C92A2A" onPress={()=>setReviewing({request:item,approve:false})}>Refuser</AppButton><AppButton onPress={()=>setReviewing({request:item,approve:true})}>Approuver</AppButton></Card.Actions>}</Card>)}
-        {list.data?.map((expense) => <Card key={expense.id} mode="outlined"><Card.Title title={expense.label} subtitle={`${expense.store?.name ?? 'Boutique'} • ${expense.expense_date}`} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{formatForCurrency(Number(expense.amount), expense.currency_code)}</Text>} /></Card>)}
-        {!list.isLoading && !list.data?.length && <EmptyState icon="cash-minus" title="Aucune dépense" message="Ajoutez les charges pour obtenir un bénéfice net exact." />}
-        {!!list.error && <HelperText type="error" visible>{list.error.message}</HelperText>}
+        {expenses.map((expense) => <Card key={expense.id} mode="outlined"><Card.Title title={expense.label} subtitle={`${expense.store?.name ?? 'Boutique'} • ${expense.expense_date}`} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{formatForCurrency(Number(expense.amount), expense.currency_code)}</Text>} /></Card>)}
+        {!list.isLoading && !expenses.length && <EmptyState icon="cash-minus" title="Aucune dépense" message="Ajoutez les charges pour obtenir un bénéfice net exact." />}
+        {!!list.error && <HelperText type="error" visible>{(list.error as Error).message}</HelperText>}
+        {list.hasNextPage && <AppButton mode="outlined" loading={list.isFetchingNextPage} onPress={() => void list.fetchNextPage()}>Charger plus de dépenses</AppButton>}
         <Portal>
           <Dialog visible={open} onDismiss={() => setOpen(false)}>
             <Dialog.Title>Nouvelle dépense</Dialog.Title>

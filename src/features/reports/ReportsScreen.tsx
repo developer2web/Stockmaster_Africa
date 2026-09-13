@@ -60,10 +60,13 @@ function Ranking({ title, rows, valueKey = 'gross_profit' }: { title: string; ro
 export default function ReportsScreen() {
   const { formatMoney: money, primaryCode } = useCurrency();
   const reportBranding=useReceiptBranding();
-  const { membership, session } = useAuth();
+  const { membership, session, stores } = useAuth();
   const employee = membership?.role === 'employee';
   const { canUseFeature, canViewFeature } = useSubscription();
   const advancedReports = canViewFeature('advanced_reports');
+  const consolidatedReports = canViewFeature('consolidated_reports');
+  const canConsolidate = !employee && stores.length > 1;
+  const [allStores, setAllStores] = useState(false);
   const theme = useTheme();
   const company = membership?.companyId ?? '';
   const initial = range('month');
@@ -72,6 +75,7 @@ export default function ReportsScreen() {
   const [startDate, setStartDate] = useState(initial.start);
   const [endDate, setEndDate] = useState(initial.end);
   const storeId = membership?.storeId ?? null;
+  const effectiveStoreId = allStores && canConsolidate && consolidatedReports ? null : storeId;
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [productId, setProductId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -80,11 +84,11 @@ export default function ReportsScreen() {
   const [exportError, setExportError] = useState('');
   const dates = useMemo(() => preset === 'custom' ? { start: startDate, end: endDate } : range(preset), [preset, startDate, endDate]);
   const validDates = /^\d{4}-\d{2}-\d{2}$/.test(dates.start) && /^\d{4}-\d{2}-\d{2}$/.test(dates.end) && dates.start <= dates.end;
-  const filters = useQuery({ queryKey: ['report-filters', company, storeId], queryFn: () => getReportFilters(storeId!), enabled: !!company && !!storeId });
-  const report = useQuery({ queryKey: ['business-report', company, dates.start, dates.end, storeId, employeeId, productId], queryFn: () => getBusinessReport({ startDate: dates.start, endDate: dates.end, storeId, employeeId, productId }), enabled: !!company && validDates });
+  const filters = useQuery({ queryKey: ['report-filters', company, effectiveStoreId], queryFn: () => getReportFilters(effectiveStoreId, company), enabled: !!company });
+  const report = useQuery({ queryKey: ['business-report', company, dates.start, dates.end, effectiveStoreId, employeeId, productId], queryFn: () => getBusinessReport({ startDate: dates.start, endDate: dates.end, storeId: effectiveStoreId, employeeId, productId }), enabled: !!company && validDates });
   const canReadCash = membership?.role === 'company_admin' || membership?.permissions.some((permission) => ['cash_transactions.read', 'expenses.read'].includes(permission));
-  const cash = useQuery({ queryKey: ['report-cash-balance', company, storeId], queryFn: () => getCashBalance(company,storeId), enabled: !!company && !employee && canReadCash });
-  const details = useQuery({ queryKey: ['report-financial-details', company, dates.start, dates.end, storeId], queryFn: () => getFinancialDetails(company,dates.start,dates.end,storeId), enabled: !!company && !employee && validDates });
+  const cash = useQuery({ queryKey: ['report-cash-balance', company, effectiveStoreId], queryFn: () => getCashBalance(company,effectiveStoreId), enabled: !!company && !employee && canReadCash });
+  const details = useQuery({ queryKey: ['report-financial-details', company, dates.start, dates.end, effectiveStoreId], queryFn: () => getFinancialDetails(company,dates.start,dates.end,effectiveStoreId), enabled: !!company && !employee && validDates });
   const data = report.data;
   const cashBalance = cash.data ?? 0;
   const periodLabel = `${dates.start} au ${dates.end}`;
@@ -105,7 +109,7 @@ export default function ReportsScreen() {
       const preparedBy = membership?.role === 'company_admin' ? 'Administrateur' : String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
       const selectedEmployee=filters.data?.employees.find(item=>item.id===employeeId)?.name;
       const selectedProduct=filters.data?.products.find(item=>item.id===productId)?.name;
-      const scopeLabel=[membership?.storeName??'Toutes les boutiques',selectedEmployee&&`Employé : ${selectedEmployee}`,selectedProduct&&`Produit : ${selectedProduct}`].filter(Boolean).join(' • ');
+      const scopeLabel=[effectiveStoreId===null?'Toutes les boutiques':(membership?.storeName??'Boutique'),selectedEmployee&&`Employé : ${selectedEmployee}`,selectedProduct&&`Produit : ${selectedProduct}`].filter(Boolean).join(' • ');
       const context = { report: data, companyName: reportBranding.company, storeName:reportBranding.store, currencyCode: primaryCode, periodLabel, cashBalance, details: details.data ?? { sales: [], expenses: [], cash: [] }, preparedBy, scopeLabel, address:reportBranding.address,phone:reportBranding.phone,email:reportBranding.email,logoUrl:reportBranding.logoUrl,footer:reportBranding.footer,accentColor:reportBranding.accentColor };
       await exportFinancialPdf(context);
     } catch (error) {
@@ -152,6 +156,11 @@ export default function ReportsScreen() {
             {preset === 'custom' && <View style={styles.grid}><View style={styles.field}><DateField label="Date de début" value={startDate} onChange={setStartDate} maxDate={endDate} /></View><View style={styles.field}><DateField label="Date de fin" value={endDate} onChange={setEndDate} minDate={startDate} /></View></View>}
             {!validDates && <HelperText type="error" visible>La date de fin doit être égale ou postérieure à la date de début.</HelperText>}
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Du {dates.start} au {dates.end}</Text>
+            {canConsolidate && consolidatedReports && <View style={styles.chips}>
+              <Chip selected={!allStores} accessibilityState={{ selected: !allStores }} icon="store-outline" onPress={() => setAllStores(false)}>{membership?.storeName ?? 'Ma boutique'}</Chip>
+              <Chip selected={allStores} accessibilityState={{ selected: allStores }} icon="store-search-outline" onPress={() => setAllStores(true)}>Toutes les boutiques ({stores.length})</Chip>
+            </View>}
+            {canConsolidate && !consolidatedReports && <FeatureGate feature="consolidated_reports" label="Rapport consolidé de toutes vos boutiques" />}
             {advancedReports && <>
               <ReportDisclosure label={`Filtres avancés${activeFilters.length ? ` (${activeFilters.length})` : ''}`} expanded={filtersOpen} onPress={() => setFiltersOpen(open => !open)} />
               {activeFilters.length > 0 && <View style={styles.filters}>

@@ -19,6 +19,7 @@ type User = { membership_id: string; email: string; full_name: string; company_n
 type Payment = { id: string; company_name: string; client_email: string; plan_name: string; amount: number; currency: string; provider: string; provider_reference: string | null; proof_path: string | null; status: string; created_at: string; failure_reason: string | null; archived_at: string | null; archive_reason: string | null };
 type Promotion = { id: string; name: string; code: string | null; promotion_type: string; value: number; expires_at: string; is_active: boolean };
 type Ticket = { id: string; subject: string; description: string; priority: string; status: string; resolution: string | null; created_at: string; company: { name: string } | null };
+type DeletionRequest = { id: string; user_id: string; full_name: string; email: string; reason: string | null; status: string; requested_at: string; processed_at: string | null; processed_by_name: string | null };
 type Audit = { id: string; action: string; entity_type: string; created_at: string; company: { name: string } | null; actor: { full_name: string } | null };
 type ErrorEvent = { id: string; severity: 'warning'|'error'|'fatal'; code: string; message: string; context: Record<string,unknown>; platform: string|null; app_version: string|null; created_at: string; resolved_at: string|null; resolution_note: string|null; company: { name:string }|null; user: { full_name:string }|null };
 type PlatformWarning = { warning_key:string; warning_type:string; severity:'info'|'warning'|'critical'; title:string; detail:string; company_ids:string[]; company_names:string[]; occurrence_count:number; detected_at:string; status:'open'|'ignored'|'resolved'; note:string|null };
@@ -72,12 +73,13 @@ function App() {
   const [unavailableViews, setUnavailableViews] = useState<View[]>([]);
   const [planCatalog, setPlanCatalog] = useState<CatalogPlan[]>([]);
   const [errors, setErrors] = useState<ErrorEvent[]>([]); const [warnings, setWarnings] = useState<PlatformWarning[]>([]); const [emailSummary, setEmailSummary] = useState<EmailDeliverySummary[]>([]);
+  const [deletionRequests, setDeletionRequests] = useState<DeletionRequest[]>([]);
   useEffect(() => { supabase.auth.getSession().then(async ({ data }) => { if (data.session) { const current = await getContext().catch(() => null); if (current?.role === 'super_admin') setContext(current); } setOpening(false); }); }, []);
   const load = useCallback(async () => {
     if (!context) return;
     setBusy(true); setError('');
     try {
-      const [s, c, u, p, pr, t, a, b, subscriptions, e, w, em, catalog] = await Promise.all([
+      const [s, c, u, p, pr, t, a, b, subscriptions, e, w, em, catalog, dr] = await Promise.all([
         supabase.rpc('super_admin_dashboard'),
         supabase.rpc('super_admin_companies'),
         supabase.rpc('super_admin_users'),
@@ -91,6 +93,7 @@ function App() {
         supabase.rpc('super_admin_platform_warnings'),
         supabase.rpc('super_admin_email_delivery_summary'),
         supabase.from('plans').select('code,name').eq('is_active', true).order('monthly_price'),
+        supabase.rpc('super_admin_account_deletion_requests'),
       ]);
       for (const result of [s, c, u, p, subscriptions, catalog, b]) if (result.error) throw result.error;
       const latestByCompany = new Map<string, SubscriptionLifecycle>();
@@ -114,7 +117,8 @@ function App() {
       if (!e.error) setErrors((e.data ?? []) as unknown as ErrorEvent[]);
       if (!w.error) setWarnings((w.data ?? []) as PlatformWarning[]);
       if (!em.error) setEmailSummary((em.data ?? []) as EmailDeliverySummary[]);
-      const failures: [View, unknown][] = [['Promotions', pr.error], ['Support', t.error], ['Activité', a.error], ['Erreurs', e.error], ['Avertissements', w.error || em.error]];
+      if (!dr.error) setDeletionRequests((dr.data ?? []) as DeletionRequest[]);
+      const failures: [View, unknown][] = [['Promotions', pr.error], ['Support', t.error], ['Activité', a.error], ['Erreurs', e.error], ['Avertissements', w.error || em.error], ['Suppressions', dr.error]];
       const missingSections = failures.filter(([, failure]) => failure).map(([section]) => section);
       setUnavailableViews(missingSections);
       if(missingSections.length) setError(`Chargement incomplet : ${missingSections.join(', ')}. Vérifiez les migrations du serveur puis actualisez.`);
@@ -133,6 +137,7 @@ function App() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_transactions' }, () => { void load(); })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'app_error_events' }, () => { setNotice('Une nouvelle erreur applicative a été enregistrée.'); void load(); })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'account_deletion_requests' }, () => { setNotice('Nouvelle demande de suppression de compte.'); void load(); })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [context, load]);
@@ -148,6 +153,7 @@ function App() {
   const counts: Partial<Record<View, number>> = {};
   if (stats && !unavailableViews.includes('Paiements')) counts.Paiements = payments.filter(payment => !payment.archived_at && ['pending', 'processing'].includes(payment.status)).length;
   if (stats && !unavailableViews.includes('Support')) counts.Support = tickets.filter(ticket => ['open', 'in_progress'].includes(ticket.status)).length;
+  if (stats && !unavailableViews.includes('Suppressions')) counts.Suppressions = deletionRequests.filter(request => ['pending', 'processing'].includes(request.status)).length;
   if (stats && !unavailableViews.includes('Erreurs')) counts.Erreurs = errors.filter(item => !item.resolved_at).length;
   if (stats && !unavailableViews.includes('Avertissements')) counts.Avertissements = warnings.filter(item => item.status === 'open').length;
   const navigation = { view, onNavigate: changeView, onLogout: () => void logout(), counts };
@@ -165,6 +171,7 @@ function App() {
         {view === 'Abonnements' && <Subscriptions companies={companies} stats={stats} run={run} configureTrials={configureTrials}/>}
         {view === 'Paiements' && <Payments data={shownPayments} search={search} setSearch={setSearch} status={status} setStatus={setStatus} run={run} proof={proof}/>}
         {view === 'Promotions' && <Promotions data={promotions} run={run}/>}
+        {view === 'Suppressions' && <AccountDeletions data={deletionRequests} run={run}/>}
         {view === 'Support' && <Support data={tickets} run={run}/>}
         {view === 'Erreurs' && <ErrorsPage data={errors} run={run}/>}
         {view === 'Avertissements' && <WarningsPage data={warnings} emailSummary={emailSummary} run={run}/>}
@@ -401,6 +408,46 @@ function Promotions({ data, run }: { data: Promotion[]; run: Run }) { const [ope
 
 function Support({ data, run }: { data: Ticket[]; run: Run }) { const [query, setQuery] = useState(''); const [ticketStatus, setTicketStatus] = useState('all'); const [priority, setPriority] = useState('all'); const filtered = data.filter(ticket => (!query.trim() || `${ticket.subject} ${ticket.company?.name ?? ''}`.toLowerCase().includes(query.toLowerCase().trim())) && (ticketStatus === 'all' || ticket.status === ticketStatus) && (priority === 'all' || ticket.priority === priority)); return <><Title>Support et tickets</Title><Toolbar search={query} setSearch={setQuery}><select value={ticketStatus} onChange={event => setTicketStatus(event.target.value)}><option value="all">Tous les statuts</option><option value="open">Ouverts</option><option value="in_progress">En traitement</option><option value="resolved">Résolus</option><option value="closed">Fermés</option></select><select value={priority} onChange={event => setPriority(event.target.value)}><option value="all">Toutes les priorités</option><option value="low">Faible</option><option value="medium">Moyenne</option><option value="high">Élevée</option><option value="urgent">Urgente</option></select>{(query || ticketStatus !== 'all' || priority !== 'all') && <button className="resetFilters" onClick={() => { setQuery(''); setTicketStatus('all'); setPriority('all'); }}>Réinitialiser</button>}</Toolbar><Table heads={['ID Ticket', 'Entreprise', 'Sujet', 'Priorité', 'Statut', 'Date', 'Action']}>{filtered.map(ticket => <tr key={ticket.id}><td>#{ticket.id.slice(0, 5)}</td><td>{ticket.company?.name ?? '—'}</td><td><b>{ticket.subject}</b></td><td><Badge ok={ticket.priority === 'low'}>{ticket.priority}</Badge></td><td>{ticket.status}</td><td>{day(ticket.created_at)}</td><td><ActionMenu><button className="detailsBtn" onClick={() => { const response = prompt('Réponse :', ticket.resolution ?? ''); if (response !== null) void run(() => supabase.rpc('update_support_ticket', { p_ticket_id: ticket.id, p_status: 'resolved', p_resolution: response }), 'Ticket résolu.'); }}>Répondre et résoudre</button></ActionMenu></td></tr>)}</Table></>; }
 
+function AccountDeletions({ data, run }: { data: DeletionRequest[]; run: Run }) {
+  const [query, setQuery] = useState(''); const [requestStatus, setRequestStatus] = useState('all');
+  const filtered = data.filter(request => (!query.trim() || `${request.full_name} ${request.email}`.toLowerCase().includes(query.toLowerCase().trim())) && (requestStatus === 'all' || request.status === requestStatus));
+  function updateStatus(request: DeletionRequest, nextStatus: string) {
+    if (nextStatus === 'rejected' && !window.confirm(`Refuser la demande de suppression de ${request.full_name || request.email} ?`)) return;
+    if (nextStatus === 'completed' && !window.confirm(`Confirmer que le compte de ${request.full_name || request.email} a bien été traité selon votre politique de conservation avant de marquer cette demande comme terminée ?`)) return;
+    void run(() => supabase.rpc('super_admin_update_account_deletion_request', { p_request_id: request.id, p_status: nextStatus }), 'Demande mise à jour.');
+  }
+  return <><Title description={pageDescriptions.Suppressions}>Suppressions de compte</Title>
+    <div className="warningBox">Cet écran suit et confirme le traitement des demandes ; il ne supprime ni n’anonymise aucune donnée automatiquement. Appliquez votre politique de conservation avant de marquer une demande comme terminée.</div>
+    <Toolbar search={query} setSearch={setQuery}>
+      <select value={requestStatus} onChange={event => setRequestStatus(event.target.value)}>
+        <option value="all">Tous les statuts</option>
+        <option value="pending">En attente</option>
+        <option value="processing">En traitement</option>
+        <option value="completed">Terminées</option>
+        <option value="rejected">Refusées</option>
+        <option value="cancelled">Annulées</option>
+      </select>
+      {(query || requestStatus !== 'all') && <button className="resetFilters" onClick={() => { setQuery(''); setRequestStatus('all'); }}>Réinitialiser</button>}
+    </Toolbar>
+    <Table heads={['Client', 'Email', 'Motif', 'Demandée le', 'Statut', 'Traitée par', 'Action']}>
+      {filtered.map(request => <tr key={request.id}>
+        <td><b>{request.full_name || '—'}</b></td>
+        <td>{request.email}</td>
+        <td>{request.reason || '—'}</td>
+        <td>{day(request.requested_at)}</td>
+        <td><Badge ok={request.status === 'completed'}>{request.status}</Badge></td>
+        <td>{request.processed_by_name || '—'}</td>
+        <td><ActionMenu>
+          {request.status !== 'processing' && request.status !== 'completed' && <button className="detailsBtn" onClick={() => updateStatus(request, 'processing')}>Prendre en charge</button>}
+          {request.status !== 'completed' && <button className="successBtn" onClick={() => updateStatus(request, 'completed')}>Marquer terminée</button>}
+          {request.status !== 'rejected' && request.status !== 'completed' && <button className="dangerBtn" onClick={() => updateStatus(request, 'rejected')}>Refuser</button>}
+        </ActionMenu></td>
+      </tr>)}
+    </Table>
+    {!filtered.length && <div className="monitoringEmpty"><i>✓</i><b>Aucune demande</b><span>Aucune demande de suppression ne correspond à ces filtres.</span></div>}
+  </>;
+}
+
 function ErrorsPage({ data, run }: { data: ErrorEvent[]; run: Run }) {
   const [query,setQuery]=useState('');const[severity,setSeverity]=useState('all');const[state,setState]=useState('open');const[period,setPeriod]=useState('30');
   const [resolvingAll,setResolvingAll]=useState(false);
@@ -427,7 +474,28 @@ function WarningsPage({ data,emailSummary,run }: { data:PlatformWarning[];emailS
   const review=(item:PlatformWarning,status:'open'|'ignored'|'resolved')=>{const note=status==='open'?null:prompt(status==='ignored'?'Pourquoi ignorer cet avertissement ?':'Comment cet avertissement a-t-il été résolu ?',item.note??'');if(status!=='open'&&note===null)return;void run(()=>supabase.rpc('review_platform_warning',{p_warning_key:item.warning_key,p_status:status,p_note:note}),status==='resolved'?'Avertissement résolu.':status==='ignored'?'Avertissement ignoré.':'Avertissement rouvert.');};
   return <><Title description={pageDescriptions.Avertissements}>Avertissements et doublons</Title><div className="pageSummary"><article><i>⚠</i><div><span>À examiner</span><b>{open.length}</b></div></article><article><i>!</i><div><span>Critiques</span><b>{critical.length}</b></div></article><article><i>✉</i><div><span>Emails acceptés par Resend</span><b>{mailTotal('sent')}</b></div></article><article><i>…</i><div><span>Emails en attente/échec</span><b>{mailTotal('pending')+mailTotal('failed')}</b></div></article></div>{configurationMissing?<EmailConfiguration missing/>:lastMailError&&<div className="alert danger">Email : {lastMailError}</div>}<div className="warningBox">Une similarité commerciale déclenche une vérification, pas un blocage automatique. Les identifiants techniques et références de paiement identiques restent bloqués directement par la base.</div><Toolbar search={query} setSearch={setQuery}><select value={severity} onChange={event=>setSeverity(event.target.value)}><option value="all">Toutes les gravités</option><option value="critical">Critiques</option><option value="warning">À vérifier</option><option value="info">Informations</option></select><select value={state} onChange={event=>setState(event.target.value)}><option value="open">À examiner</option><option value="ignored">Ignorés</option><option value="resolved">Résolus</option><option value="all">Tous</option></select>{(query||severity!=='all'||state!=='open')&&<button className="resetFilters" onClick={()=>{setQuery('');setSeverity('all');setState('open')}}>Réinitialiser</button>}</Toolbar><div className="warningGrid">{filtered.map(item=><article className={`warningCard ${item.severity}`} key={item.warning_key}><header><span className={`incidentSeverity ${item.severity}`}>{item.severity==='critical'?'Critique':item.severity==='warning'?'À vérifier':'Information'}</span><small>{item.occurrence_count} correspondance(s)</small></header><h2>{item.title}</h2><p>{item.detail}</p>{item.company_names.length>0&&<div className="warningCompanies">{item.company_names.map(name=><span key={name}>{name}</span>)}</div>}{item.note&&<blockquote>{item.note}</blockquote>}<footer><time>{new Date(item.detected_at).toLocaleString('fr-FR')}</time><div>{item.status!=='open'&&<button className="detailsBtn" onClick={()=>review(item,'open')}>Rouvrir</button>}{item.status==='open'&&<button className="detailsBtn" onClick={()=>review(item,'ignored')}>Ignorer</button>}{item.status==='open'&&<button className="successBtn" onClick={()=>review(item,'resolved')}>Résoudre</button>}</div></footer></article>)}</div>{!filtered.length&&<div className="monitoringEmpty"><i>✓</i><b>Aucun avertissement correspondant</b><span>Aucune vérification manuelle n’est nécessaire pour ces filtres.</span></div>}</>;
 }
-function Activity({ data }: { data: Audit[] }) { const [query, setQuery] = useState(''); const [period, setPeriod] = useState('30'); const [scope, setScope] = useState('all'); const companies = [...new Set(data.map(item => item.company?.name).filter((name): name is string => Boolean(name)))].sort(); const filtered = data.filter(item => { const matchesQuery = !query.trim() || `${item.action} ${item.actor?.full_name ?? ''} ${item.company?.name ?? ''}`.toLowerCase().includes(query.toLowerCase().trim()); const matchesCompany = scope === 'all' || (scope === 'platform' ? !item.company?.name : item.company?.name === scope); const matchesPeriod = period === 'all' || Date.now() - new Date(item.created_at).getTime() <= Number(period) * 86400000; return matchesQuery && matchesCompany && matchesPeriod; }); return <><Title description={pageDescriptions.Activité}>Journal d’activité</Title><Toolbar search={query} setSearch={setQuery}><select value={period} onChange={event => setPeriod(event.target.value)}><option value="7">7 derniers jours</option><option value="30">30 derniers jours</option><option value="90">90 derniers jours</option><option value="all">Toute la période</option></select><select value={scope} onChange={event => setScope(event.target.value)}><option value="all">Toutes les sources</option><option value="platform">Plateforme</option>{companies.map(company => <option value={company} key={company}>{company}</option>)}</select>{(query || period !== '30' || scope !== 'all') && <button className="resetFilters" onClick={() => { setQuery(''); setPeriod('30'); setScope('all'); }}>Réinitialiser</button>}</Toolbar><div className="activityCount"><b>{filtered.length}</b> événement{filtered.length > 1 ? 's' : ''} trouvé{filtered.length > 1 ? 's' : ''}</div><section className="timeline">{filtered.length ? filtered.map(item => <article key={item.id}><time>{new Date(item.created_at).toLocaleString('fr-FR')}</time><i/><div><b>{item.action.replaceAll('_', ' ')}</b><span>{item.company?.name ?? 'Plateforme'} · Par {item.actor?.full_name ?? 'le système'}</span></div></article>) : <p className="empty">Aucune activité ne correspond aux filtres.</p>}</section></>; }
+const ACTIVITY_PAGE_SIZE = 150;
+function Activity({ data }: { data: Audit[] }) {
+  const [rows, setRows] = useState(data);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState('');
+  const [exhausted, setExhausted] = useState(data.length < ACTIVITY_PAGE_SIZE);
+  const [query, setQuery] = useState(''); const [period, setPeriod] = useState('30'); const [scope, setScope] = useState('all');
+  async function loadMore() {
+    setLoadingMore(true); setLoadMoreError('');
+    try {
+      const { data: more, error } = await supabase.from('audit_logs').select('id,action,entity_type,created_at,company:companies(name),actor:profiles!audit_logs_actor_id_fkey(full_name)').order('created_at', { ascending: false }).range(rows.length, rows.length + ACTIVITY_PAGE_SIZE - 1);
+      if (error) throw error;
+      const page = (more ?? []) as unknown as Audit[];
+      setRows(current => [...current, ...page]);
+      if (page.length < ACTIVITY_PAGE_SIZE) setExhausted(true);
+    } catch (caught) { setLoadMoreError(errorMessage(caught)); }
+    finally { setLoadingMore(false); }
+  }
+  const companies = [...new Set(rows.map(item => item.company?.name).filter((name): name is string => Boolean(name)))].sort();
+  const filtered = rows.filter(item => { const matchesQuery = !query.trim() || `${item.action} ${item.actor?.full_name ?? ''} ${item.company?.name ?? ''}`.toLowerCase().includes(query.toLowerCase().trim()); const matchesCompany = scope === 'all' || (scope === 'platform' ? !item.company?.name : item.company?.name === scope); const matchesPeriod = period === 'all' || Date.now() - new Date(item.created_at).getTime() <= Number(period) * 86400000; return matchesQuery && matchesCompany && matchesPeriod; });
+  return <><Title description={pageDescriptions.Activité}>Journal d’activité</Title><Toolbar search={query} setSearch={setQuery}><select value={period} onChange={event => setPeriod(event.target.value)}><option value="7">7 derniers jours</option><option value="30">30 derniers jours</option><option value="90">90 derniers jours</option><option value="all">Toute la période</option></select><select value={scope} onChange={event => setScope(event.target.value)}><option value="all">Toutes les sources</option><option value="platform">Plateforme</option>{companies.map(company => <option value={company} key={company}>{company}</option>)}</select>{(query || period !== '30' || scope !== 'all') && <button className="resetFilters" onClick={() => { setQuery(''); setPeriod('30'); setScope('all'); }}>Réinitialiser</button>}</Toolbar><div className="activityCount"><b>{filtered.length}</b> événement{filtered.length > 1 ? 's' : ''} trouvé{filtered.length > 1 ? 's' : ''} sur {rows.length} chargé{rows.length > 1 ? 's' : ''}</div><section className="timeline">{filtered.length ? filtered.map(item => <article key={item.id}><time>{new Date(item.created_at).toLocaleString('fr-FR')}</time><i/><div><b>{item.action.replaceAll('_', ' ')}</b><span>{item.company?.name ?? 'Plateforme'} · Par {item.actor?.full_name ?? 'le système'}</span></div></article>) : <p className="empty">Aucune activité ne correspond aux filtres.</p>}</section>{!!loadMoreError && <div className="alert danger" role="alert">{loadMoreError}</div>}{!exhausted && <button className="secondaryButton" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? 'Chargement…' : 'Charger les événements plus anciens'}</button>}</>;
+}
 
 function SettingsPage({ value, setValue, run, initialTab }: { value: Settings; setValue: (value: Settings) => void; run: Run; initialTab: SettingsTab }) {
   const [tab, setTab] = useState<SettingsTab>(initialTab);
@@ -637,7 +705,7 @@ function SettingsPage({ value, setValue, run, initialTab }: { value: Settings; s
   </>;
 }
 function CompanyDetails({ company, close, run }: { company: Company; close: () => void; run: Run }) { const { planName } = usePlanCatalog(); return <div className="drawerBack" onMouseDown={event => event.target === event.currentTarget && close()}><section className="drawer companyModal"><div className="modalHead"><div><span className="companyIcon">E</span><div><small>FICHE ENTREPRISE</small><h1>{company.name}</h1></div></div><button className="close" onClick={close} aria-label="Fermer">×</button></div><Badge ok={company.is_active}>{company.is_active ? 'Entreprise active' : 'Entreprise suspendue'}</Badge><div className="drawerKpis"><Kpi label="Plan actuel" value={planName(company.plan_code)} note={subscriptionStatusLabel(company.subscription_status)}/><Kpi label="Expiration" value={company.subscription_expires_at ? day(company.subscription_expires_at) : '—'} note={company.subscription_expires_at ? `${remainingDays(company.subscription_expires_at)} jours restants` : 'Aucune échéance'}/><Kpi label="Boutiques" value={company.store_count} note="Points de vente"/><Kpi label="Utilisateurs" value={company.user_count} note="Comptes liés"/></div><section className="companyInfo"><h2>Informations</h2><dl><div><dt>Identifiant</dt><dd>{company.slug ?? company.id}</dd></div><div><dt>Devise</dt><dd>{company.currency_code}</dd></div><div><dt>Statut abonnement</dt><dd>{subscriptionStatusLabel(company.subscription_status)}</dd></div><div><dt>Début du forfait</dt><dd>{company.subscription_starts_at ? day(company.subscription_starts_at) : '—'}</dd></div><div><dt>Expiration actuelle</dt><dd>{company.subscription_expires_at ? day(company.subscription_expires_at) : '—'}</dd></div><div><dt>Fin de l’essai</dt><dd>{company.trial_ends_at ? day(company.trial_ends_at) : '—'}</dd></div><div><dt>Ventes enregistrées</dt><dd>{company.sale_count} · {money(company.revenue, company.currency_code)}</dd></div></dl></section><div className="modalActions"><button className="detailsBtn" onClick={close}>Fermer</button><button className={company.is_active ? 'dangerBtn' : 'successBtn'} onClick={() => void toggleCompanyAccess(company, run)}>{company.is_active ? 'Suspendre l’entreprise' : 'Réactiver l’entreprise'}</button></div></section></div>; }
-function statusLabel(value:string) { return ({ active:'Actif',succeeded:'Actif',processing:'En attente',pending:'En attente',trialing:'En attente',expired:'Expiré',failed:'Expiré',inactive:'Inactif',suspended:'Inactif',open:'En attente',in_progress:'En attente',resolved:'Actif',closed:'Inactif' } as Record<string,string>)[value.toLowerCase()] ?? value; }
+function statusLabel(value:string) { return ({ active:'Actif',succeeded:'Actif',processing:'En attente',pending:'En attente',trialing:'En attente',expired:'Expiré',failed:'Expiré',inactive:'Inactif',suspended:'Inactif',open:'En attente',in_progress:'En attente',resolved:'Actif',closed:'Inactif',completed:'Terminée',rejected:'Refusée',cancelled:'Annulée' } as Record<string,string>)[value.toLowerCase()] ?? value; }
 function Badge({ ok, children }: { ok: boolean; children: React.ReactNode }) { const value=typeof children==='string'?children:'';const pending=['processing','pending','trialing','open','in_progress'].includes(value.toLowerCase());return <span className={`badge ${pending?'pending':ok?'ok':'bad'}`}>{typeof children==='string'?statusLabel(children):children}</span>; }
 function ActionMenu({children}:{children:React.ReactNode}) {
   const [open, setOpen] = useState(false);
