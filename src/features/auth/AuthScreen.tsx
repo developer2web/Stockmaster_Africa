@@ -7,6 +7,11 @@ export function AuthScreen({ title, subtitle, children }: PropsWithChildren<{ ti
   const theme = useTheme();
   const { width, height } = useWindowDimensions();
   const compact = width < 400 || height < 700;
+  // A narrow phone is not necessarily short: only drop centering (top-align
+  // instead) when there truly isn't the height to spare, otherwise a normal
+  // tall phone screen (e.g. 390×844) ends up pinned to the top with dead
+  // space below, purely because it is also narrow.
+  const shortScreen = height < 700;
   const [drift] = useState(() => new Animated.Value(0));
   const [reveal] = useState(() => new Animated.Value(0));
 
@@ -32,7 +37,7 @@ export function AuthScreen({ title, subtitle, children }: PropsWithChildren<{ ti
         <View style={styles.gridLineOne} />
         <View style={styles.gridLineTwo} />
       </View>
-      <ScrollView contentContainerStyle={[styles.page, compact && styles.compactPage]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.page, compact && styles.compactPage, shortScreen && styles.shortPage]} keyboardShouldPersistTaps="handled">
         <View style={[styles.brand, compact && styles.compactBrand]}>
           <Image source={require('../../../assets/images/stockmaster-icon.png')} style={[styles.logoMark, compact && styles.compactLogoMark]} contentFit="cover" transition={180} />
           <Text variant={compact ? 'headlineLarge' : 'displaySmall'} style={styles.logo}>StockMaster</Text>
@@ -54,7 +59,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   backdrop: { position: 'absolute', inset: 0, overflow: 'hidden' },
   page: { flexGrow: 1, justifyContent: 'center', padding: 24, gap: 30, minHeight: Platform.OS === 'web' ? 720 : undefined },
-  compactPage: { justifyContent: 'flex-start', padding: 12, paddingVertical: 18, gap: 16, minHeight: undefined },
+  compactPage: { padding: 12, paddingVertical: 18, gap: 16 },
+  // Only a genuinely short viewport needs top-alignment to avoid clipping;
+  // a merely narrow one should still center like the default page.
+  shortPage: { justifyContent: 'flex-start', minHeight: undefined },
   brand: { alignItems: 'center', gap: 8 },
   compactBrand: { gap: 4 },
   logoMark: { width: 70, height: 70, borderRadius: 20, boxShadow: '0 8px 20px rgba(24,199,149,0.45)' },

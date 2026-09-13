@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as Linking from 'expo-linking';
 import { Link, router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useForm } from 'react-hook-form';
 import { Card, Checkbox, HelperText, Icon, Text } from 'react-native-paper';
 
@@ -127,11 +127,8 @@ export default function RegisterScreen() {
 
   return (
     <AuthScreen title="Créer votre compte" subtitle="Étape 1 sur 2 · Votre adresse email devra être confirmée.">
-      <Card mode="contained" style={{ backgroundColor: '#E1F1F2' }}><Card.Content style={{ gap: 6 }}><Text variant="titleMedium" style={{ fontWeight: '800', color: '#084B50' }}>Commencez simplement</Text><Text>Renseignez les champs marqués * . Après confirmation de votre email, vous ajouterez votre entreprise et votre boutique.</Text></Card.Content></Card>
-      <Card mode="outlined"><Card.Content style={{gap:6}}><Text variant="titleMedium">Confirmation par email</Text><Text>Nous vous enverrons un lien sécurisé. Les conditions des offres disponibles seront indiquées avant votre choix.</Text></Card.Content></Card>
-      <Card mode="outlined"><Card.Content style={{gap:6}}><Text variant="titleMedium">Conditions d’utilisation</Text><Text variant="bodySmall">En créant votre compte, vous acceptez les conditions d’utilisation de StockMaster et la politique de confidentialité. Vous confirmez être autorisé à engager votre entreprise.</Text><Text variant="bodySmall">Lire les documents : <Link href="/legal/terms">Conditions d’utilisation</Link> et <Link href="/legal/privacy">Politique de confidentialité</Link>.</Text></Card.Content></Card>
+      <Card mode="contained" style={{ backgroundColor: '#E1F1F2' }}><Card.Content style={{ gap: 6 }}><Text variant="titleMedium" style={{ fontWeight: '800', color: '#084B50' }}>Commencez simplement</Text><Text>Renseignez les champs marqués *, confirmez votre email, puis ajoutez votre entreprise et votre boutique.</Text></Card.Content></Card>
       {!!error && <HelperText type="error" visible>{error}</HelperText>}
-      <Text variant="labelLarge" style={{ color: '#084B50', fontWeight: '800' }}>Informations obligatoires *</Text>
       <FormField control={control} name="fullName" label="Nom complet *" />
       <FormField
         control={control}
@@ -141,7 +138,7 @@ export default function RegisterScreen() {
         keyboardType="email-address"
       />
       <FormField control={control} name="password" label="Mot de passe" passwordToggle />
-      <Text variant="bodySmall">10 caractères minimum : majuscule, minuscule, chiffre et caractère spécial.</Text>
+      <HelperText type="info" visible style={styles.passwordHint}>10 caractères minimum : majuscule, minuscule, chiffre et caractère spécial.</HelperText>
       <FormField
         control={control}
         name="confirmPassword"
@@ -151,7 +148,7 @@ export default function RegisterScreen() {
       <View style={{flexDirection:'row',alignItems:'flex-start',gap:4}}>
         <Checkbox status={acceptedLegal?'checked':'unchecked'} onPress={()=>setAcceptedLegal(value=>!value)} />
         <Text variant="bodySmall" style={{flex:1,paddingTop:8}}>
-          J’accepte les <Link href="/legal/terms">conditions d’utilisation</Link> et je confirme avoir lu la <Link href="/legal/privacy">politique de confidentialité</Link>.
+          J’accepte les <Link href="/legal/terms" style={styles.legalLink}>conditions d’utilisation</Link> et je confirme avoir lu la <Link href="/legal/privacy" style={styles.legalLink}>politique de confidentialité</Link>.
         </Text>
       </View>
       <AppButton onPress={submit} loading={isSubmitting} disabled={isSubmitting||!acceptedLegal}>
@@ -163,3 +160,8 @@ export default function RegisterScreen() {
     </AuthScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  passwordHint: { marginTop: -8 },
+  legalLink: { color: '#1A73E8', fontWeight: '700', textDecorationLine: 'underline' },
+});

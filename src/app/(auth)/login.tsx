@@ -21,10 +21,12 @@ export default function LoginScreen() {
 
   if(mode==='choice')return <AuthScreen title="Choisir votre espace" subtitle="Connectez-vous selon votre rôle.">
     {!!notice && <HelperText type="info" visible>{String(notice)}</HelperText>}
-    <Card mode="outlined" onPress={()=>setMode('admin')}><Card.Content style={{flexDirection:'row',alignItems:'center',gap:10}}><Icon source="shield-account" size={36}/><View style={{flexGrow:1,minWidth:0}}><Text variant="titleMedium">Administrateur</Text><Text numberOfLines={1} adjustsFontSizeToFit>Entreprise, boutiques et équipe</Text></View></Card.Content></Card>
-    <Card mode="outlined" onPress={()=>router.push('/employee' as never)}><Card.Content style={{flexDirection:'row',alignItems:'center',gap:10}}><Icon source="account-hard-hat" size={36}/><View style={{flexGrow:1,minWidth:0}}><Text variant="titleLarge">Employé</Text><Text numberOfLines={1} adjustsFontSizeToFit>Accès fourni par l’administrateur</Text></View></Card.Content></Card>
-    <Link href="/(auth)/register" asChild><Text style={{textAlign:'center'}}>Créer une nouvelle entreprise</Text></Link>
-    <AppButton mode="outlined" icon="play-circle-outline" onPress={() => router.push('/demo' as never)}>Découvrir en mode démo</AppButton>
+    <Card mode="outlined" onPress={()=>setMode('admin')} accessibilityLabel="Administrateur"><Card.Content style={{flexDirection:'row',alignItems:'center',gap:10}}><Icon source="shield-account" size={36}/><View style={{flexGrow:1,minWidth:0}}><Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit>Administrateur</Text><Text numberOfLines={1} adjustsFontSizeToFit>Entreprise, boutiques et équipe</Text></View></Card.Content></Card>
+    <Card mode="outlined" onPress={()=>router.push('/employee' as never)} accessibilityLabel="Employé"><Card.Content style={{flexDirection:'row',alignItems:'center',gap:10}}><Icon source="account-hard-hat" size={36}/><View style={{flexGrow:1,minWidth:0}}><Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit>Employé</Text><Text numberOfLines={1} adjustsFontSizeToFit>Accès fourni par l’administrateur</Text></View></Card.Content></Card>
+    <View style={{gap:12,alignItems:'center',marginTop:6}}>
+      <Link href="/(auth)/register" asChild><Text style={{textAlign:'center',fontWeight:'700'}}>Créer une nouvelle entreprise</Text></Link>
+      <AppButton mode="outlined" icon="play-circle-outline" onPress={() => router.push('/demo' as never)}>Découvrir en mode démo</AppButton>
+    </View>
   </AuthScreen>;
 
   return <AuthScreen title="Connexion administrateur" subtitle="Accédez à la gestion StockMaster.">
