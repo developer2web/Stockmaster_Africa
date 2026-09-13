@@ -34,7 +34,7 @@ function usePlanCatalog() { const plans = React.useContext(PlanCatalogContext); 
 
 
 const normalizeCurrency = (currency?: string | null) => (currency || 'GNF').toUpperCase() === 'FG' ? 'GNF' : (currency || 'GNF').toUpperCase();
-const currencyLabel = (currency: string) => ({ GNF: 'FG — Franc guinéen', USD: 'USD — Dollar américain', EUR: 'EUR — Euro', CAD: 'CAD — Dollar canadien', XOF: 'XOF — Franc CFA' } as Record<string, string>)[normalizeCurrency(currency)] ?? normalizeCurrency(currency);
+const currencyLabel = (currency: string) => ({ GNF: 'GNF — Franc guinéen', USD: 'USD — Dollar américain', EUR: 'EUR — Euro', CAD: 'CAD — Dollar canadien', XOF: 'XOF — Franc CFA' } as Record<string, string>)[normalizeCurrency(currency)] ?? normalizeCurrency(currency);
 const money = formatBillingMoney;
 const day = (value: string) => new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date(value));
 const errorMessage = (value: unknown) => {const raw=value instanceof Error?value.message:typeof value==='object'&&value!==null&&'message'in value?String(value.message):'';if(/failed to fetch|network/i.test(raw))return 'Connexion au serveur impossible. Vérifiez Internet puis réessayez.';if(/permission|row-level security|forbidden/i.test(raw))return 'Vous n’avez pas l’autorisation d’effectuer cette action.';if(/duplicate|unique|already exists/i.test(raw))return 'Cette information existe déjà.';return raw||'Opération impossible.'};
@@ -320,7 +320,7 @@ function Payments({ data, search, setSearch, status, setStatus, run, proof }: { 
       </div>
       <label className="currencyPicker"><span>Devise</span><select value={currency} onChange={event => setCurrency(event.target.value)}>{currencies.map(item => <option value={item} key={item}>{currencyLabel(item)}</option>)}<option value="all">Toutes les devises</option></select></label>
     </div>
-    <div className="warningBox">Les paiements sont affichés en FG par défaut. Les autres devises restent séparées et ne sont jamais additionnées sans conversion.</div>
+    <div className="warningBox">Les paiements sont affichés en GNF par défaut. Les autres devises restent séparées et ne sont jamais additionnées sans conversion.</div>
     <Toolbar search={search} setSearch={setSearch}>
       <select value={status} onChange={event => setStatus(event.target.value)}><option value="all">Tous les statuts</option><option value="processing">En attente</option><option value="succeeded">Payés</option><option value="failed">Refusés</option></select>
       <select value={archiveFilter} onChange={event => setArchiveFilter(event.target.value as 'active' | 'archived' | 'all')}><option value="active">Paiements actifs</option><option value="archived">Paiements archivés</option><option value="all">Actifs et archivés</option></select>
@@ -654,8 +654,8 @@ function SettingsPage({ value, setValue, run, initialTab }: { value: Settings; s
         </>}
         {tab === 'Emails / API' && <EmailConfiguration/>}
         {tab === 'Paiements' && <>
-          <div className="settingsSectionHead"><span>ENCAISSEMENTS</span><h2>Configuration des paiements</h2><p>Le franc guinéen (FG) est la devise principale. Les autres devises restent séparées.</p></div>
-          <div className="providerGrid"><article><i>FG</i><div><b>Devise principale</b><span>Franc guinéen · code système GNF</span></div></article><article><i>CB</i><div><b>Carte bancaire · Stripe</b><span>Confirmation automatique après validation Stripe</span></div></article></div>
+          <div className="settingsSectionHead"><span>ENCAISSEMENTS</span><h2>Configuration des paiements</h2><p>Le franc guinéen (GNF) est la devise principale. Les autres devises restent séparées.</p></div>
+          <div className="providerGrid"><article><i>GNF</i><div><b>Devise principale</b><span>Franc guinéen</span></div></article><article><i>CB</i><div><b>Carte bancaire · Stripe</b><span>Confirmation automatique après validation Stripe</span></div></article></div>
           <div className="settingsFormGroup"><label>Numéro Orange Money<input value={value.orange_money_number} onChange={event => setValue({ ...value, orange_money_number: event.target.value })}/></label><label>Nom du compte<input value={value.orange_money_account_name} onChange={event => setValue({ ...value, orange_money_account_name: event.target.value })}/></label></div>
           <div className="settingsActions"><button className="primary" onClick={save}>Enregistrer les paiements</button></div>
         </>}

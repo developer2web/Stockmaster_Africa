@@ -26,8 +26,10 @@ export function planDisplayName(code?: string | null, name?: string | null) {
 
 export function formatBillingMoney(value: number, currency = 'GNF') {
   if (!Number.isFinite(value)) return '—';
+  // Toujours le code ISO (GNF), jamais l’abréviation locale « FG » : le reste de
+  // l’app (CurrencyProvider.formatMoney) affiche GNF partout ailleurs (ventes,
+  // caisse, rapports) — les écrans d’abonnement doivent rester cohérents.
   const code = currency.trim().toUpperCase() === 'FG' ? 'GNF' : currency.trim().toUpperCase();
-  if (code === 'GNF') return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(value)} FG`;
   try { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: code, currencyDisplay: 'code' }).format(value); }
   catch { return `${new Intl.NumberFormat('fr-FR').format(value)} ${code}`; }
 }
