@@ -17,12 +17,26 @@
   supabase.functions.invoke() qui ignorait le message précis du serveur
   sur une erreur (même bug latent trouvé et corrigé dans account-web).
   Vérifié en direct : email accepté par Resend (confirmé par l'API),
-  limitation de débit testée. Plusieurs emails de TEST ont été envoyés
-  à support@stockmaster.africa pendant ces vérifications (« Test
-  Visiteur Playwright », « Test Limite 0-4 », « Diag Precis ») — à
-  confirmer/supprimer une fois la réception vérifiée par le
-  propriétaire (seul moyen de confirmer que support@ transfère bien,
-  point déjà noté plus bas comme non vérifiable par moi).
+  limitation de débit testée. Plusieurs emails de TEST envoyés à
+  support@stockmaster.africa pendant ces vérifications (« Test
+  Visiteur Playwright », « Test Limite 0-4 », « Diag Precis ») —
+  **le propriétaire confirme n'avoir rien reçu (13/09)**. Diagnostic
+  DNS fait : le côté envoi (Resend) est correctement configuré (DKIM
+  `resend._domainkey.stockmaster.africa` et domaine de retour
+  `send.stockmaster.africa` présents et corrects) — donc probablement
+  pas la source du problème. Le côté réception est suspect : les MX
+  pointent bien vers un service de renvoi (`eforward*.registrar-
+  servers.com`, Namecheap), mais la RÈGLE précise « support@ renvoie
+  vers quelle adresse » se configure séparément dans le panneau du
+  registrar et n'est pas visible en DNS — c'est exactement le point
+  déjà signalé plus bas comme jamais vérifié individuellement.
+  Décision explicite du propriétaire le 13/09 : mis en pause pour
+  l'instant (pas d'accès au panneau du registrar dans l'immédiat).
+  Code du formulaire déjà fonctionnel et poussé ; ne reste que cette
+  vérification de réception à faire le jour où l'accès registrar est
+  disponible — voir le test rapide suggéré (s'envoyer un email direct
+  à support@ depuis une autre boîte, hors formulaire, pour isoler si
+  le problème est le renvoi ou Resend).
 - [x] Mode hors ligne + ID/PIN (Paramètres) vérifiés en direct (pas juste
   lus dans le code) : bug CRITIQUE trouvé et corrigé — valider une vente
   hors ligne restait bloqué sur « Traitement… » indéfiniment (30 à 75s
@@ -164,7 +178,13 @@
   légales, puis passer Stripe en clés live (je ne le ferai jamais sans
   votre feu vert explicite, déjà donné comme consigne).
 - [ ] Confirmer que `support@`/`privacy@stockmaster.africa` transfèrent
-  réellement (alias non vérifiés individuellement).
+  réellement (alias non vérifiés individuellement). Indice concret du
+  13/09 : des emails de test envoyés à support@ via le nouveau
+  formulaire de contact (Resend, correctement configuré côté DNS) ne
+  sont jamais arrivés — suspect n°1 : la règle de renvoi spécifique à
+  support@ dans le panneau du registrar. Mis en pause à la demande
+  explicite du propriétaire (pas d'accès au registrar dans l'immédiat)
+  — voir section du haut pour le détail du diagnostic.
 
 ## P0 — Vérifications techniques avant ouverture publique
 
