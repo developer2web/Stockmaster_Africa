@@ -7,6 +7,20 @@
 
 ## Fait récemment (10-13 septembre) — pour référence, ne pas refaire
 
+- [x] Revue complète de tous les textes (mobile + 3 sites web) : recherche
+  exhaustive de marqueurs suspects (TODO/FIXME/placeholder/lorem —
+  aucun trouvé), lecture complète du site marketing, vérification des
+  pages légales et du système de messages d'erreur. Trois corrections :
+  (1) © 2026 figé en dur dans le pied de page du site → calculé
+  dynamiquement ; (2) FAQ « hors ligne » oubliait de mentionner les
+  mouvements de caisse (gérés pourtant exactement comme ventes/
+  dépenses) ; (3) accord pluriel correct partout au lieu du raccourci
+  « (s) » (« 1 produit(s) », « 2 employé(s) actif(s) »...) — 40+
+  endroits trouvés et corrigés dans tout le code (mobile + 3 apps web),
+  nouveau helper partagé `src/utils/plural.ts`, vérifié en direct sur
+  les 4 surfaces. Pages légales (mentions/CGU/confidentialité)
+  vérifiées : les `[À COMPLÉTER]` restants sont intentionnels, bloqués
+  sur la décision d'entité juridique — non touchés.
 - [x] Formulaire de contact du site marketing envoie un vrai email au lieu
   d'ouvrir la messagerie du visiteur (mailto:) : nouvelle fonction
   contact-form (validation serveur, limitation 5/h par IP, envoi via
