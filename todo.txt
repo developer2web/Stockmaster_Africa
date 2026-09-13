@@ -7,6 +7,22 @@
 
 ## Fait récemment (10-13 septembre) — pour référence, ne pas refaire
 
+- [x] Formulaire de contact du site marketing envoie un vrai email au lieu
+  d'ouvrir la messagerie du visiteur (mailto:) : nouvelle fonction
+  contact-form (validation serveur, limitation 5/h par IP, envoi via
+  Resend vers support@stockmaster.africa, reply_to = email du visiteur
+  pour pouvoir répondre directement). Deux vrais bugs trouvés et
+  corrigés pendant les tests en direct : message de succès jamais
+  réinitialisé (restait affiché en même temps qu'une erreur suivante) ;
+  supabase.functions.invoke() qui ignorait le message précis du serveur
+  sur une erreur (même bug latent trouvé et corrigé dans account-web).
+  Vérifié en direct : email accepté par Resend (confirmé par l'API),
+  limitation de débit testée. Plusieurs emails de TEST ont été envoyés
+  à support@stockmaster.africa pendant ces vérifications (« Test
+  Visiteur Playwright », « Test Limite 0-4 », « Diag Precis ») — à
+  confirmer/supprimer une fois la réception vérifiée par le
+  propriétaire (seul moyen de confirmer que support@ transfère bien,
+  point déjà noté plus bas comme non vérifiable par moi).
 - [x] Mode hors ligne + ID/PIN (Paramètres) vérifiés en direct (pas juste
   lus dans le code) : bug CRITIQUE trouvé et corrigé — valider une vente
   hors ligne restait bloqué sur « Traitement… » indéfiniment (30 à 75s
