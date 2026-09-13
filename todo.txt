@@ -41,10 +41,19 @@
   bout en bout (session créée → paiement → webhook reçu → abonnement
   activé automatiquement). Refus de carte testé (4000...0002) : Stripe
   gère nativement, rien à corriger côté StockMaster.
-- [x] Orange Money manuel testé en direct : numéro/bénéficiaire affichés
-  correctement, déclaration de référence enregistrée, statut « En
-  vérification » correct. Le volet approbation Super Admin reste à
-  tester (nécessite un compte Super Admin, pas créé sans accord — cf P0).
+- [x] Orange Money manuel testé en direct de bout en bout : déclaration
+  de référence côté client, puis approbation côté Super Admin (compte de
+  test créé avec accord préalable), abonnement activé. Un vrai
+  `window.confirm()` navigateur protège la confirmation (« avez-vous
+  vérifié le relevé... une capture seule ne suffit pas ») — bonne
+  pratique, pas un bug, juste à gérer dans les scripts de test.
+- [x] Bug réel trouvé et corrigé : suspendre un employé rendait son nom
+  invisible (retombait sur « Employé » générique) partout où son profil
+  est rejoint — RLS `shares_company_with()` exigeait à tort que la
+  personne suspendue soit elle-même active. Corrigé, vérifié en direct.
+- [x] Isolation testée aussi via le nouveau compte Super Admin : accès
+  légitime à toutes les entreprises (8 entreprises visibles), distinct de
+  l'accès propriétaire scoping à une seule entreprise.
 - [x] Isolation entre deux entreprises testée en direct (nouvelle
   entreprise B créée de zéro) : aucune fuite de données dans un sens
   comme dans l'autre (produits vérifiés explicitement).
@@ -84,10 +93,6 @@
 
 - [ ] Rejouer la suite pgTAP complète sur une base reconstruite dès que
   Docker est disponible localement (non exécutable cette session).
-- [ ] Terminer le test Orange Money : approbation côté Super Admin (numéro
-  reçu, correspondance, activation). Nécessite un compte Super Admin de
-  test — à créer avec votre accord (privilège plus sensible qu'un compte
-  propriétaire ordinaire, plafond de 3 Super Admins sur le projet).
 - [ ] Stripe : expiration de session (24h, non testable en direct dans
   l'immédiat) et renouvellement automatique.
 - [ ] Procédure de remboursement et de rapprochement des paiements Stripe
@@ -107,8 +112,8 @@
 
 ## P1 — Tests fonctionnels restants
 
-- [ ] Suspension et suppression d'un employé ; tous les rôles/permissions
-  (l'invitation et la connexion employé sont testées, pas la suspension).
+- [ ] Suppression d'un employé (le compte de test Super Admin, la
+  suspension et l'invitation/connexion sont maintenant testées).
 - [ ] Devise par pays et verrouillage après la première vente.
 - [ ] Scénarios hors ligne sur Android et iPhone réels (tous les tests de
   cette session ont été faits via navigateur, jamais sur un vrai
