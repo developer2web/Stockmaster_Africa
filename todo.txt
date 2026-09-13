@@ -1,114 +1,133 @@
 # StockMaster — reste à faire avant lancement
-# Mis à jour le 13 septembre 2026. Les sections précédentes dataient d'avant
-# les correctifs de sécurité et de fonctionnalités du 10-13 septembre ;
-# plusieurs points qu'elles listaient encore comme « à faire » étaient déjà
-# résolus et ont été retirés ou corrigés ci-dessous.
+# Mis à jour le 13 septembre 2026 (soir). Les sections précédentes dataient
+# d'avant les tests en direct exhaustifs (ventes, stock, caisse, crédit,
+# fournisseurs, transferts, remboursements, inventaire, boutons retour) et
+# la configuration Stripe test du 13 septembre ; plusieurs points qu'elles
+# listaient encore comme « à faire » sont résolus et retirés ci-dessous.
 
 ## Fait récemment (10-13 septembre) — pour référence, ne pas refaire
 
-- [x] Faille d'élévation de privilège (auto-promotion Super Admin) corrigée et
-  déployée en production.
-- [x] Confidentialité des coûts produit (prix d'achat, marge) via des vues
-  dédiées `product_costs`/`product_variant_costs`.
-- [x] Intégrité des paiements, mot de passe temporaire contrôlé serveur,
-  session/MFA (`assert_session_security`), notifications manager.
-- [x] `xlsx` vulnérable remplacé par `@e965/xlsx` (maintenu).
-- [x] Prestataire Mobile Money de production tranché : Orange Money manuel +
-  Stripe. Pas d'agrégateur générique à intégrer pour le lancement.
-- [x] Remises sur les ventes : fonctionnelles (plafond configurable), pas
-  « retirées temporairement » comme l'indiquait cette liste avant.
-- [x] Domaine de production uniformisé sur `stockmaster.africa` partout
-  (site, emails).
-- [x] Bug de paiement (choix de l'entreprise à conserver lors d'un downgrade
-  Orange Money/Stripe) corrigé à la racine dans account-web.
-- [x] En-tête mobile Super Admin illisible (texte blanc sur fond blanc)
-  corrigé ; vrai menu hamburger avec tiroir ajouté (parité desktop).
-- [x] Écran Super Admin de traitement des demandes de suppression de compte.
-- [x] Email automatique à `stockmaster.africa@gmail.com` avec la priorité à
-  chaque nouveau ticket de support (en plus de l'email de chaque Super Admin).
-- [x] Pagination : dépenses et fournisseurs (recherche serveur incluse),
-  affichage progressif des employés, journal d'activité Super Admin
-  (au-delà des 150 dernières lignes).
-- [x] Rapport consolidé multi-boutiques (entitlement `consolidated_reports`,
-  forfait Business) : le calcul serveur existait déjà, seul le sélecteur
-  « Toutes les boutiques » manquait côté application et `get_report_filters`
-  exigeait encore une boutique unique.
-- [ ] MFA obligatoire pour Super Admin + propriétaires : décision validée le
-  12 septembre, implémentation mise en pause à la demande explicite du
+- [x] Faille d'élévation de privilège (auto-promotion Super Admin) corrigée.
+- [x] Confidentialité des coûts produit via `product_costs`/`product_variant_costs`.
+- [x] Intégrité des paiements, mot de passe temporaire contrôlé serveur, MFA
+  session (`assert_session_security`), notifications manager.
+- [x] `xlsx` vulnérable remplacé par `@e965/xlsx`.
+- [x] Domaine de production uniformisé sur `stockmaster.africa`.
+- [x] Bug paiement (entreprise à conserver lors d'un downgrade) corrigé.
+- [x] Super Admin : en-tête mobile, menu hamburger, écran de suppressions
+  de compte, pagination (dépenses, fournisseurs, employés, journal
+  d'activité), rapports consolidés multi-boutiques, email par ticket avec
+  priorité (bug de collision silencieuse trouvé et corrigé le 13/09).
+- [x] Bug « Valeur d'achat : Indisponible » élucidé (chargement lent du
+  serveur de dev, pas un bug serveur/données) ; l'écran distingue
+  maintenant chargement et vraie indisponibilité.
+- [x] Accessibilité : ~37 champs de saisie sans étiquette accessible
+  corrigés sur 16 écrans (Caisse, Fournisseurs, Ventes, etc.).
+- [x] Écrans de connexion/inscription : incohérences visuelles, formulaire
+  d'inscription simplifié, liens légaux en bleu, bug de centrage mobile
+  réel corrigé (écran étroit mais haut était épinglé en haut).
+- [x] Mode démo reconstruit : parcours interactif à 4 étapes (avant : un
+  seul écran statique).
+- [x] Tous les boutons retour de l'app mobile testés en direct (6
+  scénarios distincts, y compris multi-niveaux et côté employé) : aucun
+  bug.
+- [x] Parcours métier testés en direct sur la vraie base de production :
+  vente comptant, vente à crédit + encaissement, caisse (ouverture,
+  fonds, dépense, clôture, réouverture), fournisseurs, approvisionnement,
+  transfert entre boutiques, remboursement de vente, inventaire physique
+  avec correction d'écart. Aucun bug trouvé dans ces parcours.
+- [x] Stripe configuré et vérifié en direct EN MODE TEST : clé restreinte,
+  webhook signé, un vrai paiement de test (carte 4242...) confirmé de
+  bout en bout (session créée → paiement → webhook reçu → abonnement
+  activé automatiquement).
+- [ ] MFA obligatoire pour Super Admin + propriétaires : décision validée
+  le 12 septembre, implémentation mise en pause à la demande explicite du
   propriétaire. Ne pas reprendre sans nouveau feu vert.
-- [ ] Multilingue : explicitement écarté du périmètre actuel (demande du
-  propriétaire du 13 septembre). Ne pas construire sans nouvelle demande.
+- [ ] Multilingue : explicitement écarté du périmètre actuel. Ne pas
+  construire sans nouvelle demande.
 
-## P0 — Vérifications avant ouverture publique
+## P0 — Bloquants qui ne dépendent que de vous
 
-- [ ] Confirmer que les migrations `202609100007` et `202609120008` à
-  `202609120011` sont bien appliquées sur le projet Supabase de production
-  (`npx supabase db push --linked --include-all`).
-- [ ] Rejouer la suite pgTAP complète sur une base reconstruite dès que
-  Docker est disponible localement — non exécutable pendant cette session.
-  Couvre notamment les nouveaux tests `support_ticket_ops_email`,
-  `account_deletion_admin` et `consolidated_report_filters`.
-- [ ] Vérifier qu'un employé ne peut pas récupérer les champs financiers par
-  une requête directe à Supabase (tests présents, à exécuter sur une base
-  reconstruite).
-
-## P0 — Identité légale et paiements
-
+- [ ] **Hébergement des 4 sites : aucun des domaines ne résout actuellement**
+  (`stockmaster.africa`, `account.`, `admin.`, `app.stockmaster.africa` —
+  vérifié le 13/09, échec DNS sur les 4). Rien n'est en ligne nulle part.
+  C'est le blocage le plus important pour un lancement : dites-moi
+  l'hébergeur prévu (Vercel, Netlify, autre) et je fais le déploiement.
 - [ ] Déterminer l'entité juridique qui exploite StockMaster (nom propre,
-  société à créer, société à enregistrer en Guinée) — bloque la raison
-  sociale, l'adresse et le format d'immatriculation sur les pages légales.
-- [ ] Compléter et publier les pages légales (mentions légales, CGU,
-  confidentialité) une fois l'entité déterminée.
-- [ ] Confirmer que les alias `support@`/`privacy@stockmaster.africa`
-  transfèrent réellement (le domaine est enregistré avec un transfert
-  configuré, les alias précis n'ont pas été vérifiés un par un).
-- [ ] Configurer Stripe en clés de production ; tester réussite, échec,
-  expiration, annulation, rejeu.
-- [ ] Tester Basic → Pro → Business, renouvellement, période de grâce,
-  expiration, avec de vrais montants.
-- [ ] Procédure de remboursement et de rapprochement des paiements.
+  société à créer/enregistrer) — bloque la raison sociale, l'adresse,
+  l'immatriculation sur les pages légales (elles affichent encore
+  « à compléter avant publication », vérifié le 13/09) ET bloque le
+  passage de Stripe en mode réel (vérification d'identité/entreprise
+  exigée par Stripe pour encaisser de l'argent réel).
+- [ ] Une fois l'entité déterminée : compléter et publier les pages
+  légales, puis passer Stripe en clés live (je ne le ferai jamais sans
+  votre feu vert explicite, déjà donné comme consigne).
+- [ ] Confirmer que `support@`/`privacy@stockmaster.africa` transfèrent
+  réellement (alias non vérifiés individuellement).
 
-## P1 — Tests fonctionnels de bout en bout
+## P0 — Vérifications techniques avant ouverture publique
 
-- [ ] Deux entreprises complètement isolées ; deux boutiques avec stocks,
-  ventes, dépenses et caisses séparés.
-- [ ] Invitation, connexion, suspension et suppression d'un employé ; tous
-  les rôles et permissions.
-- [ ] Vente, annulation métier, dépense, caisse, bénéfice net ; idempotence
-  avec doubles clics et requêtes rejouées.
+- [ ] Rejouer la suite pgTAP complète sur une base reconstruite dès que
+  Docker est disponible localement (non exécutable cette session).
+- [ ] Tester le paiement manuel Orange Money de bout en bout en direct
+  (référence soumise, vérification Super Admin, activation) — jamais fait
+  cette session, seul Stripe a été testé en direct.
+- [ ] Stripe : tester aussi l'échec de carte, l'expiration de session,
+  l'annulation, et le renouvellement automatique (seul le paiement réussi
+  a été testé en direct le 13/09).
+- [ ] Procédure de remboursement et de rapprochement des paiements Stripe
+  (aucune actuellement).
+- [ ] Nettoyer les transactions de test Stripe restées en `pending`/
+  `processing` dans `payment_transactions` (créées pendant le
+  débogage du 13/09, sans impact mais à clarifier).
+
+## P1 — Décision produit en attente
+
+- [ ] Un approvisionnement peut faire passer la caisse en négatif sans
+  avertissement (trouvé en direct le 13/09) — vouliez-vous un blocage, un
+  avertissement, ou est-ce le comportement voulu ?
+- [ ] Bug jamais confirmé : paiement Orange Money affiché « Carte
+  bancaire » quelque part dans l'app — toujours sans capture d'écran ni
+  emplacement précis de votre part, donc toujours pas corrigé.
+
+## P1 — Tests fonctionnels restants
+
+- [ ] Deux entreprises complètement isolées (jamais testé — tous les
+  tests du 13/09 se sont faits dans une seule entreprise de test, même à
+  deux boutiques).
+- [ ] Suspension et suppression d'un employé ; tous les rôles/permissions
+  (l'invitation et la connexion employé sont testées, pas la suspension).
 - [ ] Devise par pays et verrouillage après la première vente.
-- [ ] Scénarios hors ligne : coupure réseau, reprise, synchronisation, sur
-  Android et iPhone réels (pas seulement en émulateur).
-- [ ] Tests de bout en bout automatisés pour les parcours critiques
-  (`.maestro/` ne contient qu'un smoke test aujourd'hui).
+- [ ] Scénarios hors ligne sur Android et iPhone réels (tous les tests de
+  cette session ont été faits via navigateur, jamais sur un vrai
+  appareil).
+- [ ] Tests de bout en bout automatisés (`.maestro/` ne contient qu'un
+  smoke test).
 
 ## P1 — Exploitation et fiabilité
 
-- [ ] Connecter les crashs à un service de production (Sentry ou
-  équivalent) ; centraliser les alertes critiques.
-- [ ] Configurer les sauvegardes Supabase adaptées au forfait de
-  production ; restaurer une sauvegarde dans un environnement isolé pour
-  valider la procédure (RPO/RTO jamais mesurés).
-- [ ] Limitation de débit et protection contre les abus sur les fonctions
+- [ ] Suivi des crashs en production (Sentry ou équivalent).
+- [ ] Sauvegardes Supabase + test de restauration réel (RPO/RTO jamais
+  mesurés).
+- [ ] Palier Supabase actuel limité à 60 connexions simultanées (signal de
+  palier gratuit/le plus petit) — recommandé de passer sur un palier
+  payant avant l'ouverture commerciale réelle (vérifié le 13/09, pas de
+  test de charge réalisé).
+- [ ] Limitation de débit / protection contre les abus sur les fonctions
   publiques.
-- [ ] Réexaminer les avis npm résiduels avant le 10 octobre 2026
-  (`docs/security/npm-audit-baseline.json`).
-- [ ] Résoudre l'écart Node 20 (imposé) / Node ≥22 (exigé par
-  `@supabase/supabase-js` récent) dans une migration d'outillage dédiée.
+- [ ] Réexaminer les avis npm résiduels avant le 10 octobre 2026.
+- [ ] Écart Node 20 (imposé) / Node ≥22 (exigé par `@supabase/supabase-js`
+  récent).
 
 ## P2 — Google Play et App Store
 
-- [ ] Comptes développeur Apple et Google ; builds EAS `preview` puis
-  `production` ; TestFlight et piste fermée Google Play.
-- [ ] Compte de démonstration avec deux boutiques ; captures d'écran
-  (`docs/store-listing.md`) sans donnée personnelle.
-- [ ] Google Data Safety, Apple App Privacy.
-- [ ] Pilote réel avec au moins une boutique avant l'ouverture publique
-  complète — jamais réalisé à ce jour.
+- [ ] Comptes développeur Apple et Google ; builds EAS ; TestFlight et
+  piste fermée Google Play. Rien de commencé cette session.
+- [ ] Compte de démonstration, captures d'écran, Google Data Safety, Apple
+  App Privacy.
+- [ ] Pilote réel avec au moins une boutique avant l'ouverture complète.
 
 ## P2 — Qualité continue
 
-- [ ] Mesurer les performances avec plusieurs milliers de produits et de
-  ventes.
-- [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée et entièrement
-  testée (voir `AGENTS.md`).
+- [ ] Mesurer les performances avec plusieurs milliers de produits/ventes.
+- [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).

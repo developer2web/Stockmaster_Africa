@@ -143,7 +143,12 @@ export async function handleCreatePayment(request: Request, renewalOnly = false)
         });
         const response = await fetch('https://api.stripe.com/v1/checkout/sessions', { method: 'POST', headers: { Authorization: `Bearer ${stripeKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Idempotency-Key': `stockmaster-payment-${transaction.id}` }, body: form.toString(), signal: AbortSignal.timeout(30_000) });
         const payload = await response.json() as Record<string,unknown>;
-        if (!response.ok || !payload.id || !payload.url) throw new Error('Stripe est momentanément indisponible');
+        if (!response.ok || !payload.id || !payload.url) {
+          // Logged server-side only: never echo Stripe's raw payload back to the client.
+          console.error('stripe checkout session creation failed', response.status, JSON.stringify(payload));
+          const stripeError = payload.error as { message?: string; code?: string; type?: string } | undefined;
+          throw new Error(stripeError?.message ? `Stripe : ${stripeError.message}` : 'Stripe est momentanément indisponible');
+        }
         const { error: saveError } = await admin.from('payment_transactions').update({ provider_reference: String(payload.id), status: 'processing', provider_payload: payload }).eq('id', transaction.id);
         if (saveError) throw saveError;
         await admin.from('payment_status_log').insert({ payment_transaction_id: transaction.id, old_status: 'pending', new_status: 'processing', source: 'stripe-checkout', payload });
