@@ -20,3 +20,15 @@ export function formatQuantity(value: unknown): string {
     maximumFractionDigits: 3,
   }).format(quantity);
 }
+
+/**
+ * Nettoie une valeur numérique renvoyée par la base (ex. "5.000", un numeric
+ * Postgres sérialisé avec ses décimales fixes) pour pré-remplir un champ de
+ * saisie modifiable, sans zéro inutile ni séparateur de milliers — contrairement
+ * à formatQuantity, réservé à l'affichage en lecture seule.
+ */
+export function numericFieldValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '';
+  const num = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(num) ? num.toString() : '';
+}

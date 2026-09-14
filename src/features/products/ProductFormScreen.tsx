@@ -23,7 +23,7 @@ import { lookupOpenFoodFacts, type OpenFoodFactsMatch } from './openFoodFacts';
 import { productSchema, ProductInput, variantSchema, VariantInput } from '@/schemas/catalog';
 import type { ProductVariant } from '@/types/database';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
-import { formatQuantity } from '@/utils/number';
+import { formatQuantity, numericFieldValue } from '@/utils/number';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
 import { readableError } from '@/utils/errors';
 
@@ -47,7 +47,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   const { control, handleSubmit, reset, setValue, getValues, formState:{errors,isDirty} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
   const levels = useQuery({queryKey:['stock-levels',company,store,id],queryFn:()=>getStockLevels(company,id,store),enabled:!!company&&!!store&&!!id});
 
-  useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? 'SKU-AUTO', barcode:product.data.barcode??'', supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:String(product.data.purchase_price), salePrice:String(product.data.sale_price), initialQuantity:'0', lowStockThreshold:String(product.data.low_stock_threshold), isActive:product.data.is_active }); }, [product.data,reset]);
+  useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? 'SKU-AUTO', barcode:product.data.barcode??'', supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:numericFieldValue(product.data.purchase_price), salePrice:numericFieldValue(product.data.sale_price), initialQuantity:'0', lowStockThreshold:numericFieldValue(product.data.low_stock_threshold), isActive:product.data.is_active }); }, [product.data,reset]);
 
   // Nouveau produit arrivant du scanner avec un code inconnu : on tente de retrouver son
   // nom (et une photo de référence) dans Open Food Facts pour accélérer la saisie. Ça reste
@@ -192,7 +192,7 @@ const styles=StyleSheet.create({
 function Variants({ productId, companyId, variants, refresh }: { productId:string; companyId:string; variants:ProductVariant[]; refresh:()=>Promise<unknown> }) {
   const [open,setOpen]=useState(false); const [editing,setEditing]=useState<ProductVariant|null>(null); const [deleting,setDeleting]=useState<ProductVariant|null>(null);
   const { control,handleSubmit,reset }=useForm<VariantInput>({resolver:zodResolver(variantSchema),defaultValues:{name:'',sku:'SKU-AUTO',barcode:'',purchasePrice:'',salePrice:'',isActive:true}});
-  useEffect(()=>reset(editing?{name:editing.name,sku:editing.sku,barcode:editing.barcode??'',purchasePrice:editing.purchase_price==null?'':String(editing.purchase_price),salePrice:editing.sale_price==null?'':String(editing.sale_price),isActive:editing.is_active}:{name:'',sku:'SKU-AUTO',barcode:'',purchasePrice:'',salePrice:'',isActive:true}),[editing,reset]);
+  useEffect(()=>reset(editing?{name:editing.name,sku:editing.sku,barcode:editing.barcode??'',purchasePrice:numericFieldValue(editing.purchase_price),salePrice:numericFieldValue(editing.sale_price),isActive:editing.is_active}:{name:'',sku:'SKU-AUTO',barcode:'',purchasePrice:'',salePrice:'',isActive:true}),[editing,reset]);
   const save=useMutation({mutationFn:(v:VariantInput)=>saveVariant(companyId,productId,v,editing?.id),onSuccess:async()=>{await refresh();setOpen(false);setEditing(null)}});
   const remove=useMutation({mutationFn:()=>deleteVariant(deleting!.id),onSuccess:async()=>{await refresh();setDeleting(null)}});
   const show=(v?:ProductVariant)=>{setEditing(v??null);setOpen(true)};
