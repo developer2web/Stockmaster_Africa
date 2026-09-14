@@ -12,7 +12,10 @@ export function webConfig(site: 'public' | 'account' | 'admin') {
     const port = sitePorts[site === 'public' ? 'marketing' : site];
     return {
       root, cacheDir: `../../node_modules/.vite-${site}-web`, envDir: '../..', envPrefix: ['VITE_', 'EXPO_PUBLIC_'],
-      server: { port, strictPort: true }, preview: { port, strictPort: true },
+      // .trycloudflare.com : tunnel temporaire pour partager un lien de test sans
+      // exposer le dépôt ni créer de compte tiers. N'affecte que le serveur de dev
+      // local (jamais le build de production servi ailleurs).
+      server: { port, strictPort: true, allowedHosts: ['.trycloudflare.com'] }, preview: { port, strictPort: true },
       plugins: [
         { name: 'reserved-portal-port', configResolved: (config: ResolvedConfig) => {
           if (config.command === 'serve' && config.server.port !== port) throw new Error(`Le portail ${site} doit utiliser le port ${port}. Retirez l’option --port pour éviter d’ouvrir le mauvais espace.`);
