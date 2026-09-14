@@ -199,6 +199,17 @@
   support@ dans le panneau du registrar. Mis en pause à la demande
   explicite du propriétaire (pas d'accès au registrar dans l'immédiat)
   — voir section du haut pour le détail du diagnostic.
+- [ ] Resserrer le DMARC de `stockmaster.africa` : actuellement
+  `v=DMARC1; p=none;` (observation seulement). Vérifié le 14/09 : SPF
+  (via `send.stockmaster.africa`, CNAME Resend) et DKIM
+  (`resend._domainkey`) passent et sont alignés — donc passer à
+  `p=quarantine` (ou `p=reject` une fois confiant) ne peut pas affecter
+  les vrais emails envoyés par l'app, seulement renforcer la confiance
+  des fournisseurs (Gmail/Outlook) envers le domaine. Sans effet sur le
+  vrai facteur dominant du 14/09 (emails de confirmation arrivant en
+  spam) : un domaine neuf sans historique d'envoi — ça s'améliore avec
+  le temps et l'usage réel, pas avec un réglage. Même blocage que
+  ci-dessus : pas d'accès au panneau DNS du registrar dans l'immédiat.
 
 ## P0 — Vérifications techniques avant ouverture publique
 
