@@ -8,7 +8,7 @@ export function sharedPublicValue(env: PublicEnv, key: string) {
 }
 
 export function validateSharedPublicConfig(env: PublicEnv) {
-  for (const key of ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'LEGAL_ENTITY_NAME', 'LEGAL_REGISTRATION_NUMBER', 'LEGAL_ADDRESS', 'PRIVACY_EMAIL', 'SUPPORT_EMAIL']) {
+  for (const key of ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'LEGAL_ENTITY_NAME', 'LEGAL_ADDRESS', 'PRIVACY_EMAIL', 'SUPPORT_EMAIL']) {
     sharedPublicValue(env, key);
     if (env[`VITE_${key}`]?.trim() && !env[`EXPO_PUBLIC_${key}`]?.trim()) throw new Error(`Renseignez EXPO_PUBLIC_${key} pour partager la configuration avec l’application.`);
   }
@@ -17,11 +17,10 @@ export function validateSharedPublicConfig(env: PublicEnv) {
   if (account && webAccount && account !== webAccount) throw new Error('Configuration discordante : EXPO_PUBLIC_ACCOUNT_WEB_URL et VITE_ACCOUNT_URL.');
 }
 
-export function createLegalIdentity(input: { entityName?: string; registrationNumber?: string; address?: string; privacyEmail?: string; supportEmail?: string }) {
+export function createLegalIdentity(input: { entityName?: string; address?: string; privacyEmail?: string; supportEmail?: string }) {
   return {
     serviceName: 'StockMaster',
     entityName: input.entityName?.trim() || 'Identité juridique de l’éditeur à compléter avant publication',
-    registrationNumber: input.registrationNumber?.trim() || 'RCCM / NIF à compléter avant publication',
     address: input.address?.trim() || 'Adresse légale à compléter avant publication',
     privacyEmail: input.privacyEmail?.trim() || 'Adresse de confidentialité à compléter avant publication',
     supportEmail: input.supportEmail?.trim() || 'Adresse d’assistance à compléter avant publication',
@@ -29,7 +28,7 @@ export function createLegalIdentity(input: { entityName?: string; registrationNu
 }
 
 export function legalIdentityFromEnv(env: PublicEnv) {
-  return createLegalIdentity({ entityName: sharedPublicValue(env, 'LEGAL_ENTITY_NAME'), registrationNumber: sharedPublicValue(env, 'LEGAL_REGISTRATION_NUMBER'), address: sharedPublicValue(env, 'LEGAL_ADDRESS'), privacyEmail: sharedPublicValue(env, 'PRIVACY_EMAIL'), supportEmail: sharedPublicValue(env, 'SUPPORT_EMAIL') });
+  return createLegalIdentity({ entityName: sharedPublicValue(env, 'LEGAL_ENTITY_NAME'), address: sharedPublicValue(env, 'LEGAL_ADDRESS'), privacyEmail: sharedPublicValue(env, 'PRIVACY_EMAIL'), supportEmail: sharedPublicValue(env, 'SUPPORT_EMAIL') });
 }
 
 export function renderLegalIdentity(html: string, env: PublicEnv) {

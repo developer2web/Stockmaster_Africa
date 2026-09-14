@@ -6,7 +6,7 @@ export default function PrivacyScreen() {
   return (
     <LegalPage title="Politique de confidentialité" updatedAt="21 août 2026">
       <Text variant="titleLarge" style={legalStyles.heading}>1. Responsable du traitement</Text>
-      <Text style={legalStyles.paragraph}>{legalIdentity.entityName}, {legalIdentity.address}, exploite le service {legalIdentity.serviceName}. Immatriculation : {legalIdentity.registrationNumber}. Contact confidentialité : {legalIdentity.privacyEmail}.</Text>
+      <Text style={legalStyles.paragraph}>{legalIdentity.entityName}, {legalIdentity.address}, exploite le service {legalIdentity.serviceName}. Contact confidentialité : {legalIdentity.privacyEmail}.</Text>
 
       <Text variant="titleLarge" style={legalStyles.heading}>2. Données traitées</Text>
       <Text style={legalStyles.paragraph}>Selon les fonctions utilisées, StockMaster traite : identité et coordonnées du compte ; entreprise, boutiques, employés et permissions ; produits, stocks, ventes, clients, fournisseurs, dettes, dépenses et caisse ; informations d’abonnement et état des paiements ; références ou justificatifs Orange Money ; journaux de connexion, appareil, erreurs et sécurité ; images ou documents choisis volontairement. Le scanner utilise la caméra uniquement après autorisation.</Text>

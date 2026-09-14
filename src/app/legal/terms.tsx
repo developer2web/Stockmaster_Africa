@@ -6,7 +6,7 @@ export default function TermsScreen() {
   return (
     <LegalPage title="Conditions d’utilisation" updatedAt="21 août 2026">
       <Text variant="titleLarge" style={legalStyles.heading}>1. Éditeur et acceptation</Text>
-      <Text style={legalStyles.paragraph}>StockMaster est édité par {legalIdentity.entityName}, {legalIdentity.address}, immatriculation {legalIdentity.registrationNumber}. En créant un compte ou en utilisant le service, vous acceptez les présentes conditions et la politique de confidentialité. La personne créant une entreprise déclare être autorisée à agir pour celle-ci.</Text>
+      <Text style={legalStyles.paragraph}>StockMaster est édité par {legalIdentity.entityName}, {legalIdentity.address}. En créant un compte ou en utilisant le service, vous acceptez les présentes conditions et la politique de confidentialité. La personne créant une entreprise déclare être autorisée à agir pour celle-ci.</Text>
 
       <Text variant="titleLarge" style={legalStyles.heading}>2. Service</Text>
       <Text style={legalStyles.paragraph}>StockMaster fournit des outils de gestion de boutiques, stocks, ventes, clients, fournisseurs, dépenses, caisse, employés, abonnements, reçus et rapports. Il ne remplace pas les conseils d’un comptable, d’un fiscaliste ou d’un juriste. L’entreprise utilisatrice reste responsable de l’exactitude des données, des prix, taxes, autorisations et documents qu’elle émet.</Text>

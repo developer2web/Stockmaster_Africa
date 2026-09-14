@@ -25,7 +25,7 @@ export function webConfig(site: 'public' | 'account' | 'admin') {
       ],
       build: {
         outDir: `../../dist/${site}-web`, emptyOutDir: true,
-        ...(site === 'public' ? { rollupOptions: { input: Object.fromEntries(['index', 'legal-notice/index', 'privacy/index', 'terms/index', 'account-deletion/index'].map(page => [page, path.resolve(root, `${page}.html`)])) } } : {}),
+        ...(site === 'public' ? { rollupOptions: { input: Object.fromEntries(['index', 'privacy/index', 'terms/index', 'account-deletion/index'].map(page => [page, path.resolve(root, `${page}.html`)])) } } : {}),
       },
     };
   });

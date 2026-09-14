@@ -312,7 +312,7 @@ function App() {
       {section === 'Support' && <SupportPage context={context} tickets={tickets} open={ticketOpen} setOpen={setTicketOpen} reload={load} notify={setNotice} fail={setError}/>}
       {section === 'Notifications' && <NotificationsPage items={activeNotifications} markAll={markNotifications}/>}
       {section === 'Profil' && <ProfilePage initials={initials} fullName={fullName} setFullName={setFullName} email={userEmail} company={company} setCompany={setCompany} editing={profileOpen} setEditing={setProfileOpen} save={saveCompany}/>}
-      <footer className="legalLinks"><a href={`${marketingUrl()}/privacy/`} target="_blank">Confidentialité</a><a href={`${marketingUrl()}/terms/`} target="_blank">Conditions</a><a href={`${marketingUrl()}/legal-notice/`} target="_blank">Mentions légales</a><a href={`${marketingUrl()}/account-deletion/`} target="_blank">Suppression du compte</a></footer>
+      <footer className="legalLinks"><a href={`${marketingUrl()}/privacy/`} target="_blank">Confidentialité</a><a href={`${marketingUrl()}/terms/`} target="_blank">Conditions</a><a href={`${marketingUrl()}/account-deletion/`} target="_blank">Suppression du compte</a></footer>
     </div></main>
   </div>;
 }
