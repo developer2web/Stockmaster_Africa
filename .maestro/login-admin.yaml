@@ -1,0 +1,18 @@
+appId: com.stockmaster.app
+---
+# Connexion Administrateur de bout en bout : sélection du rôle, saisie des
+# identifiants, arrivée sur l'onglet Accueil. Nécessite un compte
+# administrateur/propriétaire déjà confirmé — voir .maestro/README.md pour
+# les variables d'environnement à fournir (MAESTRO_ADMIN_EMAIL /
+# MAESTRO_ADMIN_PASSWORD).
+- launchApp:
+    clearState: true
+- assertVisible: "StockMaster"
+- tapOn: "Administrateur"
+- assertVisible: "Connexion administrateur"
+- tapOn: "Email"
+- inputText: "${MAESTRO_ADMIN_EMAIL}"
+- tapOn: "Mot de passe"
+- inputText: "${MAESTRO_ADMIN_PASSWORD}"
+- tapOn: "Se connecter"
+- assertVisible: "Votre boutique aujourd’hui"

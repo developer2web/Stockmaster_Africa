@@ -1,0 +1,38 @@
+appId: com.stockmaster.app
+---
+# Filet de sécurité de régression : se connecte puis visite les 6 onglets
+# principaux de l'espace Administrateur, en vérifiant à chaque fois un texte
+# spécifique au CONTENU de l'écran (pas seulement le libellé de l'onglet,
+# toujours visible dans la barre même si l'écran plante) — détecte tout
+# écran qui deviendrait blanc ou plantait après un futur changement.
+# Nécessite les mêmes variables d'environnement que login-admin.yaml.
+- launchApp:
+    clearState: true
+- tapOn: "Administrateur"
+- tapOn: "Email"
+- inputText: "${MAESTRO_ADMIN_EMAIL}"
+- tapOn: "Mot de passe"
+- inputText: "${MAESTRO_ADMIN_PASSWORD}"
+- tapOn: "Se connecter"
+- assertVisible: "Votre boutique aujourd’hui"
+
+- tapOn: "Ventes"
+- assertVisible: "Ventes"
+- assertVisible: "Rechercher une référence ou un client"
+
+- tapOn: "Stock"
+- assertVisible: "Stock"
+- assertVisible: "Produit ou boutique"
+
+- tapOn: "Caisse"
+- assertVisible: "Caisse"
+
+- tapOn: "Clients"
+- assertVisible: "Clients"
+- assertVisible: "Nom, téléphone ou email"
+
+- tapOn: "Rapports"
+- assertVisible: "Rapport des ventes"
+
+- tapOn: "Accueil"
+- assertVisible: "Votre boutique aujourd’hui"

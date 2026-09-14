@@ -293,8 +293,18 @@
   pour l'instant (ni test sur téléphone réel, ni installation de Xcode/
   Android Studio sur cette machine) — à reprendre seulement sur nouvelle
   demande, par exemple avec un vrai appareil ou un simulateur disponible.
-- [ ] Tests de bout en bout automatisés (`.maestro/` ne contient qu'un
-  smoke test).
+- [x] Tests de bout en bout automatisés étoffés (14/09) : deux nouveaux
+  scénarios Maestro (`login-admin.yaml`, `tab-navigation.yaml`) en plus du
+  smoke test existant — connexion Administrateur puis passage sur les 6
+  onglets principaux avec une assertion propre au contenu de chaque écran
+  (pas juste le libellé de l'onglet). Écrits à partir d'une lecture précise
+  du code, PAS exécutés (aucun simulateur/émulateur sur cette machine,
+  documenté dans `.maestro/README.md`) — à confirmer verts sur un vrai
+  appareil avant de s'y fier. Un scénario de vente complet (panier,
+  paiement) volontairement pas tenté : trop d'écrans dont l'enchaînement
+  exact n'a pas pu être vérifié en direct, risque de scénario cassé dès le
+  premier passage — possible sur demande une fois les deux premiers
+  scénarios confirmés fonctionnels.
 
 ## P1 — Exploitation et fiabilité
 
