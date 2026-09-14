@@ -420,8 +420,13 @@ function AccountDeletions({ data, run }: { data: DeletionRequest[]; run: Run }) 
     if (!window.confirm(`Anonymiser le compte de ${request.full_name || request.email} ? Son nom, sa photo et son email sont effacés, sa connexion est bloquée et ses accès entreprise désactivés. Les ventes et produits déjà créés restent conservés, sans nom rattaché. Action irréversible.`)) return;
     void run(() => supabase.rpc('super_admin_anonymize_account', { p_request_id: request.id }), 'Compte anonymisé.');
   }
+  async function deletePermanently(request: DeletionRequest) {
+    if (!window.confirm(`Supprimer DÉFINITIVEMENT le compte de ${request.full_name || request.email} ? Refusé automatiquement s'il a déjà payé, ou si ça couperait la facturation d'une entreprise encore active pour d'autres personnes. Sinon : aucune trace personnelle ; ses ventes et produits déjà créés restent conservés, sans nom rattaché. Action irréversible.`)) return;
+    const ok = await run(() => supabase.rpc('super_admin_delete_account_permanently', { p_user_id: request.user_id }), 'Compte supprimé définitivement.');
+    if (ok) void run(() => supabase.rpc('super_admin_update_account_deletion_request', { p_request_id: request.id, p_status: 'completed' }), 'Compte supprimé définitivement.');
+  }
   return <><Title description={pageDescriptions.Suppressions}>Suppressions de compte</Title>
-    <div className="warningBox">« Anonymiser le compte » efface le nom, la photo et l’email, bloque la connexion et désactive les accès entreprise — les ventes et produits déjà créés restent conservés pour la comptabilité, sans nom rattaché. « Prendre en charge » et « Refuser » ne font que suivre le statut de la demande.</div>
+    <div className="warningBox">« Supprimer définitivement » est le traitement standard d'une demande : aucune trace personnelle, mais les ventes et produits déjà créés par ce compte restent conservés pour la comptabilité, sans nom rattaché. Refusé automatiquement s'il a déjà payé ou s'il facture une entreprise encore active pour d'autres personnes — utilisez alors « Anonymiser le compte » (même résultat pour la vie privée, mais la ligne du compte reste, désactivée). « Prendre en charge » et « Refuser » ne font que suivre le statut de la demande.</div>
     <Toolbar search={query} setSearch={setQuery}>
       <select value={requestStatus} onChange={event => setRequestStatus(event.target.value)}>
         <option value="all">Tous les statuts</option>
@@ -443,7 +448,8 @@ function AccountDeletions({ data, run }: { data: DeletionRequest[]; run: Run }) 
         <td>{request.processed_by_name || '—'}</td>
         <td><RowActions>
           {request.status !== 'processing' && request.status !== 'completed' && <button className="detailsBtn" onClick={() => updateStatus(request, 'processing')}>Prendre en charge</button>}
-          {request.status !== 'completed' && request.status !== 'rejected' && <button className="successBtn" onClick={() => anonymize(request)}>Anonymiser le compte</button>}
+          {request.status !== 'completed' && request.status !== 'rejected' && <button className="dangerBtn" onClick={() => void deletePermanently(request)}>Supprimer définitivement</button>}
+          {request.status !== 'completed' && request.status !== 'rejected' && <button className="detailsBtn" onClick={() => anonymize(request)}>Anonymiser le compte</button>}
           {request.status !== 'rejected' && request.status !== 'completed' && <button className="dangerBtn" onClick={() => updateStatus(request, 'rejected')}>Refuser</button>}
         </RowActions></td>
       </tr>)}
