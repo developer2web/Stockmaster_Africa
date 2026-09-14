@@ -52,6 +52,24 @@ export function isExpectedUserError(error: unknown): boolean {
   const technical = technicalMessage(error).trim();
   return duplicateKeyPattern.test(technical) || insufficientStockPattern.test(technical);
 }
+/**
+ * supabase.functions.invoke() ne lit pas le corps de la réponse sur un statut
+ * d'erreur : il faut relire error.context (la Response brute) soi-même. Si
+ * cette lecture échoue pour n'importe quelle raison (pas une vraie Response,
+ * corps non JSON, pas de champ "error"...), on retombe simplement sur le
+ * message générique de Supabase — jamais sur une erreur technique de lecture.
+ */
+export async function edgeFunctionErrorMessage(error: { message: string; context?: unknown }): Promise<string> {
+  const response = error.context as Response | undefined;
+  if (response && typeof response.clone === 'function') {
+    try {
+      const body = await response.clone().json() as { error?: string; message?: string };
+      const specific = body?.error || body?.message;
+      if (specific) return specific;
+    } catch { /* corps illisible ou non JSON : on garde le message générique */ }
+  }
+  return error.message;
+}
 export function sanitizeErrorInPlace(error:unknown,fallback?:string){
   const message=userErrorMessage(error,fallback);
   if(error instanceof Error)error.message=message;

@@ -1,5 +1,5 @@
 import { describe,expect,it } from 'vitest';
-import { errorKind, isExpectedUserError, userErrorMessage } from '../src/utils/errors';
+import { edgeFunctionErrorMessage, errorKind, isExpectedUserError, userErrorMessage } from '../src/utils/errors';
 describe('messages utilisateur',()=>{
   it('ne confond pas une fonction access manquante avec un refus de droits', () => {
     const error = { code: 'PGRST202', message: 'Could not find the function public.get_account_access_status in the schema cache' };
@@ -27,6 +27,22 @@ describe('messages utilisateur',()=>{
   it('traduit une erreur native d’impression',()=>expect(userErrorMessage(new Error('Printing did not complete'))).toContain('Impossible d’imprimer'));
   it('masque les erreurs JavaScript brutes',()=>expect(userErrorMessage(new Error('Uncaught (in promise) Error: Invalid key'))).toBe('Le serveur est momentanément indisponible. Réessayez.'));
   it('masque une erreur technique anglaise non répertoriée',()=>expect(userErrorMessage(new Error('Could not initialize native module'))).toBe('Le serveur est momentanément indisponible. Réessayez.'));
+});
+describe('edgeFunctionErrorMessage',()=>{
+  it('extrait le message précis du corps de la réponse',async()=>{
+    const response=new Response(JSON.stringify({error:'Cet email existe déjà sur un autre compte.'}));
+    expect(await edgeFunctionErrorMessage({message:'Edge Function returned a non-2xx status code',context:response})).toBe('Cet email existe déjà sur un autre compte.');
+  });
+  it('retombe sur le message générique si le corps n’est pas du JSON valide',async()=>{
+    const response=new Response('<html>pas du json</html>');
+    expect(await edgeFunctionErrorMessage({message:'Erreur générique',context:response})).toBe('Erreur générique');
+  });
+  it('retombe sur le message générique si context n’est pas une vraie Response',async()=>{
+    expect(await edgeFunctionErrorMessage({message:'Erreur générique',context:{notAResponse:true}})).toBe('Erreur générique');
+  });
+  it('retombe sur le message générique sans context du tout',async()=>{
+    expect(await edgeFunctionErrorMessage({message:'Erreur générique'})).toBe('Erreur générique');
+  });
 });
 describe('journalisation des erreurs de mutation',()=>{
   it('ne journalise pas un doublon ou un stock insuffisant : ce sont des refus attendus, pas des incidents',()=>{

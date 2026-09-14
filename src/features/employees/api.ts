@@ -2,6 +2,7 @@ import { supabase } from '@/services/supabase/client';
 import type { Employee, EmployeeRole, Permission, Store } from '@/types/database';
 import type { EmployeeInput, RoleInput, StoreInput } from '@/schemas/organization';
 import { withOfflineCache } from '@/features/offline/storage';
+import { edgeFunctionErrorMessage } from '@/utils/errors';
 
 function fail(error: { message: string } | null) { if (error) throw new Error(error.message); }
 
@@ -136,11 +137,7 @@ export type EmployeeInviteResult = {
 
 export async function inviteEmployee(values: EmployeeInput, companyId: string): Promise<EmployeeInviteResult> {
   const { data, error } = await supabase.functions.invoke('invite-employee',{ body:{...values,companyId} });
-  if (error) {
-    const response=(error as {context?:Response}).context;
-    if(response){try{const body=await response.clone().json() as {error?:string};if(body.error)throw new Error(body.error)}catch(parsed){if(parsed instanceof Error&&parsed.message!==error.message)throw parsed}}
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(await edgeFunctionErrorMessage(error));
   if(data?.error)throw new Error(data.error);
   if(!data?.userId||(!data?.invitationSent&&!data?.temporaryPassword&&!data?.reactivated))throw new Error('La confirmation de création ou de réactivation est absente.');
   return {
