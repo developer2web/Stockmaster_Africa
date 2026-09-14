@@ -206,6 +206,12 @@
   `localhost` de `ALLOWED_ORIGINS` (secret Supabase), ajoutées
   uniquement pour permettre de continuer le développement local contre
   la vraie base de production pendant la préparation du lancement.
+- [ ] Retirer de `ALLOWED_ORIGINS` les deux origines `.trycloudflare.com`
+  ajoutées le 13/09 pour le lien de test temporaire donné à un ami
+  (tunnel Cloudflare, pas de compte requis) — une fois ce test terminé.
+  Garder par contre `.trycloudflare.com` dans `allowedHosts` de la
+  config Vite partagée (utile de façon réutilisable pour un futur lien
+  de test, sans risque : n'affecte que le serveur de dev local).
 - [ ] Rejouer la suite pgTAP complète sur une base reconstruite dès que
   Docker est disponible localement (non exécutable cette session).
 - [ ] Stripe : expiration de session (24h, non testable en direct dans
