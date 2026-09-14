@@ -32,8 +32,8 @@ Configurer les variables `EXPO_PUBLIC_LEGAL_*` et `VITE_LEGAL_*` documentées da
 - [x] Page publique préparée : `/account-deletion/`
 - [ ] Publier une URL HTTPS stable accessible sans compte
 - [x] Confirmer que `support@stockmaster.africa` existe : domaine enregistré, transfert d’email configuré (`eforwardN.registrar-servers.com`). Vérifier que l’alias `support@` transfère réellement avant publication.
-- [ ] Mettre en place une procédure d’identification, d’exécution et de clôture des demandes
-- [ ] Distinguer les données supprimées, anonymisées et légalement conservées
+- [x] Mettre en place une procédure d’identification, d’exécution et de clôture des demandes : Super Admin > Suppressions > « Anonymiser le compte » (nom/photo/email effacés, connexion bloquée, accès entreprise désactivés)
+- [x] Distinguer les données supprimées, anonymisées et légalement conservées : le profil est anonymisé, les ventes/produits déjà créés restent conservés (comptabilité) sans nom rattaché — rien n’est supprimé physiquement
 - [ ] Informer l’utilisateur de l’avancement et de la clôture
 
 ## Abonnements et paiements

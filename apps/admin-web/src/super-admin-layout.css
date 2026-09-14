@@ -285,36 +285,8 @@ body {
 .adminApp .tableWrap td { height: 58px; border-color: #e7efed; }
 .adminApp .tableWrap tr:hover td { background: #f3faf7; }
 
-.adminApp .actionMenu { position: relative; width: max-content; margin-left: auto; }
-.adminApp .actionMenuTrigger {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 36px;
-  border: 1px solid var(--sm-border);
-  border-radius: 9px;
-  background: #fff;
-  color: var(--sm-primary);
-  cursor: pointer;
-  font-size: 20px;
-  font-weight: 800;
-}
-.adminApp .actionMenu.open > .actionMenuTrigger { border-color: #86cdb9; background: var(--sm-primary-soft); }
-.adminApp .actionMenuPanel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 30;
-  display: grid;
-  gap: 6px;
-  min-width: 180px;
-  padding: 8px;
-  border: 1px solid var(--sm-border);
-  border-radius: 11px;
-  background: #fff;
-  box-shadow: 0 14px 35px rgba(3, 54, 57, 0.16);
-}
-.adminApp .actionMenuPanel button { width: 100%; }
+/* Actions de ligne toujours visibles, sans clic sur un « ⋯ » pour les révéler. */
+.adminApp .rowActions { display: flex; flex-wrap: wrap; gap: 8px; width: max-content; margin-left: auto; }
 .adminApp .paymentActionBar { flex-wrap: wrap; }
 .adminApp .tablePagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 13px 16px; border-top: 1px solid var(--sm-border); }
 .adminApp .tablePagination .secondaryButton { min-height: 38px; padding: 0 13px; border: 1px solid var(--sm-border); border-radius: 9px; background: #fff; color: var(--sm-primary); }
