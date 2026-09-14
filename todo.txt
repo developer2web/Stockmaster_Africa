@@ -227,11 +227,37 @@
   Docker est disponible localement (non exécutable cette session).
 - [ ] Stripe : expiration de session (24h, non testable en direct dans
   l'immédiat) et renouvellement automatique.
-- [ ] Procédure de remboursement et de rapprochement des paiements Stripe
-  (aucune actuellement).
-- [ ] Nettoyer les transactions de test Stripe restées en `pending`/
-  `processing` dans `payment_transactions` (créées pendant le
-  débogage du 13/09, sans impact mais à clarifier).
+- [x] Procédure de remboursement (Stripe + Orange Money manuel) : nouvelle
+  action « Rembourser » dans Paiements (Super Admin), motif obligatoire.
+  Stripe : la fonction Edge `refund-payment` résout le PaymentIntent depuis
+  la Checkout Session puis appelle l'API `/v1/refunds` (vrai remboursement,
+  pas juste un changement de statut local). Orange Money manuel : enregistre
+  que l'argent a déjà été renvoyé à la main. Dans les deux cas : statut
+  `refunded` (nouveau, ajouté à la contrainte), abonnement que CE paiement
+  avait créé automatiquement clôturé (jamais un abonnement plus récent),
+  traçabilité complète (qui/quand/pourquoi/référence Stripe le cas échéant)
+  dans `payment_status_log` et `audit_logs`. Bug trouvé et corrigé pendant
+  le test en direct : un trigger d'intégrité pré-existant bloquait à tort
+  la transition succeeded→refunded (il ne connaissait que succeeded/failed/
+  cancelled/expired comme statuts terminaux) — corrigé pour reconnaître
+  précisément cette transition sans rien assouplir d'autre. Vérifié en
+  direct de bout en bout avec de vrais paiements test déjà sanctionnés
+  (StockMaster Test QA) : un vrai remboursement Stripe en mode test (référence
+  réelle `re_...` obtenue), un remboursement Orange Money manuel, l'abonnement
+  actif correctement clôturé dans le cas où il l'était encore, la double
+  tentative de remboursement correctement sans effet (idempotent), et
+  l'interface Super Admin vérifiée par capture d'écran (badge « Remboursé »,
+  détails, bouton masqué une fois fait).
+- [ ] Rapprochement automatique des paiements Stripe (détecter un paiement
+  payé côté Stripe sans webhook reçu côté StockMaster, ou l'inverse) —
+  pas encore construit.
+- [x] Nettoyer les transactions de test Stripe : vérifié le 14/09,
+  aucune n'était plus en `pending`/`processing` (les sessions Stripe
+  test avaient expiré naturellement depuis le 13/09). 9 lignes
+  `expired`/`failed` du 13/09 archivées (pas supprimées — traçabilité
+  conservée, restaurables) via `super_admin_manage_payment` avec motif
+  explicite. Liste « Paiements actifs » ne montre plus que des
+  paiements `succeeded` réels.
 
 ## P1 — Décision produit en attente
 

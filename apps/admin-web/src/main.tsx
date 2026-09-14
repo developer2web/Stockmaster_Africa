@@ -4,7 +4,7 @@ import { formatBillingMoney, planDisplayName, subscriptionStatusLabel } from '..
 import { plural } from '../../../src/utils/plural';
 import React, { useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { changeWebPassword, configured, getContext, signIn, supabase, type UserContext } from '../../shared/supabase';
+import { changeWebPassword, configured, edgeErrorMessage, getContext, signIn, supabase, type UserContext } from '../../shared/supabase';
 import './reference-exact.css';
 import './stability.css';
 import './actions-fix.css';
@@ -17,7 +17,7 @@ import { AdminSidebar, AdminMobileHeader, pageDescriptions, type AdminView as Vi
 type Stats = { companies: number; active_companies: number; stores: number; users: number; sales: number; subscriptions: Record<string, number>; revenue_by_currency: { currency_code: string; revenue: number }[]; monthly_sales: { month: string; currency_code: string; revenue: number; sales: number }[] };
 type Company = { id: string; name: string; slug: string | null; is_active: boolean; store_count: number; user_count: number; sale_count: number; revenue: number; currency_code: string; subscription_status: string | null; plan_code: string | null; subscription_starts_at: string | null; subscription_expires_at: string | null; trial_ends_at: string | null };
 type User = { membership_id: string; user_id: string; email: string; full_name: string; company_name: string; store_name: string | null; role_name: string; is_active: boolean; created_at: string };
-type Payment = { id: string; company_name: string; client_email: string; plan_name: string; amount: number; currency: string; provider: string; provider_reference: string | null; proof_path: string | null; status: string; created_at: string; failure_reason: string | null; archived_at: string | null; archive_reason: string | null };
+type Payment = { id: string; company_name: string; client_email: string; plan_name: string; amount: number; currency: string; provider: string; provider_reference: string | null; proof_path: string | null; status: string; created_at: string; failure_reason: string | null; archived_at: string | null; archive_reason: string | null; refunded_at: string | null; refund_reason: string | null; refund_reference: string | null };
 type Promotion = { id: string; name: string; code: string | null; promotion_type: string; value: number; expires_at: string; is_active: boolean };
 type Ticket = { id: string; subject: string; description: string; priority: string; status: string; resolution: string | null; created_at: string; company: { name: string } | null };
 type DeletionRequest = { id: string; user_id: string; full_name: string; email: string; reason: string | null; status: string; requested_at: string; processed_at: string | null; processed_by_name: string | null };
@@ -41,11 +41,15 @@ const day = (value: string) => new Intl.DateTimeFormat('fr-FR',{day:'numeric',mo
 const errorMessage = (value: unknown) => {const raw=value instanceof Error?value.message:typeof value==='object'&&value!==null&&'message'in value?String(value.message):'';if(/failed to fetch|network/i.test(raw))return 'Connexion au serveur impossible. Vérifiez Internet puis réessayez.';if(/permission|row-level security|forbidden/i.test(raw))return 'Vous n’avez pas l’autorisation d’effectuer cette action.';if(/duplicate|unique|already exists/i.test(raw))return 'Cette information existe déjà.';return raw||'Opération impossible.'};
 
 async function loadBillingPayments() {
-  const current = await supabase.rpc('super_admin_billing_payments_v2');
+  const missing = (message: string) => /schema cache|could not find/i.test(message);
+  const current = await supabase.rpc('super_admin_billing_payments_v3');
   if (!current.error) return current;
-  if (!/super_admin_billing_payments_v2|schema cache|could not find/i.test(current.error.message)) return current;
+  if (!missing(current.error.message)) return current;
+  const v2 = await supabase.rpc('super_admin_billing_payments_v2');
+  if (!v2.error) return { ...v2, data: (v2.data ?? []).map((payment: Record<string, unknown>) => ({ ...payment, refunded_at: null, refund_reason: null, refund_reference: null })) };
+  if (!missing(v2.error.message)) return v2;
   const legacy = await supabase.rpc('super_admin_billing_payments');
-  return legacy.error ? legacy : { ...legacy, data: (legacy.data ?? []).map((payment: Record<string, unknown>) => ({ ...payment, archived_at: null, archive_reason: null })) };
+  return legacy.error ? legacy : { ...legacy, data: (legacy.data ?? []).map((payment: Record<string, unknown>) => ({ ...payment, archived_at: null, archive_reason: null, refunded_at: null, refund_reason: null, refund_reference: null })) };
 }
 
 async function toggleCompanyAccess(company: Company, run: Run) {
@@ -333,7 +337,7 @@ function Payments({ data, search, setSearch, status, setStatus, run, proof }: { 
         <td><b>{money(payment.amount, payment.currency)}</b></td>
         <td><span className={payment.provider === 'stripe' ? 'methodBadge card' : 'methodBadge om'}>{payment.provider === 'stripe' ? 'Carte bancaire' : 'Orange Money'}</span></td>
         <td>{day(payment.created_at)}</td>
-        <td><Badge ok={payment.status === 'succeeded' && !payment.archived_at}>{payment.archived_at ? 'Archivé' : payment.status}</Badge></td>
+        <td><Badge ok={payment.status === 'succeeded' && !payment.archived_at && !payment.refunded_at}>{payment.archived_at ? 'Archivé' : payment.refunded_at ? 'Remboursé' : payment.status}</Badge></td>
         <td><button className="detailsBtn paymentReviewButton" onClick={() => setSelectedPayment(payment)}>Examiner</button></td>
       </tr>)}
     </Table>
@@ -344,7 +348,7 @@ function Payments({ data, search, setSearch, status, setStatus, run, proof }: { 
 function PaymentReviewDialog({ payment, close, run, proof }: { payment: Payment; close: () => void; run: Run; proof: (payment: Payment) => Promise<void> }) {
   const [reason, setReason] = useState('');
   const [localError, setLocalError] = useState('');
-  async function manage(action: 'confirm' | 'reject' | 'archive' | 'restore' | 'delete') {
+  async function manage(action: 'confirm' | 'reject' | 'archive' | 'restore' | 'delete' | 'refund') {
     const actionReason = reason.trim();
     if (action !== 'restore' && actionReason.length < 3) {
       setLocalError('Saisissez un motif d’au moins 3 caractères pour assurer la traçabilité.');
@@ -356,28 +360,40 @@ function PaymentReviewDialog({ payment, close, run, proof }: { payment: Payment;
       archive: 'Archiver ce paiement ? Il restera disponible dans le filtre « Paiements archivés ».',
       restore: 'Restaurer ce paiement dans la liste active ?',
       delete: 'Supprimer définitivement ce paiement non confirmé ? Cette action est irréversible.',
+      refund: payment.provider === 'stripe'
+        ? `Rembourser ${money(payment.amount, payment.currency)} à ${payment.client_email} via Stripe ? Un vrai remboursement sera déclenché sur la carte du client. Cette action est irréversible et l’abonnement qu’il a payé sera immédiatement clôturé.`
+        : `Confirmez-vous avoir déjà renvoyé ${money(payment.amount, payment.currency)} à ${payment.client_email} sur son compte Orange Money ? Cet écran n’envoie pas d’argent : il enregistre seulement que c’est fait. L’abonnement qu’il a payé sera immédiatement clôturé.`,
     };
     if (!window.confirm(confirmations[action] ?? 'Confirmer cette action ?')) return;
     setLocalError('');
     const saved = await run(
-      () => supabase.rpc('super_admin_manage_payment', {
-        p_payment_id: payment.id,
-        p_action: action,
-        p_reason: action === 'restore' ? null : actionReason,
-      }),
-      ({ confirm: 'Paiement confirmé.', reject: 'Paiement refusé.', archive: 'Paiement archivé.', restore: 'Paiement restauré.', delete: 'Paiement supprimé.' } as const)[action],
+      action === 'refund'
+        ? () => supabase.functions.invoke('refund-payment', { body: { paymentId: payment.id, reason: actionReason } })
+            .then(async result => {
+              if (result.error) return { error: new Error(await edgeErrorMessage(result.error, 'Remboursement impossible.')) };
+              if (result.data?.error) return { error: new Error(String(result.data.error)) };
+              return { error: null };
+            })
+        : () => supabase.rpc('super_admin_manage_payment', {
+            p_payment_id: payment.id,
+            p_action: action,
+            p_reason: action === 'restore' ? null : actionReason,
+          }),
+      ({ confirm: 'Paiement confirmé.', reject: 'Paiement refusé.', archive: 'Paiement archivé.', restore: 'Paiement restauré.', delete: 'Paiement supprimé.', refund: 'Paiement remboursé.' } as const)[action],
     );
     if (saved) close();
   }
   const canReview = (payment.status === 'processing' || payment.status === 'pending') && !payment.archived_at;
   const canDelete = payment.status !== 'succeeded' && !payment.provider_reference;
+  const canRefund = payment.status === 'succeeded' && !payment.archived_at && !payment.refunded_at;
+  const statusLabel = payment.archived_at ? 'Archivé' : payment.refunded_at ? 'Remboursé' : payment.status;
   return <div className="drawerBack" onMouseDown={event => event.target === event.currentTarget && close()}>
     <section className="drawer paymentReviewModal">
       <div className="modalHead">
         <div><span className="paymentReviewIcon">{payment.provider === 'stripe' ? 'CB' : 'OM'}</span><div><small>TRAITEMENT DU PAIEMENT</small><h1>{payment.company_name}</h1></div></div>
         <button className="close" onClick={close} aria-label="Fermer">×</button>
       </div>
-      <div className="paymentReviewAmount"><span>Montant déclaré</span><strong>{money(payment.amount, payment.currency)}</strong><Badge ok={payment.status === 'succeeded' && !payment.archived_at}>{payment.archived_at ? 'Archivé' : payment.status}</Badge></div>
+      <div className="paymentReviewAmount"><span>Montant déclaré</span><strong>{money(payment.amount, payment.currency)}</strong><Badge ok={payment.status === 'succeeded' && !payment.archived_at && !payment.refunded_at}>{statusLabel}</Badge></div>
       <dl className="paymentReviewDetails">
         <div><dt>Référence</dt><dd>{payment.provider_reference ?? 'Non renseignée'}</dd></div>
         <div><dt>Client</dt><dd>{payment.client_email}</dd></div>
@@ -385,19 +401,21 @@ function PaymentReviewDialog({ payment, close, run, proof }: { payment: Payment;
         <div><dt>Date</dt><dd>{new Date(payment.created_at).toLocaleString('fr-FR')}</dd></div>
         <div><dt>Devise d’origine</dt><dd>{currencyLabel(payment.currency)}</dd></div>
         {payment.archived_at && <div><dt>Archivage</dt><dd>{new Date(payment.archived_at).toLocaleString('fr-FR')} · {payment.archive_reason ?? 'Motif non renseigné'}</dd></div>}
+        {payment.refunded_at && <div><dt>Remboursement</dt><dd>{new Date(payment.refunded_at).toLocaleString('fr-FR')} · {payment.refund_reason ?? 'Motif non renseigné'}{payment.refund_reference ? ` · Réf. Stripe ${payment.refund_reference}` : ''}</dd></div>}
       </dl>
       {payment.proof_path && <button className="detailsBtn paymentProofButton" onClick={() => void proof(payment)}>Ouvrir le justificatif</button>}
       <div className="paymentDecision">
-        {!payment.archived_at && <label>Motif de l’action <span>obligatoire pour confirmer, refuser, archiver ou supprimer</span><textarea value={reason} onChange={event => setReason(event.target.value)} placeholder="Exemple : paiement vérifié auprès du client…"/></label>}
+        {!payment.archived_at && !payment.refunded_at && <label>Motif de l’action <span>obligatoire pour confirmer, refuser, archiver, rembourser ou supprimer</span><textarea value={reason} onChange={event => setReason(event.target.value)} placeholder="Exemple : paiement vérifié auprès du client…"/></label>}
         {localError && <div className="alert danger">{localError}</div>}
-        {!canReview && !payment.archived_at && <div className="paymentLockedNotice">Ce paiement n’est plus en attente. Il ne peut pas être confirmé ou refusé, mais il peut être archivé.</div>}
+        {!canReview && !payment.archived_at && !payment.refunded_at && <div className="paymentLockedNotice">Ce paiement n’est plus en attente. Il ne peut pas être confirmé ou refusé, mais il peut être archivé{canRefund ? ' ou remboursé' : ''}.</div>}
         <div className="modalActions paymentActionBar">
           <button className="detailsBtn" onClick={close}>Fermer</button>
           {payment.archived_at ? <button className="successBtn" onClick={() => void manage('restore')}>Restaurer</button> : <>
             {canDelete && <button className="dangerBtn" onClick={() => void manage('delete')}>Supprimer</button>}
-            <button className="detailsBtn archiveBtn" onClick={() => void manage('archive')}>Archiver</button>
+            {!payment.refunded_at && <button className="detailsBtn archiveBtn" onClick={() => void manage('archive')}>Archiver</button>}
             {canReview && <button className="dangerBtn" onClick={() => void manage('reject')}>Refuser</button>}
             {canReview && <button className="successBtn" onClick={() => void manage('confirm')}>Confirmer</button>}
+            {canRefund && <button className="dangerBtn" onClick={() => void manage('refund')}>Rembourser</button>}
           </>}
         </div>
       </div>
