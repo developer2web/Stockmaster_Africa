@@ -1,4 +1,4 @@
-import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
+import { useCameraPermissions } from 'expo-camera';
 import { useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
@@ -6,6 +6,7 @@ import { Linking, Platform, StyleSheet, useWindowDimensions, View } from 'react-
 import { Card, HelperText, Icon, IconButton, Text, TextInput } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
+import { BarcodeCameraView, type ScannedCode } from '@/components/scanner/BarcodeCameraView';
 import { lookupProductCode, type ProductCodeLookup } from '@/features/inventory/api';
 import { userErrorMessage } from '@/utils/errors';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -114,7 +115,7 @@ export default function ScannerScreen() {
     router.replace(`/products/${conflict.productId}` as never);
   }, [conflict, membership?.storeId, selectStore]);
 
-  const scanned = useCallback(({ data }: BarcodeScanningResult) => { void find(data); }, [find]);
+  const scanned = useCallback(({ data }: ScannedCode) => { void find(data); }, [find]);
   const cameraActive = permission?.granted && !locked;
 
   return <AdminPage title={mode === 'sale' ? 'Scanner pour la vente' : mode==='inventory'?'Scanner pour l’inventaire':'Scanner un produit'}>
@@ -128,12 +129,12 @@ export default function ScannerScreen() {
         : <AppButton onPress={() => void Linking.openSettings()}>Ouvrir les réglages</AppButton>}
     </Card.Content></Card>}
     {permission?.granted && <View style={[styles.cameraWrap, { height: cameraHeight }]}>
-      <CameraView
+      <BarcodeCameraView
         style={styles.camera}
-        facing="back"
-        enableTorch={torch}
-        onBarcodeScanned={cameraActive ? scanned : undefined}
-        barcodeScannerSettings={{ barcodeTypes: ['qr', 'ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39'] }}
+        active={!!cameraActive}
+        torch={torch}
+        onScanned={scanned}
+        barcodeTypes={['qr', 'ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39']}
       />
       <View style={[styles.frame, styles.noPointerEvents, locked && styles.frameLocked]} />
       <IconButton
