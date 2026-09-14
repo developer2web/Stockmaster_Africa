@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Dialog, HelperText, Icon, Portal, Switch, Text } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
@@ -19,6 +19,7 @@ import { hasPermission } from '@/features/auth/permissions';
 import { getStockLevels } from '@/features/inventory/api';
 import { useStockRealtime } from '@/hooks/useStockRealtime';
 import { deleteProduct, deleteVariant, getProduct, getSuppliers, saveProduct, saveVariant } from './api';
+import { lookupOpenFoodFacts, type OpenFoodFactsMatch } from './openFoodFacts';
 import { productSchema, ProductInput, variantSchema, VariantInput } from '@/schemas/catalog';
 import type { ProductVariant } from '@/types/database';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
@@ -43,10 +44,33 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   useStockRealtime(company);
   const product = useQuery({ queryKey:['product',id], queryFn:()=>getProduct(id!), enabled:!!id });
   const suppliers = useQuery({ queryKey:['suppliers',company,store], queryFn:()=>getSuppliers(company,store), enabled:!!company&&!!store });
-  const { control, handleSubmit, reset, formState:{errors,isDirty} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
+  const { control, handleSubmit, reset, setValue, getValues, formState:{errors,isDirty} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
   const levels = useQuery({queryKey:['stock-levels',company,store,id],queryFn:()=>getStockLevels(company,id,store),enabled:!!company&&!!store&&!!id});
 
   useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? 'SKU-AUTO', barcode:product.data.barcode??'', supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:String(product.data.purchase_price), salePrice:String(product.data.sale_price), initialQuantity:'0', lowStockThreshold:String(product.data.low_stock_threshold), isActive:product.data.is_active }); }, [product.data,reset]);
+
+  // Nouveau produit arrivant du scanner avec un code inconnu : on tente de retrouver son
+  // nom (et une photo de référence) dans Open Food Facts pour accélérer la saisie. Ça reste
+  // une suggestion à vérifier — jamais les prix/stock, propres à chaque entreprise — et un
+  // échec ou une absence de résultat ne change rien : le champ reste vide, saisie manuelle normale.
+  const [lookup, setLookup] = useState<'idle' | 'loading' | 'found' | 'none'>('idle');
+  const [lookupMatch, setLookupMatch] = useState<OpenFoodFactsMatch | null>(null);
+  useEffect(() => {
+    if (id || !initialBarcode) return;
+    let cancelled = false;
+    setLookup('loading');
+    lookupOpenFoodFacts(initialBarcode).then(match => {
+      if (cancelled) return;
+      if (match) {
+        setLookupMatch(match);
+        setLookup('found');
+        if (!getValues('name').trim()) setValue('name', match.name, { shouldDirty: true, shouldValidate: true });
+      } else {
+        setLookup('none');
+      }
+    });
+    return () => { cancelled = true; };
+  }, [id, initialBarcode, getValues, setValue]);
 
   const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onSuccess:async(saved)=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['employee-products',company,store]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace({pathname:basePath as never,params:{notice:id?'Modification enregistrée':'Produit enregistré'}}); } });
   const [confirm,setConfirm] = useState(false);
@@ -74,6 +98,11 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
       <Card mode="outlined">
         <Card.Content style={[styles.formContent, styles.essentialFields]}>
           <FormField control={control} name="name" label="Nom du produit" required autoFocus />
+          {!id && lookup === 'loading' && <HelperText type="info" visible>Recherche du produit à partir du code-barres…</HelperText>}
+          {!id && lookup === 'found' && lookupMatch && <View style={styles.lookupFound}>
+            {!!lookupMatch.imageUrl && <Image source={{ uri: lookupMatch.imageUrl }} style={styles.lookupImage} />}
+            <Text variant="bodySmall" style={styles.lookupText}>Nom suggéré depuis une base de données publique{lookupMatch.brand ? ` (${lookupMatch.brand})` : ''} — vérifiez qu’il correspond avant d’enregistrer.</Text>
+          </View>}
           <ResponsiveFormGrid>
             <FormField control={control} name="purchasePrice" label={`Prix d’achat (${primaryCode})`} required keyboardType="decimal-pad" />
             <FormField control={control} name="salePrice" label={`Prix de vente (${primaryCode})`} required keyboardType="decimal-pad" />
@@ -155,6 +184,9 @@ const styles=StyleSheet.create({
   optionsTogglePressed:{opacity:0.7},
   optionsLabel:{flex:1},
   collapsedOptions:{display:'none'},
+  lookupFound:{flexDirection:'row',alignItems:'center',gap:10},
+  lookupImage:{width:36,height:36,borderRadius:6,backgroundColor:'#F1F5F4'},
+  lookupText:{flex:1},
 });
 
 function Variants({ productId, companyId, variants, refresh }: { productId:string; companyId:string; variants:ProductVariant[]; refresh:()=>Promise<unknown> }) {
