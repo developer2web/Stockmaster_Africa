@@ -17,7 +17,7 @@ import { SubscriptionProvider } from '@/features/subscriptions/SubscriptionProvi
 import { OfflineProvider } from '@/features/offline/OfflineProvider';
 import { OfflineStatus } from '@/features/offline/OfflineStatus';
 import { logger } from '@/services/observability/logger';
-import { sanitizeErrorInPlace } from '@/utils/errors';
+import { isExpectedUserError, sanitizeErrorInPlace } from '@/utils/errors';
 import { usePortalLoginState } from '@/features/auth/portalLoginState';
 
 if (Platform.OS !== 'web') {
@@ -35,7 +35,9 @@ const queryClient = new QueryClient({
   mutationCache: new MutationCache({
     onMutate: (_variables, mutation) => assertMutationAllowed(mutation.options.meta),
     onError: (error, _variables, _context, mutation) => {
-      void logger.error('mutation_failed', error, { mutationKey: mutation.options.mutationKey });
+      // Un doublon ou un stock insuffisant sont des refus normaux, pas des
+      // incidents : l'utilisateur voit déjà un message clair plus bas.
+      if (!isExpectedUserError(error)) void logger.error('mutation_failed', error, { mutationKey: mutation.options.mutationKey });
       sanitizeErrorInPlace(error, 'Impossible de terminer cette action. Réessayez.');
     },
   }),

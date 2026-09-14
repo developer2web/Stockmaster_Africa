@@ -1,5 +1,5 @@
 import { describe,expect,it } from 'vitest';
-import { errorKind, userErrorMessage } from '../src/utils/errors';
+import { errorKind, isExpectedUserError, userErrorMessage } from '../src/utils/errors';
 describe('messages utilisateur',()=>{
   it('ne confond pas une fonction access manquante avec un refus de droits', () => {
     const error = { code: 'PGRST202', message: 'Could not find the function public.get_account_access_status in the schema cache' };
@@ -27,4 +27,16 @@ describe('messages utilisateur',()=>{
   it('traduit une erreur native d’impression',()=>expect(userErrorMessage(new Error('Printing did not complete'))).toContain('Impossible d’imprimer'));
   it('masque les erreurs JavaScript brutes',()=>expect(userErrorMessage(new Error('Uncaught (in promise) Error: Invalid key'))).toBe('Le serveur est momentanément indisponible. Réessayez.'));
   it('masque une erreur technique anglaise non répertoriée',()=>expect(userErrorMessage(new Error('Could not initialize native module'))).toBe('Le serveur est momentanément indisponible. Réessayez.'));
+});
+describe('journalisation des erreurs de mutation',()=>{
+  it('ne journalise pas un doublon ou un stock insuffisant : ce sont des refus attendus, pas des incidents',()=>{
+    expect(isExpectedUserError(new Error('duplicate key value violates unique constraint'))).toBe(true);
+    expect(isExpectedUserError(new Error('Cet email existe déjà sur un autre compte.'))).toBe(true);
+    expect(isExpectedUserError(new Error('Stock insuffisant : quantité disponible 2'))).toBe(true);
+  });
+  it('journalise toujours une erreur technique réelle',()=>{
+    expect(isExpectedUserError(new Error('relation products does not exist'))).toBe(false);
+    expect(isExpectedUserError(new Error('Failed to fetch'))).toBe(false);
+    expect(isExpectedUserError({ status: 500, message: 'Internal Server Error' })).toBe(false);
+  });
 });

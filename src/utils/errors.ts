@@ -18,12 +18,18 @@ export function errorKind(error: unknown): ErrorKind {
 export function canUseOfflineFallback(error: unknown) {
   return ['network', 'server'].includes(errorKind(error));
 }
+// Ces deux motifs ne signalent jamais un défaut du système : ce sont des refus de
+// validation attendus (l'utilisateur a lui-même déclenché le rejet). Nommés à part
+// pour être réutilisés par isExpectedUserError, qui évite de les journaliser comme
+// erreurs techniques auprès du Super Admin.
+const insufficientStockPattern=/stock insuffisant|insufficient stock|quantit[eé] insuffisante/i;
+const duplicateKeyPattern=/duplicate|unique|already exists|déjà utilisé|existe déjà/i;
 const rules:Rule[]=[
   [/failed to fetch|network request failed|load failed/i,()=>`Connexion internet indisponible. Vérifiez votre réseau puis réessayez.`],
   [/printing did not complete|print(?:ing)? (?:failed|error)|unable to print|impression.*(?:échoué|impossible)/i,()=>`Impossible d’imprimer le document. Vérifiez l’imprimante ou utilisez le partage PDF, puis réessayez.`],
   [/sharing is not available|partage.*(?:indisponible|impossible)/i,()=>`Le partage de fichiers n’est pas disponible sur cet appareil.`],
-  [/stock insuffisant|insufficient stock|quantit[eé] insuffisante/i,(technical)=>{const amount=technical.match(/(?:disponible|available)\D*(\d+(?:[.,]\d+)?)/i)?.[1];return amount?`Quantité insuffisante : ${amount} disponible${plural(Number(amount.replace(',','.')))}.`:`Stock insuffisant pour terminer cette opération.`}],
-  [/duplicate|unique|already exists|déjà utilisé|existe déjà/i,()=>`Cette information est déjà utilisée.`],
+  [insufficientStockPattern,(technical)=>{const amount=technical.match(/(?:disponible|available)\D*(\d+(?:[.,]\d+)?)/i)?.[1];return amount?`Quantité insuffisante : ${amount} disponible${plural(Number(amount.replace(',','.')))}.`:`Stock insuffisant pour terminer cette opération.`}],
+  [duplicateKeyPattern,()=>`Cette information est déjà utilisée.`],
   [/not found|introuvable/i,()=>`La donnée demandée est introuvable.`],
 ];
 function technicalMessage(error:unknown){return error instanceof Error?error.message:typeof error==='string'?error:error&&typeof error==='object'&&'message'in error&&typeof error.message==='string'?error.message:''}
@@ -37,6 +43,15 @@ export function userErrorMessage(error:unknown,fallback='Le serveur est momentan
   const technical=technicalMessage(error).trim();for(const[pattern,message]of rules){const match=technical.match(pattern);if(match)return message(technical,match)}return !technical||rawTechnical.test(technical)?fallback:technical
 }
 export const readableError=userErrorMessage;
+/**
+ * Un doublon (SKU, email...) ou un stock insuffisant sont des refus de validation
+ * normaux — l'utilisateur reçoit déjà un message clair. Les journaliser comme
+ * erreur technique noierait le Super Admin sous des incidents qui n'en sont pas.
+ */
+export function isExpectedUserError(error: unknown): boolean {
+  const technical = technicalMessage(error).trim();
+  return duplicateKeyPattern.test(technical) || insufficientStockPattern.test(technical);
+}
 export function sanitizeErrorInPlace(error:unknown,fallback?:string){
   const message=userErrorMessage(error,fallback);
   if(error instanceof Error)error.message=message;
