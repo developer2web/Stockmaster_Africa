@@ -333,5 +333,39 @@
 
 ## P2 — Qualité continue
 
-- [ ] Mesurer les performances avec plusieurs milliers de produits/ventes.
+- [x] Performances mesurées en direct (14/09) sur une entreprise jetable
+  ("StockMaster Perf Test") avec 1200 produits + 600 ventes réels créés via
+  les vraies RPC de l'app (pas une simulation) :
+  - Index vérifiés sur toutes les grosses tables (products, sales,
+    sale_items, stock_levels, stock_movements, payment_transactions) :
+    chacune a déjà les index composés qui correspondent exactement à ses
+    requêtes réelles — rien à ajouter.
+  - Listes paginées (produits, ventes) : ~160-205ms en première page,
+    quasi identique à une entreprise vide — bon.
+  - Point d'attention réel trouvé : la pagination par OFFSET ralentit avec
+    la profondeur (page 1 ≈ 160-205ms → offset 500-1000 ≈ 430-700ms). Pas
+    cassé (reste sous la seconde), mais empirera avec un catalogue qui
+    continue de grossir sur plusieurs mois. Recommandation, pas urgente :
+    passer à une pagination par curseur (keyset, ex. "après cette date")
+    plutôt que OFFSET sur les listes produits/ventes — refactor à part
+    entière (back ET front), pas tenté ici sans feu vert.
+  - Tableau de bord (chiffres du jour, stock faible, tendance) : 400-600ms
+    à ce volume — normal pour un agrégat qui ne peut pas paginer, à
+    surveiller si le volume continue de grossir mais rien à corriger
+    maintenant.
+  - Vue Super Admin plateforme (toutes entreprises) : ~150ms, non affectée
+    par le volume d'une seule entreprise — bonne isolation.
+  - Nettoyage complet du test : EN ATTENTE d'autorisation. La suppression
+    de l'entreprise de test a révélé un vrai angle mort pré-existant (la
+    suppression de compagnie n'avait jamais été exercée avant) : le
+    trigger d'audit write_audit_log() échoue sur la suppression en cascade
+    (tente d'enregistrer chaque ligne fille supprimée avec le company_id
+    d'une entreprise déjà partie). Migration de nettoyage prête
+    (202609141902 : désactive ponctuellement les triggers d'audit
+    concernés pour cette seule suppression, les réactive aussitôt après),
+    mais bloquée par le classificateur automatique de Claude Code
+    (« Logging/Audit Tampering ») car elle touche à des triggers d'audit
+    — même temporairement et de façon réversible. En attente de votre
+    « fais » pour l'appliquer et retirer définitivement les 1200 produits/
+    600 ventes/1 entreprise/1 compte de test restants.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
