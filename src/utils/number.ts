@@ -32,3 +32,13 @@ export function numericFieldValue(value: unknown): string {
   const num = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(num) ? num.toString() : '';
 }
+
+/**
+ * Ne garde que les chiffres d'une saisie clavier : les quantités et seuils de
+ * stock sont toujours des nombres entiers dans StockMaster (pas de fraction
+ * d'unité), donc le séparateur décimal est retiré dès la frappe plutôt que
+ * rejeté après coup.
+ */
+export function digitsOnly(value: string): string {
+  return value.replace(/[^0-9]/g, '');
+}

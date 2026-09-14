@@ -195,7 +195,7 @@ export default function CustomerDetails() {
         <Dialog visible={!!entryType} dismissable={!entry.isPending&&!amount&&!note} onDismiss={() => !entry.isPending&&!amount&&!note&&setEntryType(null)}>
           <Dialog.Title>{entryType === 'credit' ? 'Ajouter une dette' : entryType==='discount'?'Accorder une remise sur dette':'Encaisser un paiement'}</Dialog.Title>
           <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}><ScrollView nestedScrollEnabled contentContainerStyle={{ gap: 12, paddingHorizontal: 24, paddingBottom: 12 }} keyboardShouldPersistTaps="handled">
-            <TextInput testID="customer-entry-amount" mode="outlined" label="Montant *" accessibilityLabel="Montant *" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" left={<TextInput.Icon icon="cash" />} autoFocus />
+            <TextInput testID="customer-entry-amount" mode="outlined" label="Montant *" accessibilityLabel="Montant *" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" selectTextOnFocus left={<TextInput.Icon icon="cash" />} autoFocus />
             {entryType==='payment'&&<SelectField
               label="Moyen de paiement"
               value={entryPaymentMethod}
@@ -219,7 +219,7 @@ export default function CustomerDetails() {
             <FormField control={control} name="email" label="Email" autoCapitalize="none" keyboardType="email-address" />
             <FormField control={control} name="address" label="Adresse" />
             <FormField control={control} name="note" label="Note" multiline />
-            <FormField control={control} name="creditLimit" label="Limite de crédit (vide = illimitée)" keyboardType="decimal-pad" />
+            <FormField control={control} name="creditLimit" label="Limite de crédit (vide = illimitée)" keyboardType="decimal-pad" selectTextOnFocus />
             <Controller control={control} name="isActive" render={({ field }) => <Card mode="outlined"><Card.Title title="Client actif" right={() => <Switch value={field.value} onValueChange={field.onChange} style={{ marginRight: 12 }} />} /></Card>} />
             {!!edit.error && <HelperText type="error" visible>{readableError(edit.error)}</HelperText>}
           </ScrollView></Dialog.ScrollArea>
@@ -239,7 +239,7 @@ export default function CustomerDetails() {
                 </View>
                 <View style={{ flexDirection: width >= 460 && fontScale <= 1.2 ? 'row' : 'column', alignItems: 'stretch', gap: 8 }}>
                   <View style={{ flex: 1, minWidth: 0 }}><DateField label={`Date de l’échéance ${index + 1}`} value={row.dueDate} disabled={saveSchedule.isPending} onChange={dueDate => setScheduleRows(rows => rows.map((item, i) => i === index ? { ...item, dueDate } : item))} /></View>
-                  <TextInput mode="outlined" dense label="Montant" accessibilityLabel={`Montant de l’échéance ${index + 1}`} keyboardType="decimal-pad" style={{ flex: 1, minWidth: 0 }} value={row.amount} disabled={saveSchedule.isPending} onChangeText={amount => setScheduleRows(rows => rows.map((item, i) => i === index ? { ...item, amount } : item))} />
+                  <TextInput mode="outlined" dense label="Montant" accessibilityLabel={`Montant de l’échéance ${index + 1}`} keyboardType="decimal-pad" selectTextOnFocus style={{ flex: 1, minWidth: 0 }} value={row.amount} disabled={saveSchedule.isPending} onChangeText={amount => setScheduleRows(rows => rows.map((item, i) => i === index ? { ...item, amount } : item))} />
                 </View>
               </View>)}
               <AppButton mode="text" icon="plus" disabled={saveSchedule.isPending} onPress={() => setScheduleRows(rows => [...rows, { dueDate: localDateValue(new Date(Date.now() + (rows.length + 1) * 30 * 86400000)), amount: '' }])}>Ajouter une échéance</AppButton>

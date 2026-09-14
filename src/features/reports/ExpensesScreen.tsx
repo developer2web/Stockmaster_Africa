@@ -73,7 +73,7 @@ export default function ExpensesScreen() {
         <Portal>
           <Dialog visible={open} onDismiss={() => setOpen(false)}>
             <Dialog.Title>Nouvelle dépense</Dialog.Title>
-            <Dialog.Content><FormField control={control} name="label" label="Motif" /><FormField control={control} name="amount" label="Montant" keyboardType="decimal-pad" /><Controller control={control} name="expenseDate" render={({ field, fieldState }) => <DateField label="Date de la dépense" value={field.value} onChange={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} />} />{!!add.error && <HelperText type="error" visible>{add.error.message}</HelperText>}</Dialog.Content>
+            <Dialog.Content><FormField control={control} name="label" label="Motif" /><FormField control={control} name="amount" label="Montant" keyboardType="decimal-pad" selectTextOnFocus /><Controller control={control} name="expenseDate" render={({ field, fieldState }) => <DateField label="Date de la dépense" value={field.value} onChange={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} />} />{!!add.error && <HelperText type="error" visible>{add.error.message}</HelperText>}</Dialog.Content>
             <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={add.isPending} disabled={add.isPending} onPress={handleSubmit((value) => add.mutate(value))}>Enregistrer</AppButton></Dialog.Actions>
           </Dialog>
         </Portal>

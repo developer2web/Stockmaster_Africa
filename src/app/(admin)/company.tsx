@@ -143,7 +143,7 @@ export default function CompanyScreen() {
       <Card mode="outlined">
         <Card.Title title="Règles de vente" subtitle="Réglages utiles sans surcharger l’écran" />
         <Card.Content style={{ gap: 12 }}>
-          <TextInput mode="outlined" label="Remise maximale (%)" accessibilityLabel="Remise maximale (%)" keyboardType="decimal-pad" value={settings.maxDiscountPercent} onChangeText={(maxDiscountPercent) => setSettings((value) => ({ ...value, maxDiscountPercent }))} />
+          <TextInput mode="outlined" label="Remise maximale (%)" accessibilityLabel="Remise maximale (%)" keyboardType="decimal-pad" selectTextOnFocus value={settings.maxDiscountPercent} onChangeText={(maxDiscountPercent) => setSettings((value) => ({ ...value, maxDiscountPercent }))} />
           <TextInput mode="outlined" label="Message en bas du reçu" accessibilityLabel="Message en bas du reçu" value={settings.receiptFooter} onChangeText={(receiptFooter) => setSettings((value) => ({ ...value, receiptFooter }))} />
           {([
             ['Autoriser les remises', 'allowDiscounts'],
@@ -162,7 +162,7 @@ export default function CompanyScreen() {
         <Card mode="outlined">
           <Card.Title title="Caisse" subtitle="Contrôles utiles uniquement pour la gestion avancée" />
           <Card.Content style={{ gap: 12 }}>
-            <TextInput mode="outlined" label="Justifier un écart de caisse supérieur à" accessibilityLabel="Justifier un écart de caisse supérieur à" keyboardType="decimal-pad" value={settings.cashVarianceReasonThreshold} onChangeText={(cashVarianceReasonThreshold) => setSettings((value) => ({ ...value, cashVarianceReasonThreshold }))} />
+            <TextInput mode="outlined" label="Justifier un écart de caisse supérieur à" accessibilityLabel="Justifier un écart de caisse supérieur à" keyboardType="decimal-pad" selectTextOnFocus value={settings.cashVarianceReasonThreshold} onChangeText={(cashVarianceReasonThreshold) => setSettings((value) => ({ ...value, cashVarianceReasonThreshold }))} />
             <Card mode="contained">
               <Card.Title title="Ouverture de caisse obligatoire" right={() => <Switch value={settings.cashOpeningRequired} onValueChange={(cashOpeningRequired) => setSettings((value) => ({ ...value, cashOpeningRequired }))} style={{ marginRight: 12 }} />} />
             </Card>
@@ -175,7 +175,7 @@ export default function CompanyScreen() {
         <Card mode="outlined">
           <Card.Title title="Dépenses" subtitle="Définissez le seuil d’approbation pour les dépenses" />
           <Card.Content style={{ gap: 12 }}>
-            <TextInput mode="outlined" label="Seuil nécessitant l’accord Admin" accessibilityLabel="Seuil nécessitant l’accord Admin" keyboardType="decimal-pad" value={settings.expenseApprovalThreshold} onChangeText={(expenseApprovalThreshold) => setSettings((value) => ({ ...value, expenseApprovalThreshold }))} />
+            <TextInput mode="outlined" label="Seuil nécessitant l’accord Admin" accessibilityLabel="Seuil nécessitant l’accord Admin" keyboardType="decimal-pad" selectTextOnFocus value={settings.expenseApprovalThreshold} onChangeText={(expenseApprovalThreshold) => setSettings((value) => ({ ...value, expenseApprovalThreshold }))} />
             <AppButton loading={settingsMutation.isPending} onPress={() => settingsMutation.mutate()}>Enregistrer le seuil</AppButton>
           </Card.Content>
         </Card>

@@ -13,7 +13,7 @@ import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { getCompany } from '@/features/employees/api';
 import { getSale } from '@/features/sales/api';
 import { getSaleReturns, recordSaleReturn, type ReturnDisposition } from '@/features/sales/returns';
-import { formatQuantity, parseDecimal } from '@/utils/number';
+import { formatQuantity, parseDecimal, digitsOnly } from '@/utils/number';
 
 const methods = [{ label: 'Espèces', value: 'cash' }, { label: 'Mobile Money', value: 'mobile_money' }];
 const dispositions = [{ label: 'Remettre en stock', value: 'restock' }, { label: 'Produit endommagé', value: 'damaged' }, { label: 'Produit perdu', value: 'lost' }];
@@ -57,7 +57,7 @@ export default function SaleRefundScreen() {
     <Text variant="titleLarge" style={{ fontWeight: '800' }}>Articles à retourner</Text>
     {items.map(({ item, remaining }) => <Card key={item.id} mode="outlined">
       <Card.Title title={item.variant ? `${item.product?.name} • ${item.variant.name}` : item.product?.name ?? 'Produit'} subtitle={`Retournable : ${formatQuantity(remaining)} • ${formatMoney((Number(item.line_total) + Number(item.tax_amount ?? 0)) / Number(item.quantity))} par unité`} right={() => remaining <= 0 ? <Chip style={{ marginRight: 12 }}>Déjà retourné</Chip> : null} />
-      {remaining > 0 && <Card.Content style={{ gap: 10 }}><TextInput mode="outlined" label="Quantité retournée" accessibilityLabel="Quantité retournée" value={quantities[item.id] ?? ''} onChangeText={(value) => setQuantities((current) => ({ ...current, [item.id]: value }))} keyboardType="decimal-pad" error={(parseDecimal(quantities[item.id] ?? '0') || 0) > remaining} /><SelectField label="État du produit retourné" value={itemDispositions[item.id] ?? 'restock'} onChange={(value) => setItemDispositions((current) => ({ ...current, [item.id]: (value ?? 'restock') as ReturnDisposition }))} options={dispositions} /></Card.Content>}
+      {remaining > 0 && <Card.Content style={{ gap: 10 }}><TextInput mode="outlined" label="Quantité retournée" accessibilityLabel="Quantité retournée" value={quantities[item.id] ?? ''} onChangeText={(value) => setQuantities((current) => ({ ...current, [item.id]: digitsOnly(value) }))} keyboardType="number-pad" selectTextOnFocus error={(parseDecimal(quantities[item.id] ?? '0') || 0) > remaining} /><SelectField label="État du produit retourné" value={itemDispositions[item.id] ?? 'restock'} onChange={(value) => setItemDispositions((current) => ({ ...current, [item.id]: (value ?? 'restock') as ReturnDisposition }))} options={dispositions} /></Card.Content>}
     </Card>)}
     <SelectField label="Mode de remboursement" value={method} onChange={setMethod} options={methods} />
     <TextInput mode="outlined" label={reasonRequired ? 'Motif obligatoire' : 'Motif ou note'} accessibilityLabel={reasonRequired ? 'Motif obligatoire' : 'Motif ou note'} value={note} onChangeText={setNote} multiline error={reasonRequired && note.length > 0 && note.trim().length < 3} />

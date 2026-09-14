@@ -2,15 +2,16 @@ import { Control, Controller, FieldPath, FieldValues } from 'react-hook-form';
 import { StyleSheet, View } from 'react-native';
 import { HelperText, TextInput, TextInputProps, useTheme } from 'react-native-paper';
 import { useState } from 'react';
+import { digitsOnly } from '@/utils/number';
 
-type Props<T extends FieldValues> = TextInputProps & { control: Control<T>; name: FieldPath<T>; passwordToggle?: boolean; required?: boolean };
+type Props<T extends FieldValues> = TextInputProps & { control: Control<T>; name: FieldPath<T>; passwordToggle?: boolean; required?: boolean; integerOnly?: boolean };
 
-export function FormField<T extends FieldValues>({ control, name, passwordToggle=false, secureTextEntry, required=false, label, style, ...props }: Props<T>) {
+export function FormField<T extends FieldValues>({ control, name, passwordToggle=false, secureTextEntry, required=false, label, style, integerOnly=false, ...props }: Props<T>) {
   const [passwordHidden,setPasswordHidden]=useState(true);
   const theme = useTheme();
   return (
     <Controller control={control} name={name} render={({ field: { onBlur, onChange, value }, fieldState }) => (
-      <View style={styles.field}><TextInput mode="outlined" value={value == null ? '' : String(value)} onBlur={onBlur} onChangeText={onChange}
+      <View style={styles.field}><TextInput mode="outlined" value={value == null ? '' : String(value)} onBlur={onBlur} onChangeText={integerOnly ? (text: string) => onChange(digitsOnly(text)) : onChange}
         label={typeof label==='string'&&required?`${label} *`:label}
         style={[styles.input, { backgroundColor: theme.colors.surface }, style]}
         accessibilityLabel={typeof label === 'string' ? label : undefined}

@@ -38,7 +38,7 @@ export default function NewCustomer() {
       <ResponsiveFormGrid><FormField control={control} name="phone" label="Téléphone (facultatif)" keyboardType="phone-pad" />
       <FormField control={control} name="email" label="Email (facultatif)" autoCapitalize="none" keyboardType="email-address" /></ResponsiveFormGrid>
       <ResponsiveFormGrid><FormField control={control} name="address" label="Adresse (facultative)" />
-      <FormField control={control} name="creditLimit" label={`Limite de crédit (${primaryCode}, facultative)`} keyboardType="decimal-pad" /></ResponsiveFormGrid>
+      <FormField control={control} name="creditLimit" label={`Limite de crédit (${primaryCode}, facultative)`} keyboardType="decimal-pad" selectTextOnFocus /></ResponsiveFormGrid>
       <FormField control={control} name="note" label="Note (facultative)" multiline />
       <Controller
         control={control}
