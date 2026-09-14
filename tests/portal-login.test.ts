@@ -37,10 +37,11 @@ describe('portal login validation', () => {
   });
 
   it('keeps new owner onboarding accessible through the administrator login', async () => {
-    // A freshly confirmed account has no membership anywhere yet: the mobile
-    // app's own two-step signup never sets a company_name in user_metadata
-    // (only the public site's single-step form does), so this must come from
-    // the server-verified access status, not client-supplied signup metadata.
+    // A freshly confirmed account has no membership anywhere yet: neither the
+    // mobile app's nor the public site's signup sets a company_name in user
+    // metadata — both collect it on the shared complete-profile step — so
+    // this must come from the server-verified access status, not client-
+    // supplied signup metadata.
     backend.rpc.mockImplementation((name) => Promise.resolve({
       data: name === 'get_account_access_status' ? 'no_membership' : [],
       error: null,

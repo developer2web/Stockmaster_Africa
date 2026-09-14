@@ -365,7 +365,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
 .authShell > form > h2 { margin: 3px 0 0; font-size: 29px; letter-spacing: -.03em; }
 .authShell > form > p { margin: 0 0 7px; font-size: 12px; }
 .modalClose { position: absolute; right: 16px; top: 14px; width: 37px; height: 37px; border: 0; border-radius: 50%; background: #eff5f2; color: #3b5750; font-size: 22px; }
-.authGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }.authGrid .full{grid-column:1/-1}
 .passwordField { position: relative; }.passwordField input{padding-right:65px}.passwordField button{position:absolute;right:6px;top:6px;height:34px;border:0;background:transparent;color:var(--green);font-size:10px;font-weight:800}
 .forgotButton, .authSwitch { width: fit-content; margin-left: auto; border: 0; background: transparent; color: var(--green); font-size: 11px; font-weight: 700; }
 .authSubmit { width: 100%; margin-top: 3px; }.authSubmit:disabled{opacity:.6;cursor:not-allowed}
@@ -401,7 +400,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
   .demoToolbar { align-items: stretch; flex-direction: column; padding: 10px; }.demoToolbar > div { width: 100%; }.demoToolbar button { flex: 1; }
   .aboutGrid,.faqSection,.contactSection{grid-template-columns:1fr;gap:40px}.aboutStats{grid-template-columns:1fr 1fr}.faqVisual{min-height:330px}.contactSection form>div{grid-template-columns:1fr}.contactSection form{padding:22px}
   .finalBanner{flex-direction:column;text-align:center}.siteFooter{grid-template-columns:1fr 1fr;gap:35px}.siteFooter>div:first-child{grid-column:1/-1}.footerBottom{flex-direction:column;gap:8px}
-  .authBackdrop{padding:10px}.authShell{max-height:calc(100vh - 20px);grid-template-columns:1fr}.authShell>aside{display:none}.authShell>form{padding:38px 24px}.authGrid{grid-template-columns:1fr}.authGrid .full{grid-column:auto}
+  .authBackdrop{padding:10px}.authShell{max-height:calc(100vh - 20px);grid-template-columns:1fr}.authShell>aside{display:none}.authShell>form{padding:38px 24px}
 }
 
 @media (max-width: 520px) {
