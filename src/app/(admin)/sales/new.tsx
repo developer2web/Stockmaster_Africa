@@ -185,28 +185,26 @@ export default function NewSale() {
       <AppSearchBar placeholder="Nom ou code-barres" value={search} onChangeText={setSearch} loading={search!==debouncedSearch} />
       {stock.isLoading && <Text>Chargement des articles…</Text>}
       {!!stock.error && <HelperText type="error" visible>{readableError(stock.error)}</HelperText>}
-      <View style={styles.list}>
+      <View style={styles.grid}>
         {shown.map((item) => {
           const available = item.available > 0 || !!companySettings.data?.allow_negative_stock;
           const inCartUnit = items.find(cartItem => cartKey(cartItem) === cartKey({ ...item, saleMode: 'unit' }));
           const inCartBulk = item.bulkUnitLabel ? items.find(cartItem => cartKey(cartItem) === cartKey({ ...item, saleMode: 'bulk' })) : undefined;
           const addOne = (mode: 'unit' | 'bulk' = 'unit') => { add(item,!!companySettings.data?.allow_negative_stock,mode); setQuantityDrafts(current => { const next = { ...current }; delete next[cartKey({ ...item, saleMode: mode })]; return next; }); };
           const anyInCart = !!inCartUnit || !!inCartBulk;
-          return (
-            <Card key={cartKey(item)} mode="contained" style={[{ backgroundColor: theme.colors.surface }, !available && styles.unavailable, anyInCart && { borderColor: theme.colors.primary, borderWidth: 1.5 }]} onPress={!item.bulkUnitLabel && available && !save.isPending ? () => addOne('unit') : undefined}>
-              <Card.Content style={styles.productRow}>
-                <ProductThumbnail url={item.imageUrl} />
-                <View style={styles.productCopy}><Text variant="titleMedium">{item.name}</Text><Text>{formatMoney(item.salePrice)}{item.bulkUnitLabel ? ` (${unitLabel(item.unit)})` : ''}</Text>
-                  <Text style={{ color: available ? theme.colors.onSurfaceVariant : theme.colors.error }}>{available ? `Stock : ${formatQuantity(item.available)}` : 'Stock épuisé'}</Text>
-                </View>
-                {!item.bulkUnitLabel && !!inCartUnit && (
-                  <View style={styles.inCartBadge}>
-                    <Chip compact icon="check" mode="flat" style={{ backgroundColor: theme.colors.primaryContainer }}>{`Déjà ajouté · ${formatQuantity(inCartUnit.quantity)}`}</Chip>
-                    <IconButton mode="contained" icon="plus" size={16} disabled={!available || save.isPending} accessibilityLabel={`Ajouter encore un ${item.name}`} onPress={(event) => { event.stopPropagation(); addOne('unit'); }} />
+          // Les produits vendus aussi en gros ont besoin de deux boutons
+          // explicites (détail / pack) : ils gardent une carte large en
+          // pleine ligne. Les produits simples passent en tuiles compactes
+          // façon Amazon, plusieurs par ligne.
+          if (item.bulkUnitLabel) {
+            return (
+              <Card key={cartKey(item)} mode="contained" style={[styles.gridCardBulk, { backgroundColor: theme.colors.surface }, !available && styles.unavailable, anyInCart && { borderColor: theme.colors.primary, borderWidth: 1.5 }]}>
+                <Card.Content style={styles.productRow}>
+                  <ProductThumbnail url={item.imageUrl} />
+                  <View style={styles.productCopy}><Text variant="titleMedium">{item.name}</Text><Text>{formatMoney(item.salePrice)} ({unitLabel(item.unit)})</Text>
+                    <Text style={{ color: available ? theme.colors.onSurfaceVariant : theme.colors.error }}>{available ? `Stock : ${formatQuantity(item.available)}` : 'Stock épuisé'}</Text>
                   </View>
-                )}
-              </Card.Content>
-              {item.bulkUnitLabel && (
+                </Card.Content>
                 <Card.Content style={styles.bulkButtons}>
                   <AppButton mode={inCartUnit?'contained':'outlined'} compact disabled={!available || save.isPending} onPress={() => addOne('unit')}>
                     {inCartUnit ? `✓ ${formatQuantity(inCartUnit.quantity)} ${unitLabel(item.unit)}${plural(inCartUnit.quantity)}` : `+1 ${unitLabel(item.unit)} (${formatMoney(item.salePrice)})`}
@@ -215,8 +213,26 @@ export default function NewSale() {
                     {inCartBulk ? `✓ ${formatQuantity(inCartBulk.quantity / (item.bulkQuantity ?? 1))} ${item.bulkUnitLabel}` : `+1 ${item.bulkUnitLabel} (${formatMoney(item.bulkPrice ?? 0)})`}
                   </AppButton>
                 </Card.Content>
-              )}
-              {!available && <Card.Content><Text style={{ color: theme.colors.error }}>Ajoutez le stock depuis la fiche Produit ou le module Stock.</Text></Card.Content>}
+                {!available && <Card.Content><Text style={{ color: theme.colors.error }}>Ajoutez le stock depuis la fiche Produit ou le module Stock.</Text></Card.Content>}
+              </Card>
+            );
+          }
+          return (
+            <Card key={cartKey(item)} mode="contained" style={[styles.gridCard, { backgroundColor: theme.colors.surface }, !available && styles.unavailable, anyInCart && { borderColor: theme.colors.primary, borderWidth: 1.5 }]} onPress={available && !save.isPending ? () => addOne('unit') : undefined}>
+              <View style={styles.gridImageWrap}>
+                <ProductThumbnail url={item.imageUrl} size={72} />
+                {!!inCartUnit && (
+                  <View style={styles.gridBadge}>
+                    <Chip compact icon="check" mode="flat" style={{ backgroundColor: theme.colors.primaryContainer }}>{formatQuantity(inCartUnit.quantity)}</Chip>
+                    <IconButton mode="contained" icon="plus" size={14} disabled={!available || save.isPending} accessibilityLabel={`Ajouter encore un ${item.name}`} onPress={(event) => { event.stopPropagation(); addOne('unit'); }} />
+                  </View>
+                )}
+              </View>
+              <Card.Content style={styles.gridCopy}>
+                <Text variant="titleSmall" numberOfLines={2} style={styles.gridName}>{item.name}</Text>
+                <Text variant="titleMedium" style={styles.bold}>{formatMoney(item.salePrice)}</Text>
+                <Text variant="bodySmall" style={{ color: available ? theme.colors.onSurfaceVariant : theme.colors.error }}>{available ? `Stock : ${formatQuantity(item.available)}` : 'Stock épuisé'}</Text>
+              </Card.Content>
             </Card>
           );
         })}
@@ -308,6 +324,21 @@ const styles = StyleSheet.create({
   bulkButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 0 },
   list: { gap: 8 },
   unavailable: { opacity: 0.72 },
+  bold: { fontWeight: '800' },
+  // Grille façon Amazon pour les produits simples : flexBasis en pixels
+  // fixes (pas en %) pour que le nombre de colonnes s'adapte tout seul à la
+  // largeur de l'écran (~4 sur téléphone, davantage sur un écran large),
+  // même logique que la liste Produits.
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  gridCard: { flexBasis: 84, flexGrow: 1, minWidth: 80, maxWidth: 170, overflow: 'hidden' },
+  // Les produits vendus aussi en gros gardent une carte large (deux
+  // boutons + texte) : elle prend toute la ligne sur téléphone et se
+  // partage la ligne avec une autre sur un écran large.
+  gridCardBulk: { flexBasis: 260, flexGrow: 1, minWidth: 240, overflow: 'hidden' },
+  gridImageWrap: { alignItems: 'center', paddingTop: 12, position: 'relative' },
+  gridBadge: { position: 'absolute', top: 4, right: 4, alignItems: 'center', gap: 2 },
+  gridCopy: { alignItems: 'center', gap: 2, paddingTop: 8 },
+  gridName: { textAlign: 'center' },
   chip: { marginRight: 12 },
   field: { width: '100%', maxWidth: 320 },
   notice: { gap: 10 },
