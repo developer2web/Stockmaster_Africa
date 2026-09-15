@@ -585,4 +585,26 @@
   pré-remplissage), seulement si c'est vraiment plus cher. Vérifié en
   direct : calcul correct, la modification manuelle du champ à l'unité
   est bien respectée ensuite, sauvegarde/réouverture conservent tout.
+- [x] Pagination par curseur (produits/ventes) (15/09). Remplace OFFSET
+  (mesuré 430-700ms au-delà de 500 lignes le 14/09) par un curseur
+  (created_at, id) : reste rapide quelle que soit la profondeur. Touche
+  getProducts (requête directe) et get_sales_history_safe/
+  get_filtered_sales_history (RPC, anciennes signatures p_offset
+  supprimées explicitement). Nouveau src/utils/pagination.ts partagé par
+  les 3 écrans concernés. Vérifié en direct : 35 produits réels sur 2
+  pages sans doublon ni trou, recherche+curseur combinés donnent la bonne
+  intersection, 5 ventes réelles sur les deux RPC de ventes pareillement
+  correctes. 239/239 tests.
+- [x] L'essai gratuit démarre sur Pro au lieu de Basic (15/09, demande
+  explicite). La vraie source n'était pas create_business (corrigé sans
+  effet réel) mais un trigger BEFORE INSERT sur subscriptions
+  (fill_subscription_client) jamais trouvé par recherche dans les
+  migrations, seulement en direct via information_schema.triggers — son
+  repli par défaut passe de 'basic' à 'pro' (le choix explicite à
+  l'inscription reste prioritaire). Même alignement pour l'octroi manuel
+  Super Admin. Nettoyage au passage : 2 surcharges à 2 arguments jamais
+  appelées (bootstrap_company, create_business) supprimées. 3 nouvelles
+  RPC de diagnostic Super Admin réutilisables (surcharges d'une fonction
+  avec code source, triggers d'une table, recherche d'entreprises par
+  nom). Vérifié en direct : nouvel essai -> plan_id Pro confirmé.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
