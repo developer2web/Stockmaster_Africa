@@ -248,9 +248,20 @@
   tentative de remboursement correctement sans effet (idempotent), et
   l'interface Super Admin vérifiée par capture d'écran (badge « Remboursé »,
   détails, bouton masqué une fois fait).
-- [ ] Rapprochement automatique des paiements Stripe (détecter un paiement
-  payé côté Stripe sans webhook reçu côté StockMaster, ou l'inverse) —
-  pas encore construit.
+- [x] Rapprochement automatique des paiements Stripe (15/09). Filet de
+  sécurité si un webhook n'arrive jamais : nouvelle Edge Function
+  reconcile-stripe-payments, cron toutes les 20 min, interroge Stripe pour
+  chaque paiement Stripe resté pending/processing plus de 15 min côté
+  StockMaster et le corrige via la MÊME RPC que le vrai webhook
+  (process_payment_webhook) si Stripe dit la session payée ou expirée.
+  Réutilise le secret interne déjà en place (notification-email), aucun
+  nouveau secret. Vérifié en direct : vrai paiement test payé de bout en
+  bout (carte 4242, webhook réel confirmé), 2 cas limites du rapprochement
+  (session encore ouverte, référence inexistante) tous deux correctement
+  ignorés sans erreur, tâche cron confirmée exécutée avec succès à l'heure
+  prévue (cron.job_run_details). 2 nouvelles RPC de diagnostic Super Admin
+  ajoutées au passage (réponses HTTP pg_net récentes, historique cron par
+  nom) — réutilisables pour tout futur incident du même genre.
 - [x] Nettoyer les transactions de test Stripe : vérifié le 14/09,
   aucune n'était plus en `pending`/`processing` (les sessions Stripe
   test avaient expiré naturellement depuis le 13/09). 9 lignes
