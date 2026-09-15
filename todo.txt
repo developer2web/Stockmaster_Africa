@@ -639,4 +639,23 @@
   données de production (11 entreprises, 14 utilisateurs) : listes
   nettement plus calmes visuellement, aucune erreur console, build
   propre.
+- [x] Motif obligatoire avant les actions sensibles, mobile + Super Admin
+  (15/09, demande explicite « pour des raisons de sécurité des données »,
+  périmètre le plus large choisi : toutes les actions importantes, pas
+  seulement les irréversibles). Déjà en place pour les paiements et
+  l'annulation d'achat fournisseur, étendu partout où ça manquait :
+  - Mobile (ConfirmDialog étendu avec reason/onReasonChange facultatifs,
+    rien ne change pour les appels qui ne les passent pas) : Supprimer un
+    employé (accès), Supprimer aussi son compte, Supprimer un rôle.
+  - Super Admin (nouveau helper promptReason(), même principe que la
+    suspension d'entreprise qui l'avait déjà) : Désactiver un utilisateur,
+    Supprimer définitivement un compte (l'action la plus sévère de la
+    plateforme, sans motif ni journal jusqu'ici), Refuser/Anonymiser/
+    Supprimer définitivement une demande de suppression de compte.
+  Le motif est systématiquement enregistré dans audit_logs (certaines de
+  ces RPC n'avaient même aucune trace d'audit avant ce correctif).
+  Vérifié en direct de bout en bout (comptes de test réels, mobile ET
+  Super Admin) : bouton de confirmation désactivé tant que le motif fait
+  moins de 3 caractères, motif retrouvé dans audit_logs après coup.
+  239/239 tests, tsc propre, build admin-web propre.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
