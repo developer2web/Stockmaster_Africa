@@ -2,6 +2,7 @@ import { usePermissions } from '@/features/auth/usePermissions';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { Card, FAB, HelperText, Text } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -35,9 +36,26 @@ export default function EmployeeProducts() {
   return <PermissionGuard permission="products.read"><AdminPage title="Produits" action={canWrite ? <FAB size="small" icon="plus" onPress={() => router.push('/employee/products/new' as never)} /> : undefined}>
     <AppSearchBar placeholder="Nom ou code-barres" value={search} onChangeText={value=>setSearch(listScope,value)} loading={search !== debounced} />
     {!!query.error&&<HelperText type="error" visible>{readableError(query.error)}</HelperText>}
-    {products.map((product) => <Card key={product.id} mode="contained" onPress={canWrite ? () => router.push(`/employee/products/${product.id}` as never) : undefined}><Card.Title left={()=><ProductThumbnail url={product.image_urls?.[0]}/>} title={product.name} right={() => <Text style={{ marginRight: 16 }}>{formatMoney(Number(product.sale_price))}</Text>} /></Card>)}
+    <View style={styles.grid}>
+      {products.map((product) => <Card key={product.id} mode="contained" style={styles.gridCard} onPress={canWrite ? () => router.push(`/employee/products/${product.id}` as never) : undefined}>
+        <View style={styles.gridImageWrap}><ProductThumbnail url={product.image_urls?.[0]} size={112}/></View>
+        <Card.Content style={styles.gridCopy}>
+          <Text variant="titleSmall" numberOfLines={2} style={styles.gridName}>{product.name}</Text>
+          <Text variant="titleMedium" style={styles.bold}>{formatMoney(Number(product.sale_price))}</Text>
+        </Card.Content>
+      </Card>)}
+    </View>
     {query.hasNextPage&&<AppButton mode="outlined" loading={query.isFetchingNextPage} onPress={()=>void query.fetchNextPage()}>Charger plus de produits</AppButton>}
     {!query.isLoading && !products.length && <EmptyState icon="package-variant" title={search ? 'Aucun résultat' : 'Aucun produit'} message={search ? 'Modifiez votre recherche.' : 'Aucun produit dans le catalogue.'} />}
     <AppFeedback message={feedback} onDismiss={()=>setFeedback('')}/>
   </AdminPage></PermissionGuard>;
 }
+
+const styles = StyleSheet.create({
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  gridCard: { flexBasis: '31%', flexGrow: 1, minWidth: 104, maxWidth: 220, overflow: 'hidden' },
+  gridImageWrap: { alignItems: 'center', paddingTop: 12 },
+  gridCopy: { alignItems: 'center', gap: 2, paddingTop: 8 },
+  gridName: { textAlign: 'center' },
+  bold: { fontWeight: '800' },
+});

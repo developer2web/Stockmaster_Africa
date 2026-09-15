@@ -3,20 +3,29 @@ import { getSales } from '@/features/sales/api';
 import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
-import { useCallback, useRef } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { Appbar, Card, Text, useTheme } from 'react-native-paper';
 import { AppButton } from '@/components/ui/AppButton';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
+import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 import { getAdminOverview } from '@/features/dashboard/api';
 import { getBusinessReport } from '@/features/reports/api';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { getCashSummary } from '@/features/cash/api';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { plural } from '@/utils/plural';
 
 export default function AdminDashboard() {
   const { formatMoney: money } = useCurrency();
-  const { membership, businesses, stores } = useAuth();
+  const { membership, businesses, stores, signOut } = useAuth();
+  const { subscription } = useSubscription();
+  const [openingAccount, setOpeningAccount] = useState(false);
+  const remainingDays = subscription?.expiresAt
+    ? Math.ceil((new Date(subscription.expiresAt).getTime() - Date.now()) / 86_400_000)
+    : null;
+  const showTrialBanner = subscription?.status === 'trialing' && remainingDays !== null && remainingDays >= 0;
   const theme = useTheme();
   const companyId = membership?.companyId ?? '';
   const storeId = membership?.storeId ?? '';
@@ -46,12 +55,26 @@ export default function AdminDashboard() {
         <Appbar.Content title={membership?.companyName ?? 'StockMaster'} />
         {(businesses.length > 1 || stores.length > 1) && <Appbar.Action icon="swap-horizontal" accessibilityLabel="Changer de boutique" onPress={() => router.push(businesses.length > 1 ? '/choose-business' : '/choose-store')} />}
         <NotificationBell />
+        <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" onPress={() => void signOut()} />
       </Appbar.Header>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.page}>
         <View style={styles.intro}>
           <Text variant="headlineSmall" style={styles.bold}>Votre boutique aujourd’hui</Text>
           <Text style={{ color: theme.colors.onSurfaceVariant }}>{membership?.storeName ?? 'Sélectionnez une boutique'}</Text>
         </View>
+        {showTrialBanner && (
+          <Card mode="contained" style={{ backgroundColor: theme.colors.secondaryContainer }}>
+            <Card.Content style={styles.trialBanner}>
+              <View style={styles.intro}>
+                <Text variant="titleMedium">Essai gratuit en cours</Text>
+                <Text>{`${remainingDays} jour${plural(remainingDays ?? 0)} restant${plural(remainingDays ?? 0)} avant l’expiration${subscription?.expiresAt ? ` (${new Date(subscription.expiresAt).toLocaleDateString('fr-FR')})` : ''}.`}</Text>
+              </View>
+              <AppButton mode="text" loading={openingAccount} disabled={openingAccount} onPress={() => { setOpeningAccount(true); void openAccountPortal(membership?.companyId ?? '').catch((error) => Alert.alert('Portail Account', error.message)).finally(() => setOpeningAccount(false)); }}>
+                Voir les forfaits
+              </AppButton>
+            </Card.Content>
+          </Card>
+        )}
         <AppButton icon="cart-plus" disabled={!enabled} onPress={() => router.push('/sales/new')}>Nouvelle vente</AppButton>
         {showGettingStarted && <Card mode="outlined"><Card.Content style={styles.intro}>
           <Text variant="titleMedium">Votre première vente, en trois étapes</Text>
@@ -106,4 +129,5 @@ const styles = StyleSheet.create({
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   metric: { flexGrow: 1, flexBasis: 240, minWidth: 0 },
   shortcuts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  trialBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
 });

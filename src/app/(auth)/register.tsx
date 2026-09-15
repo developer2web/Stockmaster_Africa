@@ -138,7 +138,7 @@ export default function RegisterScreen() {
         keyboardType="email-address"
       />
       <FormField control={control} name="password" label="Mot de passe" passwordToggle />
-      <HelperText type="info" visible style={styles.passwordHint}>10 caractères minimum : majuscule, minuscule, chiffre et caractère spécial.</HelperText>
+      <HelperText type="info" visible style={styles.passwordHint}>Majuscule, minuscule, chiffre et caractère spécial.</HelperText>
       <FormField
         control={control}
         name="confirmPassword"

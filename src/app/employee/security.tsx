@@ -46,7 +46,7 @@ export default function EmployeeSecurity() {
       <FormField control={control} name="currentPassword" label="Mot de passe actuel" passwordToggle autoComplete="current-password" />
       <FormField control={control} name="password" label="Nouveau mot de passe" passwordToggle autoComplete="new-password" />
       <FormField control={control} name="confirm" label="Confirmer le nouveau mot de passe" passwordToggle autoComplete="new-password" />
-      <HelperText type="info" visible>10 caractères minimum, avec majuscule, minuscule, chiffre et caractère spécial.</HelperText>
+      <HelperText type="info" visible>Majuscule, minuscule, chiffre et caractère spécial.</HelperText>
       {!!error && <HelperText type="error" visible>{error}</HelperText>}
       {!!message && <HelperText type="info" visible>{message}</HelperText>}
       <AppButton icon="lock-reset" loading={formState.isSubmitting} disabled={formState.isSubmitting} onPress={submit}>Changer mon mot de passe</AppButton>

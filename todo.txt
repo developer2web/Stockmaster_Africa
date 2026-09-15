@@ -440,4 +440,43 @@
      Admin d'auditer les marges/coûts d'une entreprise. Restauré.
   Vérifié en direct sur une vraie entreprise (121 ventes réelles) : les
   marges s'affichent maintenant correctement, plus d'erreur 42501.
+- [x] Série de retours produit du 15/09, traités un par un et vérifiés en
+  direct (compte de test jetable, écrans réels capturés) :
+  1. Connexion account-web : précise maintenant que c'est réservé aux
+     entreprises clientes.
+  2. « 10 caractères minimum » retiré des indices visibles (placeholder du
+     site public + info sous le champ mobile) sur les 5 écrans concernés —
+     la règle elle-même est inchangée, juste plus discrète.
+  3. Bandeau « Essai gratuit en cours » avec jours restants ET date
+     d'expiration, désormais visible en continu (Accueil + tous les écrans
+     admin), pas seulement dans les 7 derniers jours comme avant.
+  4. Liste des pays à l'inscription réduite à la Guinée (seul pays dont le
+     tarif est configuré ; les 8 autres menaient à un blocage au moment de
+     payer).
+  5. Points de fidélité retirés de la fiche client (section + requête +
+     fichier features/loyalty supprimé) — plus aucune trace ailleurs dans
+     le code.
+  6+7. Liste produits transformée en grille à 3 colonnes façon Amazon
+     (admin ET employé) : photo bien plus grande (112px au lieu de 52),
+     nom et prix dessous — corrige la photo « pas bonne » en même temps
+     que le nouvel agencement demandé.
+  8. Écran Nouvelle vente : un produit déjà dans le panier affiche
+     désormais un badge « Déjà ajouté · Qté » et un bouton + visible pour
+     en ajouter davantage sans aller dans l'onglet Panier.
+  9. Remise absente : pas un bug — allow_discounts est à false par défaut
+     pour toute nouvelle entreprise (jamais changé volontairement). Ajouté
+     un message explicatif dans Nouvelle vente indiquant où l'activer
+     (Entreprise). Reste une question ouverte : faut-il changer la valeur
+     par défaut à true pour les nouvelles entreprises ?
+  10. Suppression d'un employé : pas un bug non plus — ça n'a jamais
+     touché le compte Supabase personnel de l'employé (seulement son accès
+     à l'entreprise), par choix de conception. Message de confirmation
+     réécrit pour l'expliquer clairement plutôt que de changer le
+     comportement. Question ouverte : veut-on qu'un propriétaire puisse un
+     jour supprimer aussi le compte personnel (pas juste l'accès) ?
+  11. Bouton de déconnexion ajouté en haut à droite pour le propriétaire
+     (Accueil + tous les écrans admin), en plus de celui déjà dans Plus.
+  Nettoyage du compte de test de vérification (UI Verify Co) : migration
+  prête (202609150006), bloquée par le même classificateur « Logging/Audit
+  Tampering » que le nettoyage précédent — en attente de « fais ».
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).

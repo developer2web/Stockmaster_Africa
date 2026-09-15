@@ -60,15 +60,20 @@ export default function ProductsScreen() {
         <Chip icon="package-variant">{rows.length} produit{plural(rows.length)}</Chip>
         <Chip icon="store-outline">{membership?.storeName ?? 'Boutique active'}</Chip>
       </View>
-      {rows.map((product) => (
-        <Card mode="contained" style={{ backgroundColor: theme.colors.surface }} key={product.id} onPress={() => router.push(`/products/${product.id}` as never)}>
-          <Card.Title
-            left={() => <ProductThumbnail url={product.image_urls?.[0]} />}
-            title={product.name}
-            right={() => <View style={styles.price}><Text variant="titleMedium" style={styles.bold}>{formatMoney(Number(product.sale_price))}</Text><StatusChip status={product.is_active?'active':'inactive'}/></View>}
-          />
-        </Card>
-      ))}
+      <View style={styles.grid}>
+        {rows.map((product) => (
+          <Card mode="contained" style={[styles.gridCard, { backgroundColor: theme.colors.surface }]} key={product.id} onPress={() => router.push(`/products/${product.id}` as never)}>
+            <View style={styles.gridImageWrap}>
+              <ProductThumbnail url={product.image_urls?.[0]} size={112} />
+              {!product.is_active && <StatusChip status="inactive" style={styles.gridStatus}/>}
+            </View>
+            <Card.Content style={styles.gridCopy}>
+              <Text variant="titleSmall" numberOfLines={2} style={styles.gridName}>{product.name}</Text>
+              <Text variant="titleMedium" style={styles.bold}>{formatMoney(Number(product.sale_price))}</Text>
+            </Card.Content>
+          </Card>
+        ))}
+      </View>
       {products.hasNextPage && (
         <AppButton
           mode="outlined"
@@ -98,4 +103,14 @@ const styles = StyleSheet.create({
   price: { alignItems: 'flex-end', gap: 4, marginRight: 14 },
   bold: { fontWeight: '800' },
   actions:{flexDirection:'row',flexWrap:'wrap',gap:8},
+  // Grille à 3 colonnes façon Amazon, plutôt que la liste précédente : image
+  // beaucoup plus grande (112 au lieu de 52), nom et prix en dessous.
+  // flexBasis en pourcentage (plutôt qu'un nombre de pixels fixe) pour que 3
+  // cartes tiennent par ligne quelle que soit la largeur de l'écran.
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  gridCard: { flexBasis: '31%', flexGrow: 1, minWidth: 104, maxWidth: 220, overflow: 'hidden' },
+  gridImageWrap: { alignItems: 'center', paddingTop: 12, position: 'relative' },
+  gridStatus: { position: 'absolute', top: 4, left: 4 },
+  gridCopy: { alignItems: 'center', gap: 2, paddingTop: 8 },
+  gridName: { textAlign: 'center' },
 });

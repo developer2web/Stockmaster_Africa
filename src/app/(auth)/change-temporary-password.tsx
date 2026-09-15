@@ -65,7 +65,7 @@ export default function ChangeTemporaryPasswordScreen() {
         </View>
         <FormField control={control} name="password" label="Nouveau mot de passe" passwordToggle autoComplete="new-password" autoFocus />
         <FormField control={control} name="confirmation" label="Confirmer le mot de passe" passwordToggle autoComplete="new-password" />
-        <HelperText type="info" visible>10 caractères minimum, avec majuscule, minuscule, chiffre et caractère spécial.</HelperText>
+        <HelperText type="info" visible>Majuscule, minuscule, chiffre et caractère spécial.</HelperText>
         {!!error && <HelperText type="error" visible>{error}</HelperText>}
         <AppButton loading={formState.isSubmitting} disabled={formState.isSubmitting} onPress={submit}>Enregistrer et continuer</AppButton>
       </Card.Content>

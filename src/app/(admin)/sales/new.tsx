@@ -183,13 +183,21 @@ export default function NewSale() {
       <View style={styles.list}>
         {shown.map((item) => {
           const available = item.available > 0 || !!companySettings.data?.allow_negative_stock;
+          const inCart = items.find(cartItem => cartKey(cartItem) === cartKey(item));
+          const addOne = () => { add(item,!!companySettings.data?.allow_negative_stock); setQuantityDrafts(current => { const next = { ...current }; delete next[cartKey(item)]; return next; }); };
           return (
-            <Card key={cartKey(item)} mode="contained" style={[{ backgroundColor: theme.colors.surface }, !available && styles.unavailable]} onPress={available && !save.isPending ? () => { add(item,!!companySettings.data?.allow_negative_stock); setQuantityDrafts(current => { const next = { ...current }; delete next[cartKey(item)]; return next; }); } : undefined}>
+            <Card key={cartKey(item)} mode="contained" style={[{ backgroundColor: theme.colors.surface }, !available && styles.unavailable, !!inCart && { borderColor: theme.colors.primary, borderWidth: 1.5 }]} onPress={available && !save.isPending ? addOne : undefined}>
               <Card.Content style={styles.productRow}>
                 <ProductThumbnail url={item.imageUrl} />
                 <View style={styles.productCopy}><Text variant="titleMedium">{item.name}</Text><Text>{formatMoney(item.salePrice)}</Text>
                   <Text style={{ color: available ? theme.colors.onSurfaceVariant : theme.colors.error }}>{available ? `Stock : ${formatQuantity(item.available)}` : 'Stock épuisé'}</Text>
                 </View>
+                {!!inCart && (
+                  <View style={styles.inCartBadge}>
+                    <Chip compact icon="check" mode="flat" style={{ backgroundColor: theme.colors.primaryContainer }}>{`Déjà ajouté · ${formatQuantity(inCart.quantity)}`}</Chip>
+                    <IconButton mode="contained" icon="plus" size={16} disabled={!available || save.isPending} accessibilityLabel={`Ajouter encore un ${item.name}`} onPress={(event) => { event.stopPropagation(); addOne(); }} />
+                  </View>
+                )}
               </Card.Content>
               {!available && <Card.Content><Text style={{ color: theme.colors.error }}>Ajoutez le stock depuis la fiche Produit ou le module Stock.</Text></Card.Content>}
             </Card>
@@ -206,6 +214,7 @@ export default function NewSale() {
       {!!companySettings.error && <AppButton mode="text" onPress={() => void companySettings.refetch()}>Recharger les règles de vente</AppButton>}
       {!desktop && <AppButton mode="text" icon="plus" onPress={() => setStep('products')}>Ajouter des articles</AppButton>}
       {!!items.length && companySettings.data?.allow_discounts && <AppButton mode="text" icon="percent" onPress={() => setShowDiscounts(value => !value)}>{showDiscounts ? 'Masquer les remises' : 'Appliquer une remise'}</AppButton>}
+      {!!items.length && companySettings.data && !companySettings.data.allow_discounts && !employee && <HelperText type="info" visible>Les remises sont désactivées pour cette entreprise. Activez-les depuis Entreprise (Plus &gt; Boutique) pour les proposer ici.</HelperText>}
       {!items.length && (
         <Card mode="outlined">
           <Card.Content style={styles.emptyCart}>
@@ -262,6 +271,7 @@ export default function NewSale() {
 const styles = StyleSheet.create({
   productRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   productCopy: { flex: 1, minWidth: 0, gap: 4 },
+  inCartBadge: { alignItems: 'center', gap: 2 },
   list: { gap: 8 },
   unavailable: { opacity: 0.72 },
   chip: { marginRight: 12 },

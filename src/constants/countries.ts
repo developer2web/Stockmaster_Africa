@@ -1,13 +1,10 @@
+// Un seul pays réellement pris en charge de bout en bout aujourd'hui : les
+// forfaits (plan_currency_prices) ne sont configurés qu'en GNF. Choisir un
+// autre pays à l'inscription menait à un blocage sans solution au moment de
+// payer ("Tarif non configuré pour la devise ..."). Retirer les autres pays
+// de la liste plutôt que de corriger un tarif qui n'existe pas encore.
 export const supportedCountries = [
   { code: 'GN', name: 'Guinée', currency: 'GNF' },
-  { code: 'SN', name: 'Sénégal', currency: 'XOF' },
-  { code: 'CI', name: 'Côte d’Ivoire', currency: 'XOF' },
-  { code: 'ML', name: 'Mali', currency: 'XOF' },
-  { code: 'CM', name: 'Cameroun', currency: 'XAF' },
-  { code: 'US', name: 'États-Unis', currency: 'USD' },
-  { code: 'CA', name: 'Canada', currency: 'CAD' },
-  { code: 'FR', name: 'France', currency: 'EUR' },
-  { code: 'GB', name: 'Royaume-Uni', currency: 'GBP' },
 ] as const;
 
 export type SupportedCountryCode = typeof supportedCountries[number]['code'];

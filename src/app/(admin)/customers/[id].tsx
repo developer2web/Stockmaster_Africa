@@ -20,7 +20,6 @@ import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { getCustomer, getCustomerDebtSchedule, getCustomerLedger, getCustomerSales, recordCustomerEntry, saveCustomer, setCustomerDebtSchedule } from '@/features/customers/api';
 import { customerSchema, type CustomerInput } from '@/schemas/customers';
 import { printPaymentReceipt, sharePaymentReceipt } from '@/features/payments/receipt';
-import { getCustomerLoyalty } from '@/features/loyalty/api';
 import { useReceiptAction } from '@/features/payments/useReceiptAction';
 import { useReceiptBranding } from '@/features/payments/branding';
 import { parseDecimal } from '@/utils/number';
@@ -48,7 +47,6 @@ export default function CustomerDetails() {
   const customer = useQuery({ queryKey: ['customer', id], queryFn: () => getCustomer(id!), enabled: !!id });
   const ledger = useQuery({ queryKey: ['customer-ledger', id], queryFn: () => getCustomerLedger(id!), enabled: !!id });
   const sales = useQuery({ queryKey: ['customer-sales', company, id], queryFn: () => getCustomerSales(company, id!), enabled: !!company && !!id });
-  const loyalty = useQuery({ queryKey: ['customer-loyalty', id], queryFn: () => getCustomerLoyalty(id!), enabled: !!id });
   const schedule=useQuery({queryKey:['customer-debt-schedule',id],queryFn:()=>getCustomerDebtSchedule(id!),enabled:!!id});
 
   const [entryType, setEntryType] = useState<'credit' | 'payment'|'discount' | null>(null);
@@ -131,11 +129,6 @@ export default function CustomerDetails() {
             </Pressable>
             {detailsOpen && <Card.Content testID="customer-secondary-details" style={{ gap: 16 }}>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
-                <View style={{ flexGrow: 1, flexBasis: 220, gap: 4 }}>
-                  <Text variant="labelLarge" style={{ color: theme.colors.onSurfaceVariant }}>Fidélité</Text>
-                  <Text style={{ fontWeight: '700' }}>{loyalty.data?.points ?? 0} point{plural(loyalty.data?.points ?? 0)} fidélité</Text>
-                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>{loyalty.data?.lifetime_earned ?? 0} point{plural(loyalty.data?.lifetime_earned ?? 0)} gagné{plural(loyalty.data?.lifetime_earned ?? 0)} au total</Text>
-                </View>
                 <View style={{ flexGrow: 1, flexBasis: 220, gap: 4 }}>
                   <Text variant="labelLarge" style={{ color: theme.colors.onSurfaceVariant }}>Limite de crédit</Text>
                   <Text>{customer.data.credit_limit == null ? 'Illimitée' : formatMoney(Number(customer.data.credit_limit))}</Text>

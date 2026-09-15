@@ -24,7 +24,7 @@ const descriptions:Record<string,string>={
 
 export function AdminPage({ title, description, action, floatingAction, backToHome = false, scrollResetKey, onContentWidthChange, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; scrollResetKey?: string; onContentWidthChange?: (width: number) => void }>) {
   const theme = useTheme();
-  const { session, membership, offlineAuthenticated, lockOfflineSession } = useAuth();
+  const { session, membership, offlineAuthenticated, lockOfflineSession, signOut } = useAuth();
   const employeeName = String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
   const { subscription } = useSubscription();
   const { width } = useWindowDimensions();
@@ -54,6 +54,10 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
   const showRenewalWarning = readOnly ||
     subscription?.status === 'past_due' ||
     (remainingDays !== null && remainingDays >= 0 && remainingDays <= 7);
+  // Avant : rien ne rappelait qu'un compte était en essai gratuit avant les 7
+  // derniers jours (seul l'écran de bienvenue, vu une fois, le mentionnait) —
+  // repère continu discret en plus, pas à la place de l'alerte urgente ci-dessus.
+  const showTrialBanner = !showRenewalWarning && subscription?.status === 'trialing' && remainingDays !== null && remainingDays >= 0;
   return (
     <KeyboardAvoidingView
       onLayout={event => onContentWidthChange?.(Math.max(0, Math.min(event.nativeEvent.layout.width, employee ? 1100 : design.contentMaxWidth) - (compact ? 24 : 40)))}
@@ -79,6 +83,7 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
         />
         {!offlineAuthenticated && <NotificationBell color={employee ? '#FFFFFF' : undefined} />}
         {offlineAuthenticated && <Appbar.Action icon="lock-outline" color={employee ? '#FFFFFF' : undefined} accessibilityLabel="Verrouiller l’accès hors ligne" onPress={lockOfflineSession} />}
+        {!employee && !offlineAuthenticated && <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" onPress={() => void signOut()} />}
       </Appbar.Header>
       <ScrollView
         ref={scrollRef}
@@ -111,6 +116,21 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
               {membership?.role === 'company_admin' && (
                 <AppButton loading={openingAccount} disabled={openingAccount} onPress={() => { setOpeningAccount(true); void openAccountPortal(membership?.companyId ?? '').catch((error) => Alert.alert('Portail Account', error.message)).finally(() => setOpeningAccount(false)); }}>
                   Renouveler
+                </AppButton>
+              )}
+            </Card.Content>
+          </Card>
+        )}
+        {!offlineAuthenticated && showTrialBanner && (
+          <Card mode="contained" style={{ backgroundColor: theme.colors.secondaryContainer }}>
+            <Card.Content style={styles.subscriptionWarning}>
+              <View style={styles.grow}>
+                <Text variant="titleMedium">Essai gratuit en cours</Text>
+                <Text>{`${remainingDays} jour${plural(remainingDays ?? 0)} restant${plural(remainingDays ?? 0)} avant l’expiration${subscription?.expiresAt ? ` (${new Date(subscription.expiresAt).toLocaleDateString('fr-FR')})` : ''}.`}</Text>
+              </View>
+              {membership?.role === 'company_admin' && (
+                <AppButton mode="text" loading={openingAccount} disabled={openingAccount} onPress={() => { setOpeningAccount(true); void openAccountPortal(membership?.companyId ?? '').catch((error) => Alert.alert('Portail Account', error.message)).finally(() => setOpeningAccount(false)); }}>
+                  Voir les forfaits
                 </AppButton>
               )}
             </Card.Content>
