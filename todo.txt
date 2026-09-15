@@ -658,4 +658,23 @@
   Super Admin) : bouton de confirmation désactivé tant que le motif fait
   moins de 3 caractères, motif retrouvé dans audit_logs après coup.
   239/239 tests, tsc propre, build admin-web propre.
+- [x] Panier de vente vidé automatiquement après 5 minutes d'inactivité
+  (15/09, demande explicite). Interprété comme une inactivité, pas un
+  vidage périodique aveugle : le panier se vide seulement s'il n'a pas
+  été touché depuis 5 minutes (add/quantité/remise/suppression
+  remettent le compteur à zéro), pour ne jamais effacer une vente en
+  cours. Nouveaux champs persistés lastModifiedAt (horodatage de la
+  dernière modification) et autoClearedAt (transitoire) dans le store
+  saleCart ; vérification toutes les 30 s tant que l'app est au premier
+  plan, survit à un redémarrage complet de l'app puisque lastModifiedAt
+  fait partie de ce qui est sauvegardé. L'écran de vente affiche un
+  bandeau « Panier vidé automatiquement après 5 minutes sans activité »
+  au lieu d'une disparition silencieuse, et revient à l'étape Articles.
+  Au passage : AppFeedback gagne un décalage optionnel (offsetBottom)
+  pour ne plus être caché par la barre flottante du panier — seul écran
+  qui combine les deux. Vérifié en direct de bout en bout (compte de
+  test réel, produit ajouté au panier, horodatage forcé à 6 min dans le
+  passé, rechargement) : panier vidé au bon cycle de vérification,
+  bandeau bien visible et lisible, aucune erreur console. 239/239 tests,
+  tsc propre.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).

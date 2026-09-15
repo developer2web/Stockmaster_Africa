@@ -9,6 +9,7 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Card, Chip, HelperText, Icon, IconButton, SegmentedButtons, Text, TextInput, useTheme } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
+import { AppFeedback } from '@/components/ui/AppFeedback';
 import { ProductThumbnail } from '@/components/products/ProductThumbnail';
 import { getCheckoutCustomers } from '@/features/customers/api';
 import { getCompany } from '@/features/employees/api';
@@ -55,7 +56,7 @@ export default function NewSale() {
   const [customerId, setCustomerId] = useState<string | null>(null);
   const cache = useQueryClient();
   const { refreshQueue } = useOffline();
-  const { items, add, setQuantity, setDiscount, remove } = useSaleCart();
+  const { items, add, setQuantity, setDiscount, remove, autoClearedAt, acknowledgeAutoClear } = useSaleCart();
   const processedScan = useRef<string|null>(null);
   const operationId=useRef(createOperationId());
   const stock = useQuery({
@@ -81,6 +82,18 @@ export default function NewSale() {
       processedScan.current = token;
     }
   }, [productId, variantId, scanToken, stock.data, companySettings.data?.allow_negative_stock, add]);
+
+  // Le panier se vide tout seul après 5 minutes sans y toucher (voir
+  // src/stores/saleCart.ts) : on remet l'écran à l'état initial pour ne
+  // pas laisser l'utilisateur sur une étape de paiement devenue vide.
+  useEffect(() => {
+    if (autoClearedAt === null) return;
+    setQuantityDrafts({});
+    setStep('products');
+    setCustomerId(null);
+    setPayment('cash');
+    setAmountPaid('');
+  }, [autoClearedAt]);
 
   const matchingProducts = useMemo(()=>{
     const term=debouncedSearch.trim().toLocaleLowerCase('fr');
@@ -318,6 +331,7 @@ export default function NewSale() {
       </View>}
       </View>
       <ConfirmDialog visible={confirmClear} title="Vider le panier ?" message="Les articles et remises de cette vente non validée seront retirés. Aucune vente enregistrée ne sera modifiée." destructive onCancel={() => setConfirmClear(false)} onConfirm={() => { useSaleCart.getState().clear(); setQuantityDrafts({}); setConfirmClear(false); setStep('products'); setCustomerId(null); setPayment('cash'); setAmountPaid(''); }} />
+      <AppFeedback message={autoClearedAt ? 'Panier vidé automatiquement après 5 minutes sans activité.' : ''} type="info" onDismiss={acknowledgeAutoClear} offsetBottom={76} />
     </AdminPage>
   );
 }
