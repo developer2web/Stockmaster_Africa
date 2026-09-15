@@ -418,4 +418,26 @@
   d'erreur générale (utilisée partout dans l'app) — les autres messages
   RPC partageant la même phrase générique n'ont pas été audités un par un
   sans nouveau signalement précis.
+- [x] Bug réel trouvé et corrigé (15/09) suite au retour « bénéfices
+  indisponibles / pas l'autorisation » sur l'écran Ventes. Deux causes
+  distinctes, vérifiées en direct :
+  1. Les 4 vues protégeant les données financières sensibles
+     (sale_financials, sale_item_financials, product_costs,
+     product_variant_costs) étaient TOUTES repassées à
+     security_invoker=true en direct, alors que chaque migration les
+     déclarant dit explicitement security_invoker=false — aucune trace
+     dans l'historique des migrations, signature typique d'un correctif
+     automatique accepté depuis Database > Security Advisor sur
+     l'avertissement « Security Definer View » (l'Advisor propose de
+     « corriger » ce point, ce qui casse précisément ces 4 vues, conçues
+     pour fonctionner ainsi). ATTENTION pour la suite : si l'Advisor
+     signale de nouveau ces 4 vues, ne pas accepter son correctif —
+     documenté aussi en commentaire dans la migration.
+  2. is_company_admin() (la fonction qui protège ces vues) avait perdu
+     son passe-droit Super Admin dans une redéfinition antérieure
+     (régression accidentelle) — sans lien avec le bug rapporté (un vrai
+     propriétaire passe par sa propre adhésion), mais empêchait le Super
+     Admin d'auditer les marges/coûts d'une entreprise. Restauré.
+  Vérifié en direct sur une vraie entreprise (121 ventes réelles) : les
+  marges s'affichent maintenant correctement, plus d'erreur 42501.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
