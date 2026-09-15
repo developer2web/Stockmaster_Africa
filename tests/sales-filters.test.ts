@@ -34,29 +34,30 @@ describe('sales filtering', () => {
       expect(() => salesDateBounds({ ...emptySalesFilters, period: 'custom', startDate, endDate })).toThrow();
     }
   });
+  const CURSOR = { createdAt: '2026-09-10T12:00:00.000Z', id: 'sale-42' };
   it('keeps existing unfiltered history available without the new server function', async () => {
     getSales.mockResolvedValue([{ id: 'existing' }]);
-    expect(await getFilteredSales('company', 'store', 1, { search: '', after: null, before: null, payment: null, status: 'all' })).toEqual([{ id: 'existing' }]);
-    expect(getSales).toHaveBeenCalledWith('company', 'store', 1, false);
+    expect(await getFilteredSales('company', 'store', CURSOR, { search: '', after: null, before: null, payment: null, status: 'all' })).toEqual([{ id: 'existing' }]);
+    expect(getSales).toHaveBeenCalledWith('company', 'store', CURSOR, false);
     expect(rpc).not.toHaveBeenCalled();
   });
   it('sends all filters to the server before pagination and separates offline scopes', async () => {
     const criteria = { search: 'Diallo %_', after: '2026-09-01T00:00:00Z', before: '2026-09-10T00:00:00Z', payment: 'cash', status: 'due' };
     rpc.mockResolvedValue({ data: [{ id: 'older-sale' }], error: null });
-    expect(await getFilteredSales('company', 'store', 1, criteria)).toEqual([{ id: 'older-sale' }]);
+    expect(await getFilteredSales('company', 'store', CURSOR, criteria)).toEqual([{ id: 'older-sale' }]);
     expect(rpc).toHaveBeenCalledWith('get_filtered_sales_history', {
-      p_company_id: 'company', p_store_id: 'store', p_offset: 30, p_limit: 30,
+      p_company_id: 'company', p_store_id: 'store', p_cursor_created_at: CURSOR.createdAt, p_cursor_id: CURSOR.id, p_limit: 30,
       p_search: criteria.search, p_after: criteria.after, p_before: criteria.before, p_payment: 'cash', p_status: 'due',
     });
-    await getFilteredSales('company', 'another-store', 1, criteria);
-    await getFilteredSales('company', 'store', 1, { ...criteria, search: 'Other' });
+    await getFilteredSales('company', 'another-store', CURSOR, criteria);
+    await getFilteredSales('company', 'store', CURSOR, { ...criteria, search: 'Other' });
     expect(new Set(cache.mock.calls.map(call => call[0])).size).toBe(3);
   });
   it('keeps permission denials visible and explains a missing server migration', async () => {
     const criteria = { search: 'test', after: null, before: null, payment: null, status: 'all' };
     rpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'Accès refusé' } });
-    await expect(getFilteredSales('company', 'store', 0, criteria)).rejects.toThrow('Accès refusé');
+    await expect(getFilteredSales('company', 'store', null, criteria)).rejects.toThrow('Accès refusé');
     rpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'missing RPC' } });
-    await expect(getFilteredSales('company', 'store', 0, criteria)).rejects.toThrow('mise à jour du serveur');
+    await expect(getFilteredSales('company', 'store', null, criteria)).rejects.toThrow('mise à jour du serveur');
   });
 });

@@ -17,6 +17,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { AppFeedback } from '@/components/ui/AppFeedback';
 import { useProductListView } from '@/stores/productListView';
 import { readableError } from '@/utils/errors';
+import { nextPageCursor, type PageCursor } from '@/utils/pagination';
 
 export default function EmployeeProducts() {
   const can = usePermissions();
@@ -31,7 +32,7 @@ export default function EmployeeProducts() {
   const search=useProductListView(state=>state.searches[listScope]??'');
   const setSearch=useProductListView(state=>state.setSearch);
   const debounced = useDebouncedValue(search);
-  const query = useInfiniteQuery({ queryKey: ['employee-products', company, store, debounced, 'without-cost'], queryFn: ({pageParam}) => getProducts(company, store, debounced,pageParam),initialPageParam:0,getNextPageParam:(last,pages)=>last.length===PRODUCT_PAGE_SIZE?pages.length:undefined, enabled: !!company && !!store });
+  const query = useInfiniteQuery({ queryKey: ['employee-products', company, store, debounced, 'without-cost'], queryFn: ({pageParam}) => getProducts(company, store, debounced,pageParam),initialPageParam:null as PageCursor,getNextPageParam:(last)=>nextPageCursor(last,PRODUCT_PAGE_SIZE), enabled: !!company && !!store });
   const products=query.data?.pages.flat()??[];
   return <PermissionGuard permission="products.read"><AdminPage title="Produits" action={canWrite ? <FAB size="small" icon="plus" onPress={() => router.push('/employee/products/new' as never)} /> : undefined}>
     <AppSearchBar placeholder="Nom ou code-barres" value={search} onChangeText={value=>setSearch(listScope,value)} loading={search !== debounced} />

@@ -38,7 +38,7 @@ export default function AdminDashboard() {
     queryFn: () => getBusinessReport({ startDate: today, endDate: today, storeId, employeeId: null, productId: null }),
     enabled,
   });
-  const firstSales = useQuery({ queryKey: ['dashboard-first-sale', companyId, storeId], queryFn: () => getSales(companyId, storeId, 0, false), enabled });
+  const firstSales = useQuery({ queryKey: ['dashboard-first-sale', companyId, storeId], queryFn: () => getSales(companyId, storeId, null, false), enabled });
   const refetchFirstSales = firstSales.refetch;
   const scrollRef = useRef<ScrollView>(null);
   useFocusEffect(useCallback(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); if (enabled) void refetchFirstSales(); }, [enabled, refetchFirstSales]));

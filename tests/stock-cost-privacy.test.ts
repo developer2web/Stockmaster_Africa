@@ -31,6 +31,9 @@ beforeEach(() => {
   mocks.from.mockImplementation((table: string) => {
     const request = { table, columns: '', filters: {} as Record<string, string> };
     requests.push(request);
+    // fetchAllRows (product_costs/product_variant_costs) loops on .range()
+    // until an empty page — offset===0 gates the one real batch so the loop
+    // terminates, independently of the cursor pagination under test here.
     let offset = 0;
     let single = false;
     const builder = {
@@ -38,6 +41,7 @@ beforeEach(() => {
       eq: (column: string, value: string) => { request.filters[column] = value; return builder; },
       order: () => builder,
       limit: () => builder,
+      or: () => builder,
       in: () => builder,
       single: () => { single = true; return builder; },
       range: (from: number) => { offset = from; return builder; },
@@ -76,7 +80,7 @@ describe('confidentialité des coûts dans les requêtes stock et catalogue', ()
 
   it('conserve le coût sur demande pour la valorisation propriétaire et les achats', async () => {
     expect((await getStockLevels('company', undefined, 'store', true))[0].product?.purchase_price).toBe(60);
-    expect((await getProducts('company', 'store', '', 0, true))[0].purchase_price).toBe(60);
+    expect((await getProducts('company', 'store', '', null, true))[0].purchase_price).toBe(60);
     expect(requests.filter(request => ['products','stock_levels'].includes(request.table))
       .every(request => !request.columns.includes('purchase_price'))).toBe(true);
     expect(requests.some(request => request.table === 'product_costs')).toBe(true);
@@ -84,7 +88,7 @@ describe('confidentialité des coûts dans les requêtes stock et catalogue', ()
 
   it('ne devine aucun coût lorsque le serveur ne l’autorise pas', async () => {
     canReadCost = false;
-    expect((await getProducts('company', 'store', '', 0, true))[0]).not.toHaveProperty('purchase_price');
+    expect((await getProducts('company', 'store', '', null, true))[0]).not.toHaveProperty('purchase_price');
     expect((await getStockLevels('company', undefined, 'store', true))[0].product).not.toHaveProperty('purchase_price');
     await expect(getProduct('product')).rejects.toThrow('prix d’achat');
   });
@@ -106,7 +110,7 @@ describe('confidentialité des coûts dans les requêtes stock et catalogue', ()
 
   it('ne réutilise pas le cache financier après passage à une consultation sans coûts', async () => {
     await getStockLevels('company', undefined, 'store', true);
-    await getProducts('company', 'store', '', 0, true);
+    await getProducts('company', 'store', '', null, true);
     networkError = 'Network request failed';
     await expect(getStockLevels('company', undefined, 'store')).rejects.toThrow();
     await expect(getProducts('company', 'store')).rejects.toThrow();
@@ -116,7 +120,7 @@ describe('confidentialité des coûts dans les requêtes stock et catalogue', ()
     await getStockLevels('company', undefined, 'store');
     await getProducts('company', 'store');
     await getStockLevels('company', undefined, 'store', true);
-    await getProducts('company', 'store', '', 0, true);
+    await getProducts('company', 'store', '', null, true);
     networkError = 'Network request failed';
     expect((await getStockLevels('company', undefined, 'store'))[0].product).not.toHaveProperty('purchase_price');
     expect((await getProducts('company', 'store'))[0]).not.toHaveProperty('purchase_price');

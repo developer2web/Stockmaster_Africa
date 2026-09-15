@@ -22,6 +22,7 @@ import { localDateValue } from '@/utils/calendar';
 import { useSalesRealtime } from '@/hooks/useSalesRealtime';
 import { AppFeedback } from '@/components/ui/AppFeedback';
 import { formatDateTime } from '@/utils/format';
+import { nextPageCursor, type PageCursor } from '@/utils/pagination';
 
 const paymentLabels: Record<string, string> = {
   cash: 'Espèces', card: 'Carte', mobile_money: 'Mobile Money',
@@ -59,8 +60,8 @@ export default function SalesScreen() {
   const sales = useInfiniteQuery({
     queryKey: ['sales', company, store, 'history-only', criteria],
     queryFn: ({ pageParam }) => getFilteredSales(company, store, pageParam, criteria),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, pages) => lastPage.length === SALE_PAGE_SIZE ? pages.length : undefined,
+    initialPageParam: null as PageCursor,
+    getNextPageParam: (lastPage) => nextPageCursor(lastPage, SALE_PAGE_SIZE),
     enabled: !!company && !!store,
   });
   const refetchSales = sales.refetch;

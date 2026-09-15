@@ -7,6 +7,7 @@ import { enqueueOfflineOperation } from '@/features/offline/queue';
 import { withOfflineCache } from '@/features/offline/storage';
 import { createOfflineMetadata } from '@/features/offline/device';
 import { readProductCosts } from '@/features/products/costs';
+import { type PageCursor } from '@/utils/pagination';
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -14,11 +15,10 @@ function fail(error: { message: string } | null) {
 
 export const SALE_PAGE_SIZE = 30;
 
-export async function getSales(companyId: string, storeId: string, page = 0, withFinancials = false): Promise<Sale[]> {
-  return withOfflineCache(`sales:${companyId}:${storeId}:${page}:${withFinancials}`, async () => {
-  const start = page * SALE_PAGE_SIZE;
+export async function getSales(companyId: string, storeId: string, cursor: PageCursor = null, withFinancials = false): Promise<Sale[]> {
+  return withOfflineCache(`sales:${companyId}:${storeId}:${cursor ? `${cursor.createdAt}:${cursor.id}` : 'first'}:${withFinancials}`, async () => {
   const { data, error } = await supabase.rpc('get_sales_history_safe',{
-    p_company_id:companyId,p_store_id:storeId,p_offset:start,p_limit:SALE_PAGE_SIZE,
+    p_company_id:companyId,p_store_id:storeId,p_cursor_created_at:cursor?.createdAt??null,p_cursor_id:cursor?.id??null,p_limit:SALE_PAGE_SIZE,
   });
   fail(error);
   const sales = (Array.isArray(data)?data:[]) as unknown as Sale[];

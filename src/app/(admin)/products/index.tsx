@@ -19,6 +19,7 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { shareProductCatalog } from '@/features/products/catalog';
 import { useProductListView } from '@/stores/productListView';
 import { readableError } from '@/utils/errors';
+import { nextPageCursor, type PageCursor } from '@/utils/pagination';
 
 export default function ProductsScreen() {
   const {notice}=useLocalSearchParams<{notice?:string}>();
@@ -37,8 +38,8 @@ export default function ProductsScreen() {
   const products = useInfiniteQuery({
     queryKey: ['products', company, store, debounced, 'without-cost'],
     queryFn: ({ pageParam }) => getProducts(company, store, debounced, pageParam),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, pages) => lastPage.length === PRODUCT_PAGE_SIZE ? pages.length : undefined,
+    initialPageParam: null as PageCursor,
+    getNextPageParam: (lastPage) => nextPageCursor(lastPage, PRODUCT_PAGE_SIZE),
     enabled: !!company && !!store,
   });
   const rows = products.data?.pages.flat() ?? [];

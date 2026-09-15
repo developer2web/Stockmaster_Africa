@@ -6,6 +6,7 @@ import { userErrorMessage } from '@/utils/errors';
 import { parseDecimal } from '@/utils/number';
 import { createOperationId } from '@/utils/operationId';
 import { withOfflineCache } from '@/features/offline/storage';
+import { type PageCursor } from '@/utils/pagination';
 import { readProductCosts } from './costs';
 
 function fail(error: { message: string } | null) {
@@ -77,18 +78,22 @@ export async function getProducts(
   companyId: string,
   storeId: string,
   search = '',
-  page = 0,
+  cursor: PageCursor = null,
   includeCost = false,
 ): Promise<ProductListItem[]> {
-  return withOfflineCache(`products:${companyId}:${storeId}:${search.trim().toLowerCase()}:${page}:cost:${includeCost}`, async () => {
-  const start = page * PRODUCT_PAGE_SIZE;
+  return withOfflineCache(`products:${companyId}:${storeId}:${search.trim().toLowerCase()}:${cursor ? `${cursor.createdAt}:${cursor.id}` : 'first'}:cost:${includeCost}`, async () => {
+  // Curseur (keyset) plutôt qu'OFFSET : reste rapide même profond dans un
+  // grand catalogue. order('id') sert uniquement de départage pour les
+  // create_at identiques, jamais affiché.
   let query = supabase
     .from('products')
     .select('id,company_id,store_id,supplier_id,name,description,sku,qr_code,barcode,unit,sale_price,low_stock_threshold,image_url,image_urls,is_active,created_at,supplier:suppliers(name)')
     .eq('company_id', companyId)
     .eq('store_id', storeId)
     .order('created_at', { ascending: false })
-    .range(start, start + PRODUCT_PAGE_SIZE - 1);
+    .order('id', { ascending: false })
+    .limit(PRODUCT_PAGE_SIZE);
+  if (cursor) query = query.or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`);
   if (search.trim()) {
     const safeSearch = search.trim().replaceAll(',', ' ');
     query = query.or(`name.ilike.%${safeSearch}%,barcode.ilike.%${safeSearch}%`);
