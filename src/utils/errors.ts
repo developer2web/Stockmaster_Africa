@@ -1,6 +1,6 @@
 import { plural } from './plural';
 type Rule=[RegExp,(technical:string,match:RegExpMatchArray)=>string];
-export type ErrorKind = 'network' | 'session' | 'permission' | 'configuration' | 'server' | 'unknown';
+export type ErrorKind = 'network' | 'session' | 'permission' | 'subscription' | 'configuration' | 'server' | 'unknown';
 
 export function errorKind(error: unknown): ErrorKind {
   const value = error as { code?: string; status?: number } | null;
@@ -9,6 +9,13 @@ export function errorKind(error: unknown): ErrorKind {
   // Function/table names can contain "access" or "session": inspect schema errors first.
   if (/^(PGRST20[0-5]|42P01|42703|42883)$/.test(code) || /schema cache|relation .+ does not exist|column .+ does not exist|could not find (?:the )?function|function .+ does not exist/i.test(message)) return 'configuration';
   if (value?.status === 401 || /^PGRST30[123]$/.test(code) || /jwt|refresh token|session (?:has )?expired|session.*expir|reconnectez-vous/i.test(message)) return 'session';
+  // Plusieurs RPC (create_sale, create_product_with_initial_stock...) lèvent un seul
+  // message générique pour 3 causes différentes (boutique invalide, abonnement
+  // inactif, permission manquante) — sans ce test avant la règle "permission"
+  // ci-dessous, un propriétaire dont l'essai/abonnement est expiré recevait
+  // "vous n'avez pas l'autorisation", alors que lui seul a pourtant tous les
+  // droits : message trompeur, pris pour un bug d'accès (retour testeur du 15/09).
+  if (/abonnement inactif|abonnement expiré|subscription inactive|subscription expired/i.test(message)) return 'subscription';
   if (value?.status === 403 || code === '42501' || /permission denied|permission refusée|row.level security|access denied|acc[eè]s refus[eé]|unauthorized|forbidden|pas l’autorisation|not authorized/i.test(message)) return 'permission';
   if (/failed to fetch|network request failed|fetch failed|networkerror|load failed|timed? ?out|timeout|met trop de temps à répondre|socket|hors ligne|connexion internet indisponible/i.test(message)) return 'network';
   if (typeof value?.status === 'number' && value.status >= 500) return 'server';
@@ -39,6 +46,7 @@ export function userErrorMessage(error:unknown,fallback='Le serveur est momentan
   if (kind === 'configuration') return 'Ce service est indisponible sur le serveur. La configuration de la base doit être vérifiée.';
   if (kind === 'session') return 'Votre session a expiré. Reconnectez-vous.';
   if (kind === 'permission') return 'Vous n’avez pas l’autorisation d’effectuer cette action.';
+  if (kind === 'subscription') return 'Votre période d’essai ou votre abonnement est terminé(e). Renouvelez-le depuis Abonnement pour continuer.';
   if (kind === 'network') return 'Connexion internet indisponible. Vérifiez votre réseau puis réessayez.';
   const technical=technicalMessage(error).trim();for(const[pattern,message]of rules){const match=technical.match(pattern);if(match)return message(technical,match)}return !technical||rawTechnical.test(technical)?fallback:technical
 }

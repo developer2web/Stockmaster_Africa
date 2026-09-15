@@ -391,4 +391,31 @@
   Fonctionnalité invisible/inaccessible pour de vrai, pas juste un
   candidat à masquer. À signaler si le propriétaire veut qu'elle soit
   exposée quelque part.
+- [x] Bug réel trouvé et corrigé (15/09) suite au retour « l'administrateur
+  n'a pas accès à effectuer une vente » : `subscriptions.status` n'était
+  JAMAIS mis à jour quand l'échéance passait — rien ne le faisait. L'email
+  de rappel « abonnement terminé » partait bien, mais le statut restait
+  'trialing'/'active' pour toujours en base, donc l'app continuait
+  d'afficher l'entreprise comme active pendant que has_active_subscription()
+  (qui compare à la vraie échéance, pas au statut) bloquait déjà en
+  silence les ventes/créations. Résultat concret vérifié en direct : 3
+  vraies entreprises (Yattaya, toronto shop, Diallo — pas des fixtures de
+  test) avec une échéance dépassée depuis jusqu'à 10 jours, statut encore
+  'active'/'trialing'. Le propriétaire tombait alors sur « Vous n'avez pas
+  l'autorisation d'effectuer cette action » — trompeur, pris pour un bug
+  de droits alors qu'il s'agissait d'un abonnement simplement expiré.
+  Corrigé à deux niveaux :
+  1. Le job planifié existant (toutes les 5 min, déjà utilisé pour les
+     emails de facturation) met maintenant aussi à jour le statut réel.
+     Rattrapage immédiat exécuté dans la migration : les 3 entreprises
+     montrent maintenant correctement 'expired'.
+  2. Message d'erreur différencié côté app : la même phrase serveur
+     couvrait 3 causes différentes (boutique invalide / abonnement inactif
+     / permission manquante) sous un seul « pas l'autorisation » trompeur.
+     Nouveau message spécifique pour le cas abonnement, testé
+     unitairement (2 nouveaux tests).
+  Périmètre volontairement limité au flux de vente et à la classification
+  d'erreur générale (utilisée partout dans l'app) — les autres messages
+  RPC partageant la même phrase générique n'ont pas été audités un par un
+  sans nouveau signalement précis.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).

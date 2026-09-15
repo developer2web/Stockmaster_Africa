@@ -27,6 +27,15 @@ describe('messages utilisateur',()=>{
   it('traduit une erreur native d’impression',()=>expect(userErrorMessage(new Error('Printing did not complete'))).toContain('Impossible d’imprimer'));
   it('masque les erreurs JavaScript brutes',()=>expect(userErrorMessage(new Error('Uncaught (in promise) Error: Invalid key'))).toBe('Le serveur est momentanément indisponible. Réessayez.'));
   it('masque une erreur technique anglaise non répertoriée',()=>expect(userErrorMessage(new Error('Could not initialize native module'))).toBe('Le serveur est momentanément indisponible. Réessayez.'));
+  it('ne confond pas un abonnement expiré avec un refus de droits (retour testeur du 15/09 : un propriétaire lisait « pas l’autorisation »)', () => {
+    const error = new Error('Accès refusé, boutique invalide ou abonnement inactif');
+    expect(errorKind(error)).toBe('subscription');
+    expect(userErrorMessage(error)).not.toContain('autorisation');
+    expect(userErrorMessage(error)).toContain('abonnement');
+  });
+  it('reconnaît un refus de droits qui ne mentionne pas l’abonnement comme une vraie permission', () => {
+    expect(errorKind(new Error('acces refuse'))).toBe('permission');
+  });
 });
 describe('edgeFunctionErrorMessage',()=>{
   it('extrait le message précis du corps de la réponse',async()=>{
