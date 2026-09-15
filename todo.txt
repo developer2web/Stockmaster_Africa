@@ -368,4 +368,27 @@
     — même temporairement et de façon réversible. En attente de votre
     « fais » pour l'appliquer et retirer définitivement les 1200 produits/
     600 ventes/1 entreprise/1 compte de test restants.
+- [x] Retour testeurs (14/09) : « trop de fonctionnalités, mal à la tête ».
+  Vérifié en direct (Accueil, Plus, Nouvelle vente, Rapports) : les écrans
+  pris un par un ne sont pas surchargés — le vrai problème est la largeur
+  du produit (6 onglets + jusqu'à 14 destinations dans « Plus ») exposée
+  d'un coup, sans rien de cachait selon l'usage réel. Deux corrections,
+  décidées avec le propriétaire :
+  1. Le menu « Plus » (gestion avancée) est passé d'une grille plate de 8
+     outils à 3 groupes titrés (Équipe / Boutique / Opérations) — plus
+     rapide à scanner, mêmes libellés exacts donc aucun impact sur le
+     filtrage par forfait (moduleFeatures).
+  2. « Rôles personnalisés » est masqué tant que l'entreprise n'a que le
+     propriétaire (aucun employé à qui assigner un rôle) — réapparaît
+     automatiquement dès la première invitation. Rien de supprimé, juste
+     caché tant que non pertinent.
+  Vérifié en direct sur un compte à 1 seule personne : Rôles bien absent,
+  les 3 groupes bien affichés, aucune erreur console.
+  Trouvaille annexe (non corrigée, hors périmètre de cette demande) :
+  l'écran Transferts entre boutiques n'a AUCUN point d'entrée dans
+  l'interface actuellement (ni onglet, ni carte dans Plus, ni lien
+  ailleurs) — recherché explicitement dans tout le code, zéro résultat.
+  Fonctionnalité invisible/inaccessible pour de vrai, pas juste un
+  candidat à masquer. À signaler si le propriétaire veut qu'elle soit
+  exposée quelque part.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
