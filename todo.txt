@@ -559,4 +559,16 @@
   passage (l'erreur sur le nom de l'unité ne se réactualisait pas après
   avoir rempli quantité/prix). Vérifié en direct : création, sauvegarde,
   réouverture — tout se recharge correctement.
+- [x] Pré-remplissage des prix à l'unité depuis les prix du lot (15/09).
+  Pour un vendeur qui pense d'abord en lot (carton acheté X, revendu Y) :
+  2 champs facultatifs (prix d'achat/vente du lot) dans la carte gros, et
+  prix d'achat/vente à l'unité en haut se calculent tout seuls (lot ÷
+  quantité) — s'arrête dès que la personne retouche le champ à l'unité
+  elle-même, et ne s'applique qu'à la création (jamais sur un produit
+  déjà enregistré). Le prix d'achat du lot n'est qu'une calculette,
+  jamais enregistré. Ajustement au passage : l'avertissement « pas moins
+  cher » ne se déclenche plus sur une égalité exacte (cas normal du
+  pré-remplissage), seulement si c'est vraiment plus cher. Vérifié en
+  direct : calcul correct, la modification manuelle du champ à l'unité
+  est bien respectée ensuite, sauvegarde/réouverture conservent tout.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
