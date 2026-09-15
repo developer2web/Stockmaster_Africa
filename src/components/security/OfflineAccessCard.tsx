@@ -194,7 +194,7 @@ export function OfflineAccessCard() {
         {active
           ? <>
             <AppButton mode="outlined" icon="key-change" loading={prepare.isPending} disabled={offlineAuthenticated || prepare.isPending} onPress={startSetup}>Changer le PIN</AppButton>
-            <AppButton mode="text" destructive icon="close-circle-outline" disabled={offlineAuthenticated} onPress={() => setDisableOpen(true)}>Désactiver</AppButton>
+            <AppButton mode="text" icon="close-circle-outline" disabled={offlineAuthenticated} onPress={() => setDisableOpen(true)}>Désactiver</AppButton>
           </>
           : <AppButton icon="cellphone-lock" loading={prepare.isPending} disabled={offlineAuthenticated || prepare.isPending} onPress={startSetup}>Activer sur cet appareil</AppButton>}
       </Card.Actions>}

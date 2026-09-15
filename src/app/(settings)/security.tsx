@@ -92,7 +92,7 @@ export default function SecuritySettings() {
       <Card mode="outlined">
         <Card.Title title="Déconnecter tous les appareils" subtitle="Toutes les sessions StockMaster devront se reconnecter" />
         <Card.Actions style={[styles.actions,compact&&styles.actionsCompact]}>
-          <AppButton style={compact&&styles.mobileButton} mode="text" destructive icon="logout-variant" onPress={() => setGlobalOpen(true)}>Tout déconnecter</AppButton>
+          <AppButton style={compact&&styles.mobileButton} mode="text" icon="logout-variant" onPress={() => setGlobalOpen(true)}>Tout déconnecter</AppButton>
         </Card.Actions>
       </Card>
       <HelperText type="info" visible>

@@ -87,7 +87,7 @@ export default function MoreScreen() {
     <View style={styles.footer}>
       <AppButton mode="text" icon="cog-outline" onPress={() => router.push('/(settings)')}>Paramètres</AppButton>
       <AppButton mode="text" icon="lifebuoy" onPress={() => router.push('/support')}>Assistance</AppButton>
-      <AppButton mode="text" destructive icon="logout" onPress={() => void signOut()}>Se déconnecter</AppButton>
+      <AppButton mode="text" icon="logout" onPress={() => void signOut()}>Se déconnecter</AppButton>
     </View>
   </AdminPage>;
 }

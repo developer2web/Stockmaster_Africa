@@ -247,7 +247,7 @@ export default function NewSale() {
       </View>}
       {(desktop || step === 'checkout') && <View style={[styles.cartPane, desktop && styles.cartPaneDesktop]}>
       <Text variant="headlineSmall">Panier ({items.length})</Text>
-      {!!items.length && <AppButton mode="text" destructive icon="cart-remove" disabled={save.isPending} onPress={() => setConfirmClear(true)}>Vider le panier</AppButton>}
+      {!!items.length && <AppButton mode="text" icon="cart-remove" disabled={save.isPending} onPress={() => setConfirmClear(true)}>Vider le panier</AppButton>}
       {issue && <HelperText type="info" visible accessibilityLiveRegion="polite">{issue}</HelperText>}
       {!!companySettings.error && <AppButton mode="text" onPress={() => void companySettings.refetch()}>Recharger les règles de vente</AppButton>}
       {!desktop && <AppButton mode="text" icon="plus" onPress={() => setStep('products')}>Ajouter des articles</AppButton>}
