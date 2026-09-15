@@ -543,4 +543,20 @@
   (détail/pack) pour cohabiter dans la même grille. Vérifié en direct
   (compte de test dédié, capture à 390px, produit simple + produit en
   gros) : grille correcte, badge/boutons fonctionnels, panier à jour.
+- [x] 2e passe sur la grille de vente après retour visuel (15/09) : 3
+  colonnes sur téléphone (au lieu de 4), nombre de stock retiré des
+  tuiles, contrôle d'ajout déplacé tout en bas de la carte (jamais sur la
+  photo) — un + tant que rien n'est ajouté, un vrai stepper (− quantité +)
+  une fois le produit au panier. Vérifié en direct : ajout/incrément/
+  décrément via le stepper, panier à jour à chaque étape.
+- [x] Refonte du bloc « Vendre aussi en gros » sur la fiche produit (15/09,
+  retour « j'aime pas la façon dont tu l'as implanté »). Sorti d'Options
+  supplémentaires (enterré après 7 champs sans rapport) vers sa propre
+  carte juste après nom/prix, toujours visible. Ajout d'un retour en
+  direct : prix par unité dans le lot calculé et comparé au prix au
+  détail pendant la saisie, avertissement si le lot n'est en fait pas
+  moins cher. Bug de revalidation react-hook-form découvert et corrigé au
+  passage (l'erreur sur le nom de l'unité ne se réactualisait pas après
+  avoir rempli quantité/prix). Vérifié en direct : création, sauvegarde,
+  réouverture — tout se recharge correctement.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
