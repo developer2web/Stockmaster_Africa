@@ -218,21 +218,26 @@ export default function NewSale() {
             );
           }
           return (
-            <Card key={cartKey(item)} mode="contained" style={[styles.gridCard, { backgroundColor: theme.colors.surface }, !available && styles.unavailable, anyInCart && { borderColor: theme.colors.primary, borderWidth: 1.5 }]} onPress={available && !save.isPending ? () => addOne('unit') : undefined}>
+            <Card key={cartKey(item)} mode="contained" style={[styles.gridCard, { backgroundColor: theme.colors.surface }, !available && styles.unavailable, anyInCart && { borderColor: theme.colors.primary, borderWidth: 1.5 }]} onPress={available && !save.isPending && !inCartUnit ? () => addOne('unit') : undefined}>
               <View style={styles.gridImageWrap}>
-                <ProductThumbnail url={item.imageUrl} size={72} />
-                {!!inCartUnit && (
-                  <View style={styles.gridBadge}>
-                    <Chip compact icon="check" mode="flat" style={{ backgroundColor: theme.colors.primaryContainer }}>{formatQuantity(inCartUnit.quantity)}</Chip>
-                    <IconButton mode="contained" icon="plus" size={14} disabled={!available || save.isPending} accessibilityLabel={`Ajouter encore un ${item.name}`} onPress={(event) => { event.stopPropagation(); addOne('unit'); }} />
-                  </View>
-                )}
+                <ProductThumbnail url={item.imageUrl} size={84} />
               </View>
               <Card.Content style={styles.gridCopy}>
-                <Text variant="titleSmall" numberOfLines={2} style={styles.gridName}>{item.name}</Text>
+                <Text variant="bodyMedium" numberOfLines={2} style={styles.gridName}>{item.name}</Text>
                 <Text variant="titleMedium" style={styles.bold}>{formatMoney(item.salePrice)}</Text>
-                <Text variant="bodySmall" style={{ color: available ? theme.colors.onSurfaceVariant : theme.colors.error }}>{available ? `Stock : ${formatQuantity(item.available)}` : 'Stock épuisé'}</Text>
+                {!available && <Text variant="labelSmall" style={{ color: theme.colors.error }}>Épuisé</Text>}
               </Card.Content>
+              <View style={styles.gridActions}>
+                {inCartUnit ? (
+                  <View style={styles.gridStepper}>
+                    <IconButton mode="outlined" icon="minus" size={16} disabled={save.isPending} accessibilityLabel={`Retirer un ${item.name}`} onPress={(event) => { event.stopPropagation(); setQuantity(cartKey(inCartUnit), inCartUnit.quantity - 1, !!companySettings.data?.allow_negative_stock); }} />
+                    <Text variant="titleSmall" style={styles.bold}>{formatQuantity(inCartUnit.quantity)}</Text>
+                    <IconButton mode="contained" icon="plus" size={16} disabled={!available || save.isPending} accessibilityLabel={`Ajouter encore un ${item.name}`} onPress={(event) => { event.stopPropagation(); addOne('unit'); }} />
+                  </View>
+                ) : (
+                  <IconButton mode="contained" icon="plus" size={18} disabled={!available || save.isPending} accessibilityLabel={`Ajouter ${item.name}`} onPress={(event) => { event.stopPropagation(); addOne('unit'); }} />
+                )}
+              </View>
             </Card>
           );
         })}
@@ -327,18 +332,24 @@ const styles = StyleSheet.create({
   bold: { fontWeight: '800' },
   // Grille façon Amazon pour les produits simples : flexBasis en pixels
   // fixes (pas en %) pour que le nombre de colonnes s'adapte tout seul à la
-  // largeur de l'écran (~4 sur téléphone, davantage sur un écran large),
-  // même logique que la liste Produits.
+  // largeur de l'écran (3 sur téléphone, davantage sur un écran large).
+  // minWidth choisi pour qu'un 4e ne tienne jamais sur ~366px de contenu
+  // utile, mais que 3 y tiennent toujours confortablement.
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  gridCard: { flexBasis: 84, flexGrow: 1, minWidth: 80, maxWidth: 170, overflow: 'hidden' },
+  gridCard: { flexBasis: 112, flexGrow: 1, minWidth: 108, maxWidth: 200, overflow: 'hidden' },
   // Les produits vendus aussi en gros gardent une carte large (deux
   // boutons + texte) : elle prend toute la ligne sur téléphone et se
   // partage la ligne avec une autre sur un écran large.
   gridCardBulk: { flexBasis: 260, flexGrow: 1, minWidth: 240, overflow: 'hidden' },
-  gridImageWrap: { alignItems: 'center', paddingTop: 12, position: 'relative' },
-  gridBadge: { position: 'absolute', top: 4, right: 4, alignItems: 'center', gap: 2 },
-  gridCopy: { alignItems: 'center', gap: 2, paddingTop: 8 },
+  gridImageWrap: { alignItems: 'center', paddingTop: 14, paddingBottom: 4 },
+  gridCopy: { alignItems: 'center', gap: 3, paddingTop: 2, paddingHorizontal: 10 },
   gridName: { textAlign: 'center' },
+  // Contrôle d'ajout tout en bas de la carte, jamais sur la photo : un
+  // simple + tant que le produit n'est pas au panier, un vrai stepper
+  // (− quantité +) une fois ajouté — inspiré des grilles d'achat rapide
+  // plutôt que de la fiche produit Amazon, mieux adapté à la vente.
+  gridActions: { alignItems: 'center', justifyContent: 'center', paddingBottom: 8, paddingTop: 4 },
+  gridStepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingHorizontal: 2 },
   chip: { marginRight: 12 },
   field: { width: '100%', maxWidth: 320 },
   notice: { gap: 10 },
