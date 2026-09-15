@@ -624,4 +624,19 @@
   direct de bout en bout (admin créé, employé invité, mot de passe
   temporaire changé, connexion employé) : en-tête correct, aucune
   erreur console.
+- [x] Trop de boutons rouges sur le Super Admin (15/09, retour direct —
+  d'abord traité par erreur côté app mobile, corrigé aussi là-bas en
+  prime, voir entrée précédente). Les listes Entreprises et Utilisateurs
+  affichaient un bouton rouge par ligne active (Suspendre/Désactiver) en
+  plus d'un « Supprimer définitivement » toujours rouge par utilisateur —
+  avec de vraies listes de 10+ entreprises et 14+ utilisateurs, beaucoup
+  de rouge à l'écran pour des actions réversibles. Nouvelle nuance ambre
+  (.warnBtn, réutilise --sm-warning déjà présent dans le design system
+  mais jamais utilisé) pour Suspendre/Désactiver/Refuser ; rouge réservé
+  aux actions vraiment irréversibles ou qui déplacent de l'argent
+  (Supprimer définitivement, Supprimer/Rembourser un paiement,
+  Déconnecter les autres appareils). Vérifié en direct sur les vraies
+  données de production (11 entreprises, 14 utilisateurs) : listes
+  nettement plus calmes visuellement, aucune erreur console, build
+  propre.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
