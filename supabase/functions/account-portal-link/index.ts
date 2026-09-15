@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { accountHandoffUrl, accountPortalDestination } from '../_shared/portal.ts';
+import { corsHeaders } from '../_shared/http.ts';
 
 type MembershipRole = { code?: string } | { code?: string }[] | null;
 
@@ -7,21 +8,6 @@ function roleCode(role: MembershipRole) {
   return Array.isArray(role) ? role[0]?.code : role?.code;
 }
 
-const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-function corsHeaders(request: Request) {
-  const origin = request.headers.get('Origin');
-  return {
-    'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin)
-      ? origin
-      : allowedOrigins[0] ?? '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Vary': 'Origin',
-  };
-}
 
 Deno.serve(async (request) => {
   const cors = corsHeaders(request);

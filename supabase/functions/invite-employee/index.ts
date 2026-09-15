@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/http.ts';
 
 type MembershipRole = { code?: string } | { code?: string }[] | null;
 type MembershipRow = { id?: string; company_id: string; is_active?: boolean; role: MembershipRole };
@@ -12,22 +13,6 @@ function createTemporaryPassword() {
   const random = new Uint32Array(12);
   crypto.getRandomValues(random);
   return `Sm!7${Array.from(random, (value) => alphabet[value % alphabet.length]).join('')}`;
-}
-
-const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-function corsHeaders(request: Request) {
-  const origin = request.headers.get('Origin');
-  return {
-    'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin)
-      ? origin
-      : allowedOrigins[0] ?? '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Vary': 'Origin',
-  };
 }
 
 Deno.serve(async (request) => {
