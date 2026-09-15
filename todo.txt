@@ -261,9 +261,12 @@
 
 ## P1 — Décision produit en attente
 
-- [ ] Un approvisionnement peut faire passer la caisse en négatif sans
-  avertissement (trouvé en direct le 13/09) — vouliez-vous un blocage, un
-  avertissement, ou est-ce le comportement voulu ?
+- [x] Un approvisionnement peut faire passer la caisse en négatif sans
+  avertissement (trouvé en direct le 13/09) — tranché le 15/09 : avertir
+  mais laisser continuer. Message + confirmation explicite (montant
+  avant/après indiqué) quand le paiement immédiat dépasserait le solde ;
+  ne touche pas aux dettes fournisseurs (pas d'impact caisse immédiat).
+  Vérifié en direct de bout en bout, solde négatif confirmé en base.
 - [ ] Bug jamais confirmé : paiement Orange Money affiché « Carte
   bancaire » quelque part dans l'app — toujours sans capture d'écran ni
   emplacement précis de votre part, donc toujours pas corrigé.
