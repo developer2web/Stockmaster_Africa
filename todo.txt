@@ -323,8 +323,17 @@
 ## P1 — Exploitation et fiabilité
 
 - [ ] Suivi des crashs en production (Sentry ou équivalent).
-- [ ] Sauvegardes Supabase + test de restauration réel (RPO/RTO jamais
-  mesurés).
+- [ ] **Sauvegardes Supabase : vérifié en direct le 15/09 (`supabase
+  backups list`) — AUCUNE sauvegarde n'existe actuellement**
+  (`"backups":[]`) et la récupération à un instant précis (PITR) est
+  désactivée (`"pitr_enabled":false`). Concrètement : si la base de
+  production (qui contient déjà de vraies entreprises — Yattaya, toronto
+  shop, Diallo) était perdue ou corrompue maintenant, rien ne permettrait
+  de la restaurer. Directement lié au palier gratuit ci-dessous (PITR et
+  sauvegardes automatiques sont réservés aux paliers payants sur
+  Supabase) — passer à un palier payant réglerait les deux points à la
+  fois. Décision de facturation, pas quelque chose que je peux faire
+  moi-même.
 - [ ] Palier Supabase actuel limité à 60 connexions simultanées (signal de
   palier gratuit/le plus petit) — recommandé de passer sur un palier
   payant avant l'ouverture commerciale réelle (vérifié le 13/09, pas de
