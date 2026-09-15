@@ -27,7 +27,7 @@ import { formatQuantity, numericFieldValue } from '@/utils/number';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
 import { readableError } from '@/utils/errors';
 
-const defaults: ProductInput = { name:'', description:'', sku:'', barcode:'',  supplierId:null, unit:'piece', purchasePrice:'0', salePrice:'0', initialQuantity:'0', lowStockThreshold:'5', isActive:true, bulkEnabled:false, bulkUnitLabel:'', bulkQuantity:'', bulkPrice:'' };
+const defaults: ProductInput = { name:'', description:'', sku:'', barcode:'',  supplierId:null, unit:'piece', purchasePrice:'0', salePrice:'0', initialQuantity:'0', lowStockThreshold:'5', isActive:true, bulkEnabled:false, bulkUnitLabel:'', bulkQuantity:'', bulkPrice:'', bulkPurchasePrice:'' };
 const unitOptions = [
   { label:'Pièce', value:'piece' }, { label:'Carton', value:'carton' },
   { label:'Kilogramme', value:'kg' }, { label:'Litre', value:'litre' },
@@ -44,17 +44,31 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   useStockRealtime(company);
   const product = useQuery({ queryKey:['product',id], queryFn:()=>getProduct(id!), enabled:!!id });
   const suppliers = useQuery({ queryKey:['suppliers',company,store], queryFn:()=>getSuppliers(company,store), enabled:!!company&&!!store });
-  const { control, handleSubmit, reset, setValue, getValues, trigger, formState:{errors,isDirty} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
+  const { control, handleSubmit, reset, setValue, getValues, trigger, formState:{errors,isDirty,dirtyFields} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
   const levels = useQuery({queryKey:['stock-levels',company,store,id],queryFn:()=>getStockLevels(company,id,store),enabled:!!company&&!!store&&!!id});
   // Prix par unité dans le lot, calculé en direct pour que le vendeur voie
   // tout de suite s'il vend vraiment moins cher en gros — sans avoir à
   // sortir une calculette.
-  const [bulkEnabledValue, bulkUnitLabelValue, bulkQuantityValue, bulkPriceValue, salePriceValue] = useWatch({ control, name: ['bulkEnabled', 'bulkUnitLabel', 'bulkQuantity', 'bulkPrice', 'salePrice'] });
+  const [bulkEnabledValue, bulkUnitLabelValue, bulkQuantityValue, bulkPriceValue, bulkPurchasePriceValue, salePriceValue] = useWatch({ control, name: ['bulkEnabled', 'bulkUnitLabel', 'bulkQuantity', 'bulkPrice', 'bulkPurchasePrice', 'salePrice'] });
   const perUnitBulkPrice = Number(bulkQuantityValue) > 0 ? Number(bulkPriceValue) / Number(bulkQuantityValue) : 0;
   // Les 3 champs du lot sont liés par une seule règle (tout ou rien) : sans
   // ça, remplir la quantité et le prix après le nom ne fait pas disparaître
   // l'erreur affichée sur le nom tant qu'on n'y retouche pas soi-même.
   useEffect(() => { if (bulkEnabledValue) void trigger(['bulkUnitLabel', 'bulkQuantity', 'bulkPrice']); }, [bulkEnabledValue, bulkUnitLabelValue, bulkQuantityValue, bulkPriceValue, trigger]);
+  // Un vendeur qui pense d'abord « lot » (prix payé au fournisseur pour un
+  // carton, prix de vente du carton) ne devrait pas avoir à recalculer et
+  // retaper le prix à l'unité en haut : on le déduit automatiquement de
+  // prix du lot / quantité, tant que la personne n'a pas modifié ce champ
+  // elle-même. Seulement à la création — jamais sur un produit déjà
+  // enregistré, pour ne pas écraser un prix existant en retouchant le lot.
+  useEffect(() => {
+    if (id || dirtyFields.purchasePrice) return;
+    if (Number(bulkPurchasePriceValue) > 0 && Number(bulkQuantityValue) > 0) setValue('purchasePrice', String(Math.round(Number(bulkPurchasePriceValue) / Number(bulkQuantityValue))), { shouldDirty: false, shouldValidate: true });
+  }, [id, bulkPurchasePriceValue, bulkQuantityValue, dirtyFields.purchasePrice, setValue]);
+  useEffect(() => {
+    if (id || dirtyFields.salePrice) return;
+    if (Number(bulkPriceValue) > 0 && Number(bulkQuantityValue) > 0) setValue('salePrice', String(Math.round(Number(bulkPriceValue) / Number(bulkQuantityValue))), { shouldDirty: false, shouldValidate: true });
+  }, [id, bulkPriceValue, bulkQuantityValue, dirtyFields.salePrice, setValue]);
 
   useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? '', barcode:product.data.barcode??'', supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:numericFieldValue(product.data.purchase_price), salePrice:numericFieldValue(product.data.sale_price), initialQuantity:'0', lowStockThreshold:numericFieldValue(product.data.low_stock_threshold), isActive:product.data.is_active, bulkEnabled:!!product.data.bulk_unit_label, bulkUnitLabel:product.data.bulk_unit_label??'', bulkQuantity:product.data.bulk_quantity!=null?String(product.data.bulk_quantity):'', bulkPrice:product.data.bulk_price!=null?numericFieldValue(product.data.bulk_price):'' }); }, [product.data,reset]);
 
@@ -130,10 +144,14 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
             <FormField control={control} name="bulkUnitLabel" label="Nom de l’unité de gros (ex : Carton, Sac)" required />
             <FormField control={control} name="bulkQuantity" label="Quantité par lot (ex : 24)" required keyboardType="number-pad" integerOnly selectTextOnFocus />
           </ResponsiveFormGrid>
-          <FormField control={control} name="bulkPrice" label={`Prix du lot complet (${primaryCode})`} required keyboardType="decimal-pad" selectTextOnFocus />
-          {perUnitBulkPrice > 0 && <HelperText type={perUnitBulkPrice >= Number(salePriceValue) && Number(salePriceValue) > 0 ? 'error' : 'info'} visible>
-            {perUnitBulkPrice >= Number(salePriceValue) && Number(salePriceValue) > 0
-              ? `Attention : ${formatMoney(perUnitBulkPrice)} par unité dans le lot, ce n’est pas moins cher que le prix au détail (${formatMoney(Number(salePriceValue))}). Vérifiez le prix du lot.`
+          {!id && <Text variant="bodySmall" style={{ fontStyle: 'italic' }}>Remplissez plutôt les prix du lot : les prix à l’unité en haut se calculent tout seuls.</Text>}
+          <ResponsiveFormGrid>
+            {!id && <FormField control={control} name="bulkPurchasePrice" label={`Prix d’achat du lot (${primaryCode}, facultatif)`} keyboardType="decimal-pad" selectTextOnFocus />}
+            <FormField control={control} name="bulkPrice" label={`Prix de vente du lot (${primaryCode})`} required keyboardType="decimal-pad" selectTextOnFocus />
+          </ResponsiveFormGrid>
+          {perUnitBulkPrice > 0 && <HelperText type={perUnitBulkPrice > Number(salePriceValue) && Number(salePriceValue) > 0 ? 'error' : 'info'} visible>
+            {perUnitBulkPrice > Number(salePriceValue) && Number(salePriceValue) > 0
+              ? `Attention : ${formatMoney(perUnitBulkPrice)} par unité dans le lot, c’est plus cher que le prix au détail (${formatMoney(Number(salePriceValue))}). Vérifiez le prix du lot.`
               : `Soit ${formatMoney(perUnitBulkPrice)} par unité dans le lot, contre ${formatMoney(Number(salePriceValue))} au détail.`}
           </HelperText>}
         </Card.Content>}
