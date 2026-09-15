@@ -616,4 +616,12 @@
   RPC de diagnostic Super Admin réutilisables (surcharges d'une fonction
   avec code source, triggers d'une table, recherche d'entreprises par
   nom). Vérifié en direct : nouvel essai -> plan_id Pro confirmé.
+- [x] En-tête de l'écran d'accueil employé corrigé (15/09) : nom de
+  l'entreprise en haut, boutique en sous-titre — auparavant à l'envers
+  (nom de l'employé en haut) sur cet écran précis, alors que tous les
+  autres écrans employé (via AdminPage) faisaient déjà ça correctement.
+  « Bonjour {employé} » reste juste en dessous, inchangé. Vérifié en
+  direct de bout en bout (admin créé, employé invité, mot de passe
+  temporaire changé, connexion employé) : en-tête correct, aucune
+  erreur console.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
