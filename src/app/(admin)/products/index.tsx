@@ -64,7 +64,7 @@ export default function ProductsScreen() {
         {rows.map((product) => (
           <Card mode="contained" style={[styles.gridCard, { backgroundColor: theme.colors.surface }]} key={product.id} onPress={() => router.push(`/products/${product.id}` as never)}>
             <View style={styles.gridImageWrap}>
-              <ProductThumbnail url={product.image_urls?.[0]} size={112} />
+              <ProductThumbnail url={product.image_urls?.[0]} size={78} />
               {!product.is_active && <StatusChip status="inactive" style={styles.gridStatus}/>}
             </View>
             <Card.Content style={styles.gridCopy}>
@@ -108,7 +108,10 @@ const styles = StyleSheet.create({
   // flexBasis en pourcentage (plutôt qu'un nombre de pixels fixe) pour que 3
   // cartes tiennent par ligne quelle que soit la largeur de l'écran.
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  gridCard: { flexBasis: '31%', flexGrow: 1, minWidth: 104, maxWidth: 220, overflow: 'hidden' },
+  // flexBasis en pixels fixes (pas en %) pour que le nombre de colonnes
+  // s'adapte tout seul à la largeur réelle : ~4 sur téléphone, davantage
+  // sur un écran plus large (tablette, ordinateur), sans logique à part.
+  gridCard: { flexBasis: 84, flexGrow: 1, minWidth: 80, maxWidth: 170, overflow: 'hidden' },
   gridImageWrap: { alignItems: 'center', paddingTop: 12, position: 'relative' },
   gridStatus: { position: 'absolute', top: 4, left: 4 },
   gridCopy: { alignItems: 'center', gap: 2, paddingTop: 8 },
