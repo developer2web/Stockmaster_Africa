@@ -14,6 +14,7 @@ export const moduleFeatures: Record<string, FeatureKey> = {
   'Fournisseurs': 'customers_suppliers',
   'Dépenses': 'expenses',
   'Compter le stock': 'inventory_count',
+  'Transferts entre boutiques': 'transfers',
   'Rôles': 'advanced_permissions',
   'Journal d’activité': 'audit_log',
 };

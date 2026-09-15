@@ -477,6 +477,21 @@
   11. Bouton de déconnexion ajouté en haut à droite pour le propriétaire
      (Accueil + tous les écrans admin), en plus de celui déjà dans Plus.
   Nettoyage du compte de test de vérification (UI Verify Co) : migration
-  prête (202609150006), bloquée par le même classificateur « Logging/Audit
-  Tampering » que le nettoyage précédent — en attente de « fais ».
+  prête (202609150006) — finalement passée sans blocage au push suivant.
+- [x] 4 propositions du 15/09, toutes traitées et vérifiées en direct :
+  1. Détection automatique de dérive de sécurité : super_admin_platform_
+     warnings() vérifie maintenant aussi security_invoker sur les 4 vues
+     financières à chaque chargement du tableau de bord Super Admin —
+     remonte en critique si Security Advisor (ou autre) le recasse.
+  2. « Transferts entre boutiques » ajouté dans Plus > Opérations (plus
+     invisible), avec gating par forfait comme les autres outils.
+  3. allow_discounts activé par défaut pour les nouvelles entreprises
+     (colonne uniquement — les entreprises déjà créées ne sont pas
+     modifiées).
+  4. Un propriétaire peut maintenant supprimer aussi le compte Supabase
+     complet d'un employé (pas juste son accès), avec les mêmes
+     garde-fous que n'importe quel compte (paiement réussi, actif
+     ailleurs...). Nouveau bouton « Supprimer le compte » dans Accès de
+     l'employé. Vérifié en direct : suppression réelle confirmée (compte
+     disparu partout), et refus correct si la cible n'est pas un employé.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).

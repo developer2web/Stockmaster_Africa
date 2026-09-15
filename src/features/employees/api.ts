@@ -149,3 +149,4 @@ export async function inviteEmployee(values: EmployeeInput, companyId: string): 
 }
 export async function updateEmployee(id:string, roleId:string, storeIds:string[], allStores:boolean, isActive:boolean) { const { error }=await supabase.rpc('update_employee_access',{p_membership_id:id,p_role_id:roleId,p_store_ids:storeIds,p_all_stores:allStores,p_is_active:isActive}); fail(error); }
 export async function deleteEmployee(id:string) { const { error }=await supabase.rpc('delete_employee',{p_membership_id:id}); fail(error); }
+export async function deleteEmployeeAccount(id:string) { const { error }=await supabase.rpc('delete_employee_account_permanently',{p_membership_id:id}); fail(error); }

@@ -36,6 +36,7 @@ const businessSection = { title: 'Boutique', subtitle: 'Coordonnées et abonneme
 const operationsSection = { title: 'Opérations', subtitle: 'À utiliser selon les besoins', items: [
   ['Scanner', 'Codes-barres et QR codes', 'barcode-scan', '/scanner'],
   ['Compter le stock', 'Comparer le comptage réel au stock enregistré', 'clipboard-check-outline', '/inventory-count'],
+  ['Transferts entre boutiques', 'Déplacer du stock d’une boutique à une autre', 'swap-horizontal', '/transfers'],
   ['Commandes clients', 'Réservations et acomptes', 'clipboard-list-outline', '/orders'],
   ['Journal d’activité', 'Opérations importantes de l’entreprise', 'history', '/activity'],
 ] } as const;
