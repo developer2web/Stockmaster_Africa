@@ -5,8 +5,10 @@ import { Card, HelperText, IconButton, Switch, TextInput } from 'react-native-pa
 import { SelectField } from '@/components/forms/SelectField';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
+import { getCashSummary } from '@/features/cash/api';
 import { recordPurchase, type PurchaseLine } from '@/features/operations/api';
 import { getProducts, getSuppliers } from '@/features/products/api';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -31,11 +33,17 @@ export default function PurchasesScreen() {
   const [paid, setPaid] = useState(true);
   const [items, setItems] = useState<PurchaseLine[]>([]);
   const [formError, setFormError] = useState('');
+  const [confirmNegative, setConfirmNegative] = useState(false);
   const canCreateSupplierDebt = canUseFeature('supplier_debt');
 
   const suppliers = useQuery({ queryKey: ['suppliers', company, store], queryFn: () => getSuppliers(company, store), enabled: !!store });
   const products = useQuery({ queryKey: ['purchase-products', company, store, debouncedSearch, 'cost'], queryFn: () => getProducts(company, store, debouncedSearch, 0, true), enabled: !!store });
+  const cashSummary = useQuery({ queryKey: ['cash-summary', store], queryFn: () => getCashSummary(store), enabled: !!store });
   const total = useMemo(() => items.reduce((sum, item) => sum + item.quantity * item.unitCost, 0), [items]);
+  // Payé maintenant seulement : une dette fournisseur ne touche pas la
+  // caisse tout de suite, rien à avertir dans ce cas.
+  const cashBalance = cashSummary.data?.balance ?? 0;
+  const wouldGoNegative = paid && total > 0 && cashBalance - total < 0;
 
   const add = () => {
     const product = products.data?.find((item) => item.id === productId);
@@ -90,8 +98,17 @@ export default function PurchasesScreen() {
       </Card>
       {items.map((item) => <Card key={item.productId} mode="contained"><Card.Title title={item.name} subtitle={`${formatQuantity(item.quantity)} × ${formatMoney(item.unitCost)}`} right={() => <IconButton icon="delete" onPress={() => setItems((rows) => rows.filter((row) => row.productId !== item.productId))} />} /></Card>)}
       <Card mode="contained"><Card.Title title={`Total : ${formatMoney(total)}`} subtitle={!canCreateSupplierDebt ? 'Paiement immédiat · les dettes fournisseurs nécessitent Pro' : paid ? 'Payé maintenant' : 'Dette fournisseur'} right={() => canCreateSupplierDebt ? <Switch value={paid} onValueChange={setPaid} style={{ marginRight: 12 }} /> : null} /></Card>
+      {wouldGoNegative && <HelperText type="error" visible>Ce paiement dépasse la caisse actuelle ({formatMoney(cashBalance)}) : elle passera en négatif.</HelperText>}
       {!!mutation.error && <HelperText type="error" visible>{mutation.error.message}</HelperText>}
-      <AppButton icon="truck-check" loading={mutation.isPending} disabled={!store || !supplierId || !items.length || mutation.isPending} onPress={() => mutation.mutate()}>Confirmer la réception</AppButton>
+      <AppButton icon="truck-check" loading={mutation.isPending} disabled={!store || !supplierId || !items.length || mutation.isPending} onPress={() => { if (wouldGoNegative) { setConfirmNegative(true); return; } mutation.mutate(); }}>Confirmer la réception</AppButton>
+      <ConfirmDialog
+        visible={confirmNegative}
+        title="Caisse insuffisante"
+        message={`Ce paiement de ${formatMoney(total)} dépasse la caisse actuelle (${formatMoney(cashBalance)}) : elle passera à ${formatMoney(cashBalance - total)}. Continuer quand même ?`}
+        loading={mutation.isPending}
+        onCancel={() => setConfirmNegative(false)}
+        onConfirm={() => { setConfirmNegative(false); mutation.mutate(); }}
+      />
     </AdminPage>
   );
 }
