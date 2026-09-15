@@ -24,13 +24,14 @@ export default function RolesScreen() {
   const [open,setOpen] = useState(false);
   const [editing,setEditing] = useState<EmployeeRole|null>(null);
   const [deleting,setDeleting] = useState<EmployeeRole|null>(null);
+  const [deleteReason,setDeleteReason] = useState('');
   const roles = useQuery({queryKey:['roles',companyId],queryFn:()=>getRoles(companyId),enabled:!!companyId});
   const permissions = useQuery({queryKey:['permissions'],queryFn:getPermissions});
   const { control,handleSubmit,reset } = useForm<RoleInput>({resolver:zodResolver(roleSchema),defaultValues:{name:'',permissions:[]}});
 
   useEffect(()=>reset(editing?{name:editing.name,permissions:editing.permissions.filter(code=>!code.startsWith('categories.'))}:{name:'',permissions:[]}),[editing,reset]);
   const save = useMutation({mutationFn:(v:RoleInput)=>saveRole(companyId,v,editing?.id),onSuccess:async()=>{await qc.invalidateQueries({queryKey:['roles',companyId]});setOpen(false);setEditing(null)}});
-  const remove = useMutation({mutationFn:deleteRole,onSuccess:async()=>{await qc.invalidateQueries({queryKey:['roles',companyId]});setDeleting(null)}});
+  const remove = useMutation({mutationFn:(id:string)=>deleteRole(id,deleteReason),onSuccess:async()=>{await qc.invalidateQueries({queryKey:['roles',companyId]});setDeleting(null);setDeleteReason('')}});
   const employeeRoles=(roles.data??[]).filter(role=>role.code==='employee');
   const show=(role?:EmployeeRole)=>{save.reset();setEditing(role??null);setOpen(true)};
   const presets = [
@@ -66,7 +67,7 @@ export default function RolesScreen() {
       <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setOpen(false)}>Annuler</AppButton><AppButton disabled={permissions.isLoading} onPress={handleSubmit(values=>save.mutate(values))} loading={save.isPending}>Enregistrer</AppButton></Dialog.Actions>
     </Dialog></Portal>
 
-    <ConfirmDialog visible={!!deleting} title="Supprimer ce rôle ?" message="La suppression est refusée s’il est encore attribué à un employé." destructive loading={remove.isPending} onCancel={()=>setDeleting(null)} onConfirm={()=>deleting&&remove.mutate(deleting.id)}/>
+    <ConfirmDialog visible={!!deleting} title="Supprimer ce rôle ?" message="La suppression est refusée s’il est encore attribué à un employé." destructive loading={remove.isPending} reason={deleteReason} onReasonChange={setDeleteReason} onCancel={()=>{setDeleting(null);setDeleteReason('')}} onConfirm={()=>deleting&&remove.mutate(deleting.id)}/>
   </AdminPage></FeatureGate>;
 }
 

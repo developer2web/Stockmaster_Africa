@@ -107,7 +107,7 @@ export async function getRoles(companyId: string): Promise<EmployeeRole[]> {
   }));
 }
 export async function saveRole(companyId: string, values: RoleInput, id?: string) { const fn = id ? 'update_employee_role' : 'create_employee_role'; const args = id ? { p_role_id:id, p_name:values.name, p_permission_codes:values.permissions } : { p_company_id:companyId, p_name:values.name, p_permission_codes:values.permissions }; const { error } = await supabase.rpc(fn, args); fail(error); }
-export async function deleteRole(id: string) { const { error } = await supabase.rpc('delete_employee_role', { p_role_id:id }); fail(error); }
+export async function deleteRole(id: string, reason: string) { const { error } = await supabase.rpc('delete_employee_role', { p_role_id:id, p_reason:reason }); fail(error); }
 
 export async function getEmployees(companyId: string): Promise<Employee[]> {
   const { data, error } = await supabase.from('memberships').select('id,user_id,role_id,store_id,all_stores,is_active,created_at,profile:profiles!memberships_user_id_fkey(full_name),role:roles!memberships_role_id_fkey(name,code),store:stores(name),membership_stores(store_id,store:stores(name))').eq('company_id',companyId).order('created_at').limit(250); fail(error);
@@ -148,5 +148,5 @@ export async function inviteEmployee(values: EmployeeInput, companyId: string): 
   };
 }
 export async function updateEmployee(id:string, roleId:string, storeIds:string[], allStores:boolean, isActive:boolean) { const { error }=await supabase.rpc('update_employee_access',{p_membership_id:id,p_role_id:roleId,p_store_ids:storeIds,p_all_stores:allStores,p_is_active:isActive}); fail(error); }
-export async function deleteEmployee(id:string) { const { error }=await supabase.rpc('delete_employee',{p_membership_id:id}); fail(error); }
-export async function deleteEmployeeAccount(id:string) { const { error }=await supabase.rpc('delete_employee_account_permanently',{p_membership_id:id}); fail(error); }
+export async function deleteEmployee(id:string, reason:string) { const { error }=await supabase.rpc('delete_employee',{p_membership_id:id,p_reason:reason}); fail(error); }
+export async function deleteEmployeeAccount(id:string, reason:string) { const { error }=await supabase.rpc('delete_employee_account_permanently',{p_membership_id:id,p_reason:reason}); fail(error); }
