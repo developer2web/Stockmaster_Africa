@@ -124,7 +124,7 @@ body {
 .adminApp .pageEyebrow { margin-bottom: 6px; color: var(--sm-accent); }
 .adminApp .titleActions { gap: 8px; }
 
-.adminApp :is(.primary, .approve, .refreshBtn, .detailsBtn, .successBtn, .dangerBtn, .resetFilters, .revenueExport) {
+.adminApp :is(.primary, .approve, .refreshBtn, .detailsBtn, .successBtn, .warnBtn, .dangerBtn, .resetFilters, .revenueExport) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -161,6 +161,7 @@ body {
 }
 
 .adminApp .successBtn { border: 1px solid #a8dbc9; background: #eaf8f2; color: #087459; }
+.adminApp .warnBtn { border: 1px solid #ecd2a8; background: #fdf6ec; color: var(--sm-warning); }
 .adminApp .dangerBtn { border: 1px solid #efc0bc; background: #fff7f6; color: var(--sm-danger); }
 .adminApp button:disabled { cursor: not-allowed; opacity: 0.55; transform: none !important; }
 
