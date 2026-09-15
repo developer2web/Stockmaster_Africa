@@ -529,4 +529,18 @@
   un nom identique à la casse près, "Confirmer" crée bien le second
   produit distinct (les deux coexistent), en base RLS/droits inchangés
   (lecture seule, aucune nouvelle permission requise).
+- [x] Grille produits façon Amazon sur l'écran de vente (15/09). La
+  demande initiale du 14/09 groupait la grille avec le badge « déjà
+  ajouté » et le bouton + — les trois concernaient l'écran de VENTE, pas
+  le catalogue Produits (qui avait déjà reçu sa grille le 14/09). Après
+  un signalement « le nouveau changement n'est pas là », vérification
+  poussée (bundle JS live inspecté octet par octet, aucun cache serveur,
+  aucun service worker) puis reconstitution du malentendu : l'écran de
+  vente était resté en liste verticale une carte par ligne. Corrigé :
+  produits simples en tuiles compactes (grille responsive identique au
+  catalogue), badge « déjà ajouté » + bouton + en médaillon sur l'image ;
+  produits en gros gardent une carte large avec leurs deux boutons
+  (détail/pack) pour cohabiter dans la même grille. Vérifié en direct
+  (compte de test dédié, capture à 390px, produit simple + produit en
+  gros) : grille correcte, badge/boutons fonctionnels, panier à jour.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
