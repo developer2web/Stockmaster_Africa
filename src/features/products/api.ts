@@ -121,6 +121,20 @@ export async function getProduct(id: string): Promise<Product> {
   }
   return product;
 }
+// Vérification, pas blocage : deux produits au nom très proche restent
+// possibles (tailles/variantes différentes) — juste un signal avant de
+// créer un doublon involontaire, jamais un empêchement. barcode/sku
+// exacts sont déjà bloqués en base (contraintes uniques) ; ceci couvre le
+// nom, qui ne l'est pas.
+export async function findSimilarProduct(companyId:string,storeId:string,name:string,excludeId?:string):Promise<{id:string;name:string}|null>{
+  const trimmed=name.trim();
+  if(trimmed.length<2)return null;
+  let query=supabase.from('products').select('id,name').eq('company_id',companyId).eq('store_id',storeId).eq('is_active',true).ilike('name',trimmed).limit(1);
+  if(excludeId)query=query.neq('id',excludeId);
+  const{data,error}=await query;
+  fail(error);
+  return(data??[])[0]??null;
+}
 export async function saveProduct(companyId:string,storeId:string,v:ProductInput,id?:string):Promise<string>{
   const bulkUnitLabel=v.bulkEnabled?(v.bulkUnitLabel??'').trim():null;
   const bulkQuantity=v.bulkEnabled&&v.bulkQuantity?parseDecimal(v.bulkQuantity):null;

@@ -18,7 +18,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { hasPermission } from '@/features/auth/permissions';
 import { getStockLevels } from '@/features/inventory/api';
 import { useStockRealtime } from '@/hooks/useStockRealtime';
-import { deleteProduct, deleteVariant, getProduct, getSuppliers, saveProduct, saveVariant } from './api';
+import { deleteProduct, deleteVariant, findSimilarProduct, getProduct, getSuppliers, saveProduct, saveVariant } from './api';
 import { lookupOpenFoodFacts, type OpenFoodFactsMatch } from './openFoodFacts';
 import { productSchema, ProductInput, variantSchema, VariantInput } from '@/schemas/catalog';
 import type { ProductVariant } from '@/types/database';
@@ -72,6 +72,9 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
     return () => { cancelled = true; };
   }, [id, initialBarcode, getValues, setValue]);
 
+  const [pendingSave,setPendingSave] = useState<ProductInput|null>(null);
+  const [similarProduct,setSimilarProduct] = useState<{id:string;name:string}|null>(null);
+  const [checkingDuplicate,setCheckingDuplicate] = useState(false);
   const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onSuccess:async(saved)=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['employee-products',company,store]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace({pathname:basePath as never,params:{notice:id?'Modification enregistrée':'Produit enregistré'}}); } });
   const [confirm,setConfirm] = useState(false);
   const [moreOpen,setMoreOpen] = useState(false);
@@ -172,13 +175,32 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
       {!!save.error && <HelperText type="error" visible>{readableError(save.error)}</HelperText>}
       <AppButton
         icon="content-save"
-        loading={save.isPending}
+        loading={save.isPending || checkingDuplicate}
         disabled={!company || !store || !isDirty}
-        onPress={handleSubmit(v => save.mutate(v), invalid => {
+        onPress={handleSubmit(async v => {
+          // Un nom identique (à la casse près) à un produit déjà actif dans cette
+          // boutique n'est jamais bloqué (tailles/variantes différentes possibles) —
+          // juste un signal avant de créer un doublon involontaire.
+          if (!id) {
+            setCheckingDuplicate(true);
+            const match = await findSimilarProduct(company, store, v.name).catch(() => null);
+            setCheckingDuplicate(false);
+            if (match) { setSimilarProduct(match); setPendingSave(v); return; }
+          }
+          save.mutate(v);
+        }, invalid => {
           if (additionalFields.some(field => !!invalid[field])) setMoreOpen(true);
         })}
       >Enregistrer</AppButton>
     </View>
+    <ConfirmDialog
+      visible={!!similarProduct}
+      title="Produit déjà existant ?"
+      message={`Un produit nommé « ${similarProduct?.name} » existe déjà dans cette boutique. Créer quand même un nouveau produit distinct, ou annulez pour retrouver l’existant depuis la liste des produits.`}
+      loading={save.isPending}
+      onCancel={() => { setSimilarProduct(null); setPendingSave(null); }}
+      onConfirm={() => { if (pendingSave) save.mutate(pendingSave); setSimilarProduct(null); }}
+    />
     {id&&<Card mode="contained" style={{backgroundColor:stockQuantity>0?'#E1F1F2':'#FFF3E0'}}><Card.Title title="Stock de la boutique active" subtitle={membership?.storeName??'Boutique'} left={()=><Icon source="package-variant-closed" size={28} color="#084B50"/>}/><Card.Content style={{gap:8}}><Text variant="displaySmall" style={{fontWeight:'900',color:stockQuantity>0?'#084B50':'#C25B00'}}>{formatQuantity(stockQuantity)}</Text><Text>Valeur au prix d’achat : {formatMoney(stockValue)}</Text>{!canAdjustStock&&<Text>Vous pouvez consulter ce stock, mais votre rôle ne permet pas de le modifier.</Text>}</Card.Content>{canAdjustStock&&<Card.Actions><AppButton mode="contained" icon="plus" onPress={()=>setAdjust('in')}>Ajouter du stock</AppButton><AppButton mode="outlined" icon="minus" disabled={stockQuantity<=0} onPress={()=>setAdjust('out')}>Retirer</AppButton></Card.Actions>}</Card>}
     {id&&product.data&&<Card mode="outlined"><Card.Title title="Indicateurs du produit"/><Card.Content style={{gap:6}}><Text>Marge unitaire : {formatMoney(margin)}</Text><Text>Taux de marge : {Number(product.data.purchase_price)>0?`${((margin/Number(product.data.purchase_price))*100).toFixed(1)} %`:'Non calculable'}</Text><Text>Unité : {unitOptions.find(option=>option.value===product.data.unit)?.label??'Pièce'}</Text><Text>Valeur du stock : {formatMoney(stockValue)}</Text><Text>Fournisseur : {product.data.supplier?.name??'Sans fournisseur'}</Text></Card.Content></Card>}
     {id&&!!levels.data?.some(level=>level.variant)&&<Card><Card.Title title="Détail par variante"/><Card.Content>{levels.data.map(level=><Text key={level.id}>{level.variant?.name??'Produit simple'} : {formatQuantity(level.quantity)}</Text>)}</Card.Content></Card>}

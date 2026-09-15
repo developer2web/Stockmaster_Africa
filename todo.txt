@@ -516,6 +516,17 @@
   correctement désactivé une fois le stock réel atteint. Stock détaillé
   par pack (écran Stock) et réception fournisseur en gros restent pour
   une version future, non construits ici.
-  Doublons de produit (demandé dans la foulée) : pas encore traité, la
-  vente en gros/détail a pris la priorité — à faire ensuite.
+  Doublons de produit (demandé dans la foulée) : fait — voir ci-dessous.
+- [x] Détection de produits en doublon (15/09). Même principe que les
+  doublons d'entreprises : une vérification, pas un blocage — barcode et
+  SKU exacts sont déjà bloqués en base (contraintes uniques), le nom ne
+  l'était pas. À l'enregistrement d'un NOUVEAU produit, si un produit
+  actif de même nom (à la casse près) existe déjà dans la même boutique,
+  un message le signale avant d'enregistrer, avec le choix de créer quand
+  même un produit distinct (tailles/variantes différentes possibles) ou
+  d'annuler pour retrouver l'existant. Vérifié en direct de bout en bout
+  sur un compte de test réel : message correctement déclenché en tapant
+  un nom identique à la casse près, "Confirmer" crée bien le second
+  produit distinct (les deux coexistent), en base RLS/droits inchangés
+  (lecture seule, aucune nouvelle permission requise).
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
