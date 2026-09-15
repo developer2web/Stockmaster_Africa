@@ -64,7 +64,7 @@ export async function getSale(id: string, withFinancials = false): Promise<Sale>
 
 export async function getSaleStock(companyId: string, storeId: string, includeCost = true): Promise<SaleStockItem[]> {
   return withOfflineCache(`sale-stock:${companyId}:${storeId}:${includeCost}`, async () => {
-  const productColumns = 'id,unit,name,sku,barcode,qr_code,sale_price,image_urls,is_active,product_variants(id,name,sku,barcode,sale_price,is_active)';
+  const productColumns = 'id,unit,name,sku,barcode,qr_code,sale_price,image_urls,is_active,bulk_unit_label,bulk_quantity,bulk_price,product_variants(id,name,sku,barcode,sale_price,is_active)';
   const pageSize=1000;
   const loadLevels=async()=>{
     const rows:{id:string;product_id:string;product_variant_id:string|null;quantity:number}[]=[];
@@ -89,6 +89,7 @@ export async function getSaleStock(companyId: string, storeId: string, includeCo
 
   return (productRows as {
     id: string; unit:'piece'|'carton'|'kg'|'litre'|'sac'|'paquet'; name: string; sku: string; barcode:string|null;qr_code:string; sale_price: number; purchase_price?: number; image_urls: string[];
+    bulk_unit_label: string | null; bulk_quantity: number | null; bulk_price: number | null;
     product_variants: { id: string; name: string; sku: string; barcode:string|null; sale_price: number | null; purchase_price?: number | null; is_active: boolean }[];
   }[]).flatMap((product) => {
     const variants = (product.product_variants ?? []).filter((variant) => variant.is_active);
@@ -107,6 +108,11 @@ export async function getSaleStock(companyId: string, storeId: string, includeCo
         purchasePrice: costs ? Number((variant ? costs.variants.get(variant.id) : null) ?? costs.products.get(product.id) ?? 0) : 0,
         available: Number(level?.quantity ?? 0),
         imageUrl: product.image_urls?.[0] ?? null,
+        // La vente en gros ne s'applique qu'au produit simple (sans variante) pour l'instant :
+        // avec une variante, quel prix de lot s'appliquerait resterait ambigu.
+        bulkUnitLabel: variant ? null : product.bulk_unit_label,
+        bulkQuantity: variant ? null : (product.bulk_quantity !== null ? Number(product.bulk_quantity) : null),
+        bulkPrice: variant ? null : (product.bulk_price !== null ? Number(product.bulk_price) : null),
       };
     });
   });

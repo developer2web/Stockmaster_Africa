@@ -494,4 +494,28 @@
      ailleurs...). Nouveau bouton « Supprimer le compte » dans Accès de
      l'employé. Vérifié en direct : suppression réelle confirmée (compte
      disparu partout), et refus correct si la cible n'est pas un employé.
+- [x] Vente en gros + au détail sur le même produit (15/09, portée réduite
+  à la vente — proposition acceptée). Sur la fiche produit, 3 champs
+  optionnels : nom de l'unité de gros (ex Carton), quantité par lot (ex
+  24), prix du lot. Le stock reste suivi dans une seule unité de base ;
+  à la vente, deux boutons distincts (détail / gros) au lieu d'un seul,
+  chacun avec le prix déjà calculé — aucun calcul à faire par le vendeur.
+  Les deux modes peuvent coexister dans le même panier comme deux lignes
+  séparées, sans jamais dépasser le stock réel disponible à eux deux (2
+  bugs trouvés et corrigés pendant le test : un plafond de quantité qui
+  ne se remettait pas à jour correctement en incrémentant, et 3 nouvelles
+  colonnes invisibles pour les utilisateurs normaux car le calcul des
+  droits colonne par colonne sur products/product_variants — mis en place
+  le 10/09 pour protéger purchase_price — est figé au moment où il tourne
+  et ne s'étend jamais tout seul aux colonnes ajoutées après. À RETENIR :
+  toute future colonne sur products/product_variants doit être suivie
+  d'un nouveau `grant select (...)` sinon elle reste invisible malgré RLS.
+  Vérifié en direct de bout en bout : produit créé, les deux boutons
+  ajoutent au panier avec le bon prix et la bonne quantité, total exact
+  (184 000 GNF pour 1 pièce + 2 cartons sur un test réel), bouton +
+  correctement désactivé une fois le stock réel atteint. Stock détaillé
+  par pack (écran Stock) et réception fournisseur en gros restent pour
+  une version future, non construits ici.
+  Doublons de produit (demandé dans la foulée) : pas encore traité, la
+  vente en gros/détail a pris la priorité — à faire ensuite.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).

@@ -27,7 +27,7 @@ import { formatQuantity, numericFieldValue } from '@/utils/number';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
 import { readableError } from '@/utils/errors';
 
-const defaults: ProductInput = { name:'', description:'', sku:'', barcode:'',  supplierId:null, unit:'piece', purchasePrice:'0', salePrice:'0', initialQuantity:'0', lowStockThreshold:'5', isActive:true };
+const defaults: ProductInput = { name:'', description:'', sku:'', barcode:'',  supplierId:null, unit:'piece', purchasePrice:'0', salePrice:'0', initialQuantity:'0', lowStockThreshold:'5', isActive:true, bulkEnabled:false, bulkUnitLabel:'', bulkQuantity:'', bulkPrice:'' };
 const unitOptions = [
   { label:'Pièce', value:'piece' }, { label:'Carton', value:'carton' },
   { label:'Kilogramme', value:'kg' }, { label:'Litre', value:'litre' },
@@ -47,7 +47,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   const { control, handleSubmit, reset, setValue, getValues, formState:{errors,isDirty} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
   const levels = useQuery({queryKey:['stock-levels',company,store,id],queryFn:()=>getStockLevels(company,id,store),enabled:!!company&&!!store&&!!id});
 
-  useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? '', barcode:product.data.barcode??'', supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:numericFieldValue(product.data.purchase_price), salePrice:numericFieldValue(product.data.sale_price), initialQuantity:'0', lowStockThreshold:numericFieldValue(product.data.low_stock_threshold), isActive:product.data.is_active }); }, [product.data,reset]);
+  useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? '', barcode:product.data.barcode??'', supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:numericFieldValue(product.data.purchase_price), salePrice:numericFieldValue(product.data.sale_price), initialQuantity:'0', lowStockThreshold:numericFieldValue(product.data.low_stock_threshold), isActive:product.data.is_active, bulkEnabled:!!product.data.bulk_unit_label, bulkUnitLabel:product.data.bulk_unit_label??'', bulkQuantity:product.data.bulk_quantity!=null?String(product.data.bulk_quantity):'', bulkPrice:product.data.bulk_price!=null?numericFieldValue(product.data.bulk_price):'' }); }, [product.data,reset]);
 
   // Nouveau produit arrivant du scanner avec un code inconnu : on tente de retrouver son
   // nom (et une photo de référence) dans Open Food Facts pour accélérer la saisie. Ça reste
@@ -148,6 +148,18 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
             <Controller control={control} name="isActive" render={({ field }) => <Card mode="outlined">
               <Card.Title title="Produit actif" right={() => <Switch value={field.value} onValueChange={field.onChange} style={{ marginRight: 12 }} />} />
             </Card>} />
+            {!productVariants.length && <Controller control={control} name="bulkEnabled" render={({ field: bulkField }) => <Card mode="outlined">
+              <Card.Title title="Vendre aussi en gros" subtitle="Ex : un carton de 24, un sac de 50 kg" right={() => <Switch value={bulkField.value} onValueChange={bulkField.onChange} style={{ marginRight: 12 }} />} />
+              {bulkField.value && <Card.Content style={styles.formContent}>
+                <Text variant="bodySmall">Le vendeur touchera deux boutons à la vente (gros / détail) avec le bon prix déjà calculé — aucun calcul à faire à chaque vente.</Text>
+                <FormField control={control} name="bulkUnitLabel" label="Nom de l’unité de gros (ex : Carton, Sac)" required />
+                <ResponsiveFormGrid>
+                  <FormField control={control} name="bulkQuantity" label="Quantité par lot (ex : 24)" required keyboardType="number-pad" integerOnly selectTextOnFocus />
+                  <FormField control={control} name="bulkPrice" label={`Prix du lot complet (${primaryCode})`} required keyboardType="decimal-pad" selectTextOnFocus />
+                </ResponsiveFormGrid>
+              </Card.Content>}
+            </Card>} />}
+            {!!productVariants.length && <HelperText type="info" visible>La vente en gros n’est pas disponible sur un produit à variantes.</HelperText>}
             {id && product.data && <ProductImagesCard productId={id} companyId={company} storeId={store} urls={productImages} />}
             {id && <Variants productId={id} companyId={company} variants={productVariants} refresh={() => qc.invalidateQueries({ queryKey: ['product', id] })} />}
             {!id && <Text variant="bodyMedium">Vous pourrez ajouter des images et des variantes depuis la fiche du produit après l’enregistrement.</Text>}

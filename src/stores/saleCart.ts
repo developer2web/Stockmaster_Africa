@@ -4,16 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import type { SaleStockItem } from '@/types/database';
-import { addCartItem, cartKey as makeCartKey } from './saleCartLogic';
+import { addCartItem, cartKey as makeCartKey, reservedElsewhere, type CartLine, type SaleMode } from './saleCartLogic';
 
-export interface CartItem extends SaleStockItem {
-  quantity: number;
-  discount: number;
-}
+export type CartItem = CartLine;
 
 type CartState = {
   items: CartItem[];
-  add: (item: SaleStockItem, allowNegativeStock?: boolean) => void;
+  add: (item: SaleStockItem, allowNegativeStock?: boolean, mode?: SaleMode) => void;
   setQuantity: (key: string, quantity: number, allowNegativeStock?: boolean) => void;
   setDiscount: (key: string, discount: number) => void;
   remove: (key: string) => void;
@@ -30,12 +27,15 @@ const protectedStorage = {
 
 export const useSaleCart = create<CartState>()(persist((set) => ({
   items: [],
-  add: (item,allowNegativeStock=false) => set((state) => ({ items: addCartItem(state.items,item,allowNegativeStock) })),
+  add: (item,allowNegativeStock=false,mode='unit') => set((state) => ({ items: addCartItem(state.items,item,allowNegativeStock,mode) })),
   setQuantity: (id, quantity, allowNegativeStock=false) => set((state) => ({
     items: state.items
-      .map((item) => key(item) === id
-        ? { ...item, quantity: Math.max(0,allowNegativeStock?quantity:Math.min(quantity,item.available)), discount: Math.min(item.discount,item.salePrice*Math.max(0,allowNegativeStock?quantity:Math.min(quantity,item.available))) }
-        : item)
+      .map((item) => {
+        if (key(item) !== id) return item;
+        const cap = allowNegativeStock ? Infinity : item.available - reservedElsewhere(state.items, item, item.saleMode);
+        const bounded = Math.max(0, Math.min(quantity, cap));
+        return { ...item, quantity: bounded, discount: Math.min(item.discount, item.salePrice * bounded) };
+      })
       .filter((item) => item.quantity > 0),
   })),
   setDiscount: (id,discount)=>set(state=>({items:state.items.map(item=>key(item)===id?{...item,discount:Math.max(0,Math.min(discount,item.salePrice*item.quantity))}:item)})),

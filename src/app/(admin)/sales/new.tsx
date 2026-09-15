@@ -16,6 +16,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { createSale, getSaleStock } from '@/features/sales/api';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { cartKey, useSaleCart } from '@/stores/saleCart';
+import { reservedElsewhere } from '@/stores/saleCartLogic';
 import { formatQuantity, parseDecimal, digitsOnly } from '@/utils/number';
 import { useOffline } from '@/features/offline/OfflineProvider';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
@@ -24,6 +25,10 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { createOperationId } from '@/utils/operationId';
 import { readableError } from '@/utils/errors';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { plural } from '@/utils/plural';
+
+const unitLabels: Record<string, string> = { piece: 'Pièce', carton: 'Carton', kg: 'kg', litre: 'Litre', sac: 'Sac', paquet: 'Paquet' };
+const unitLabel = (unit: string) => unitLabels[unit] ?? unit;
 
 export default function NewSale() {
   const { formatMoney } = useCurrency();
@@ -183,22 +188,34 @@ export default function NewSale() {
       <View style={styles.list}>
         {shown.map((item) => {
           const available = item.available > 0 || !!companySettings.data?.allow_negative_stock;
-          const inCart = items.find(cartItem => cartKey(cartItem) === cartKey(item));
-          const addOne = () => { add(item,!!companySettings.data?.allow_negative_stock); setQuantityDrafts(current => { const next = { ...current }; delete next[cartKey(item)]; return next; }); };
+          const inCartUnit = items.find(cartItem => cartKey(cartItem) === cartKey({ ...item, saleMode: 'unit' }));
+          const inCartBulk = item.bulkUnitLabel ? items.find(cartItem => cartKey(cartItem) === cartKey({ ...item, saleMode: 'bulk' })) : undefined;
+          const addOne = (mode: 'unit' | 'bulk' = 'unit') => { add(item,!!companySettings.data?.allow_negative_stock,mode); setQuantityDrafts(current => { const next = { ...current }; delete next[cartKey({ ...item, saleMode: mode })]; return next; }); };
+          const anyInCart = !!inCartUnit || !!inCartBulk;
           return (
-            <Card key={cartKey(item)} mode="contained" style={[{ backgroundColor: theme.colors.surface }, !available && styles.unavailable, !!inCart && { borderColor: theme.colors.primary, borderWidth: 1.5 }]} onPress={available && !save.isPending ? addOne : undefined}>
+            <Card key={cartKey(item)} mode="contained" style={[{ backgroundColor: theme.colors.surface }, !available && styles.unavailable, anyInCart && { borderColor: theme.colors.primary, borderWidth: 1.5 }]} onPress={!item.bulkUnitLabel && available && !save.isPending ? () => addOne('unit') : undefined}>
               <Card.Content style={styles.productRow}>
                 <ProductThumbnail url={item.imageUrl} />
-                <View style={styles.productCopy}><Text variant="titleMedium">{item.name}</Text><Text>{formatMoney(item.salePrice)}</Text>
+                <View style={styles.productCopy}><Text variant="titleMedium">{item.name}</Text><Text>{formatMoney(item.salePrice)}{item.bulkUnitLabel ? ` (${unitLabel(item.unit)})` : ''}</Text>
                   <Text style={{ color: available ? theme.colors.onSurfaceVariant : theme.colors.error }}>{available ? `Stock : ${formatQuantity(item.available)}` : 'Stock épuisé'}</Text>
                 </View>
-                {!!inCart && (
+                {!item.bulkUnitLabel && !!inCartUnit && (
                   <View style={styles.inCartBadge}>
-                    <Chip compact icon="check" mode="flat" style={{ backgroundColor: theme.colors.primaryContainer }}>{`Déjà ajouté · ${formatQuantity(inCart.quantity)}`}</Chip>
-                    <IconButton mode="contained" icon="plus" size={16} disabled={!available || save.isPending} accessibilityLabel={`Ajouter encore un ${item.name}`} onPress={(event) => { event.stopPropagation(); addOne(); }} />
+                    <Chip compact icon="check" mode="flat" style={{ backgroundColor: theme.colors.primaryContainer }}>{`Déjà ajouté · ${formatQuantity(inCartUnit.quantity)}`}</Chip>
+                    <IconButton mode="contained" icon="plus" size={16} disabled={!available || save.isPending} accessibilityLabel={`Ajouter encore un ${item.name}`} onPress={(event) => { event.stopPropagation(); addOne('unit'); }} />
                   </View>
                 )}
               </Card.Content>
+              {item.bulkUnitLabel && (
+                <Card.Content style={styles.bulkButtons}>
+                  <AppButton mode={inCartUnit?'contained':'outlined'} compact disabled={!available || save.isPending} onPress={() => addOne('unit')}>
+                    {inCartUnit ? `✓ ${formatQuantity(inCartUnit.quantity)} ${unitLabel(item.unit)}${plural(inCartUnit.quantity)}` : `+1 ${unitLabel(item.unit)} (${formatMoney(item.salePrice)})`}
+                  </AppButton>
+                  <AppButton mode={inCartBulk?'contained':'outlined'} compact disabled={!available || save.isPending} onPress={() => addOne('bulk')}>
+                    {inCartBulk ? `✓ ${formatQuantity(inCartBulk.quantity / (item.bulkQuantity ?? 1))} ${item.bulkUnitLabel}` : `+1 ${item.bulkUnitLabel} (${formatMoney(item.bulkPrice ?? 0)})`}
+                  </AppButton>
+                </Card.Content>
+              )}
               {!available && <Card.Content><Text style={{ color: theme.colors.error }}>Ajoutez le stock depuis la fiche Produit ou le module Stock.</Text></Card.Content>}
             </Card>
           );
@@ -226,15 +243,31 @@ export default function NewSale() {
       )}
       {items.map((item) => {
         const id = cartKey(item);
+        const isBulk = item.saleMode === 'bulk';
+        const bulkStep = Number(item.bulkQuantity ?? 1);
+        const packCount = isBulk ? item.quantity / bulkStep : 0;
+        const allowNegative = !!companySettings.data?.allow_negative_stock;
         return (
           <Card key={id} mode="contained" style={{ backgroundColor: theme.colors.surface }}>
             <Card.Content style={styles.productRow}>
               <ProductThumbnail url={item.imageUrl} />
-              <View style={styles.productCopy}><Text variant="titleMedium">{item.name}</Text><Text>{formatMoney(item.salePrice)}</Text><Text>Disponible : {formatQuantity(item.available)} {item.unit}</Text></View>
+              <View style={styles.productCopy}>
+                <Text variant="titleMedium">{item.name}{isBulk ? ` · ${item.bulkUnitLabel}` : ''}</Text>
+                <Text>{formatMoney(item.salePrice)} {isBulk ? `par ${unitLabel(item.unit)}` : ''}</Text>
+                <Text>Disponible : {formatQuantity(item.available)} {item.unit}</Text>
+              </View>
               <IconButton icon="delete" accessibilityLabel={`Retirer ${item.name} du panier`} onPress={() => { remove(id); setQuantityDrafts(current => { const next = { ...current }; delete next[id]; return next; }); }} />
             </Card.Content>
             <Card.Content style={styles.list}>
-              <View style={styles.quantityRow}><IconButton mode="outlined" icon="minus" accessibilityLabel="Diminuer la quantité" disabled={item.quantity<=1} onPress={()=>changeQuantity(id,String(item.quantity-1),item.available)}/><TextInput style={styles.quantityInput} mode="outlined" label="Quantité" accessibilityLabel="Quantité" keyboardType="number-pad" selectTextOnFocus value={quantityDrafts[id] ?? String(item.quantity)} onChangeText={(value) => changeQuantity(id, value, item.available)} /><IconButton mode="contained" icon="plus" accessibilityLabel="Augmenter la quantité" disabled={!companySettings.data?.allow_negative_stock&&item.quantity>=item.available} onPress={()=>changeQuantity(id,String(item.quantity+1),item.available)}/></View>
+              {isBulk ? (
+                <View style={styles.quantityRow}>
+                  <IconButton mode="outlined" icon="minus" accessibilityLabel={`Diminuer d’un ${item.bulkUnitLabel}`} disabled={packCount<=1} onPress={()=>setQuantity(id,item.quantity-bulkStep,allowNegative)}/>
+                  <Text variant="titleMedium" style={styles.quantityInput}>{formatQuantity(packCount)} {item.bulkUnitLabel}{plural(packCount)} ({formatQuantity(item.quantity)} {unitLabel(item.unit)}{plural(item.quantity)})</Text>
+                  <IconButton mode="contained" icon="plus" accessibilityLabel={`Ajouter un ${item.bulkUnitLabel}`} disabled={!allowNegative&&item.quantity+bulkStep>item.available-reservedElsewhere(items,item,'bulk')} onPress={()=>setQuantity(id,item.quantity+bulkStep,allowNegative)}/>
+                </View>
+              ) : (
+                <View style={styles.quantityRow}><IconButton mode="outlined" icon="minus" accessibilityLabel="Diminuer la quantité" disabled={item.quantity<=1} onPress={()=>changeQuantity(id,String(item.quantity-1),item.available)}/><TextInput style={styles.quantityInput} mode="outlined" label="Quantité" accessibilityLabel="Quantité" keyboardType="number-pad" selectTextOnFocus value={quantityDrafts[id] ?? String(item.quantity)} onChangeText={(value) => changeQuantity(id, value, item.available)} /><IconButton mode="contained" icon="plus" accessibilityLabel="Augmenter la quantité" disabled={!allowNegative&&item.quantity>=item.available-reservedElsewhere(items,item,'unit')} onPress={()=>changeQuantity(id,String(item.quantity+1),item.available)}/></View>
+              )}
               {companySettings.data?.allow_discounts&&showDiscounts&&<TextInput style={styles.field} mode="outlined" label="Remise sur cette ligne" accessibilityLabel="Remise sur cette ligne" keyboardType="decimal-pad" selectTextOnFocus value={String(item.discount)} onChangeText={value=>setDiscount(id,parseDecimal(value)||0)}/>}<Text>Total ligne : {formatMoney(item.salePrice * item.quantity-item.discount)}</Text>
             </Card.Content>
           </Card>
@@ -272,6 +305,7 @@ const styles = StyleSheet.create({
   productRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   productCopy: { flex: 1, minWidth: 0, gap: 4 },
   inCartBadge: { alignItems: 'center', gap: 2 },
+  bulkButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 0 },
   list: { gap: 8 },
   unavailable: { opacity: 0.72 },
   chip: { marginRight: 12 },
