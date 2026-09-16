@@ -744,4 +744,78 @@
   expiré : clic sur Renouveler -> atterrit connecté automatiquement sur
   Mon abonnement dans account-web, aucune erreur console. 239/239
   tests, tsc propre.
+- [x] Deux audits complets reçus (16/09, le propriétaire a testé
+  l'application, le portail Account et le site public lui-même — aucune
+  donnée créée/modifiée/payée de son côté). Corrigé dans l'immédiat,
+  chacun vérifié en direct avant/après :
+  - PGRST202 sur "Vérifier les accès" : accessDiagnostics.ts appelait
+    get_sales_history_safe avec un paramètre p_offset supprimé lors
+    d'un correctif antérieur (pagination par curseur), jamais mis à
+    jour à l'époque.
+  - Écrans admin qui s'accumulaient en naviguant (DOM mesuré : 148 →
+    224 → 307 → 389 éléments sur 3 changements d'onglet) : (admin) a un
+    seul Tabs avec 22 écrans, qui reste tout monté par défaut.
+    AdminPage (19 des 20 écrans admin) ne rend plus rien quand il n'est
+    pas au premier plan. Revérifié : nombre de titres stable après le
+    correctif au lieu de grimper sans fin.
+  - Vente à crédit/acompte bloquée sans aucun moyen de l'activer :
+    aucun interrupteur n'existait dans les réglages, et même en
+    imaginant qu'il existe, l'enregistrement écrasait systématiquement
+    la valeur à false (+ le taux de taxe à 0) quel que soit le réglage
+    choisi — et la carte "Règles de vente" n'avait même pas de bouton
+    Enregistrer à elle (les deux seuls partageant cette mutation sont
+    dans des cartes masquées sur certains forfaits). Interrupteur +
+    bouton ajoutés, écrasement supprimé. Vérifié en base de données
+    après enregistrement + rechargement + boutons Crédit/Acompte
+    redevenus cliquables sur l'écran de vente.
+  - Sur demande explicite, aucune configuration de taxe dans ce projet
+    (l'entreprise ne facture pas de taxe) : retiré le champ que
+    j'avais ajouté par erreur en réponse à l'audit, et le calcul de
+    taxe mort dans l'écran de vente (jamais affiché ni inclus dans le
+    total facturé de toute façon).
+  239/239 tests, tsc propre à chaque étape. Déployé.
+
+  **Reste à traiter, dans l'ordre approximatif de priorité** — trop
+  volumineux pour tout faire d'un coup, en cours :
+  - Informations légales (raison sociale, adresse, immatriculation) :
+    bloqué, attend les informations réelles du propriétaire.
+  - 2FA administrateur : en pause sur demande explicite antérieure.
+  - Mauvaise fiche produit ouverte depuis "Derniers mouvements" (nom
+    vide, prix à 0) alors que la même fiche est correcte depuis Stock —
+    probablement un mauvais identifiant transmis à la navigation.
+  - Rapports : "Performance des boutiques" et "Moyens de paiement"
+    affichent 0 unité malgré de vraies ventes ; performances employés
+    pareil (total correct, 0 par employé) ; "Produits les plus
+    rentables" répète les mêmes produits — probablement un mauvais
+    regroupement (par vente/ligne au lieu de par produit).
+  - Doublons produits insensibles à la casse (Coca cola / coca cola,
+    deux prix différents) — détection actuelle sensible à la casse.
+  - Sélecteur de client : reste ouvert après sélection ; "Continuer
+    sans client" supprime aussi le client déjà choisi.
+  - Achats fournisseurs : pas de paiement partiel, échéance, numéro de
+    facture, référence, notes, pièce jointe à la réception.
+  - Bouton fournisseur "Compte / Reçus" trompeur (ouvre en fait le
+    règlement de dette) — renommer.
+  - Journal d'activité expose des données techniques brutes (JSON,
+    UUID, actions en anglais, débogage Stripe) au lieu de phrases
+    lisibles.
+  - Portail Account : toutes les sections gardent la même URL
+    (?portal=subscription...) — casse retour/rechargement/liens directs.
+  - Bouton "Voir" des appareils connectés (Sécurité) sans effet visible.
+  - Badge "Lecture seule" sur abonnement expiré alors qu'aucun accès en
+    lecture n'est réellement fourni — choisir : vrai accès lecture seule
+    ou renommer en "Accès suspendu".
+  - Contenu de support inapproprié visible dans un vrai espace client
+    ("tu es un fou") — à supprimer, c'est de la donnée pas du code.
+  - Titre HTML et description SEO vides sur l'app mobile.
+  - Remise maximale réglable à 100 % (déjà configurable, vérifier si le
+    propriétaire veut un plafond plus bas par défaut).
+  - Paiement Mobile Money sans opérateur/numéro/référence/statut de
+    confirmation demandés à la saisie.
+  - Boutiques avec "Adresse non renseignée" — à compléter, donnée pas
+    code.
+  - Attributs autocomplete des champs de connexion (username/
+    current-password/new-password au lieu de "on").
+  - Warning useNativeDriver sur web (limitation connue de React Native
+    Web, pas un vrai bug corrigible ici).
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
