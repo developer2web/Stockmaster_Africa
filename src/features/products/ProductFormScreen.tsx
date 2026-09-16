@@ -123,9 +123,15 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
 
   return <AdminPage title={id?'Fiche produit':'Nouveau produit'}>
     {!company||!store?<HelperText type="error" visible>Sélectionnez une entreprise et une boutique avant d’enregistrer un produit.</HelperText>:null}
-    {!!product.error&&<HelperText type="error" visible>{readableError(product.error)}</HelperText>}
+    {/* Avant ce garde, le formulaire s'affichait tout de suite avec ses valeurs
+        par défaut (nom vide, prix à 0) le temps que la fiche charge, puis se
+        remplissait d'un coup — au premier coup d'œil ça ressemblait à une
+        fiche produit cassée. On attend maintenant les données avant d'afficher
+        le formulaire en modification (la création, elle, n'a rien à charger). */}
+    {id && product.isLoading && <Text>Chargement du produit…</Text>}
+    {!!product.error && <><HelperText type="error" visible>{readableError(product.error)}</HelperText><AppButton mode="text" onPress={() => void product.refetch()}>Réessayer le chargement</AppButton></>}
     {!!levels.error&&<HelperText type="error" visible>{readableError(levels.error)}</HelperText>}
-    <View style={styles.form}>
+    {(!id || product.data) && <View style={styles.form}>
       <Card mode="outlined">
         <Card.Content style={[styles.formContent, styles.essentialFields]}>
           <FormField control={control} name="name" label="Nom du produit" required autoFocus />
@@ -242,7 +248,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
           if (additionalFields.some(field => !!invalid[field])) setMoreOpen(true);
         })}
       >Enregistrer</AppButton>
-    </View>
+    </View>}
     <ConfirmDialog
       visible={!!similarProduct}
       title="Produit déjà existant ?"
