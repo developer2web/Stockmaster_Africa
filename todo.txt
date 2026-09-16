@@ -842,6 +842,13 @@
   parent disparu -> Changer -> recherche rouverte, sélection conservée
   -> Annuler -> repli sans rien effacer -> Retirer -> vidé, bouton
   parent revenu. 238/238 tests, tsc propre. Déployé.
+- [x] Bouton fournisseur "Compte / Reçus" trompeur (ouvre en fait un
+  formulaire de règlement de dette — type et moyen de paiement en
+  premier — avant l'historique des achats et reçus plus bas dans le
+  même dialogue). Renommé en "Régler la dette / Historique", cohérent
+  avec le titre du dialogue ("Régler {nom}"). La consultation (achats
+  non soldés, historique, impression/partage des reçus) reste au même
+  endroit, rien d'autre ne change. 238/238 tests, tsc propre. Déployé.
 
   **Reste à traiter, dans l'ordre approximatif de priorité** — trop
   volumineux pour tout faire d'un coup, en cours :
@@ -850,8 +857,6 @@
   - 2FA administrateur : en pause sur demande explicite antérieure.
   - Achats fournisseurs : pas de paiement partiel, échéance, numéro de
     facture, référence, notes, pièce jointe à la réception.
-  - Bouton fournisseur "Compte / Reçus" trompeur (ouvre en fait le
-    règlement de dette) — renommer.
   - Journal d'activité expose des données techniques brutes (JSON,
     UUID, actions en anglais, débogage Stripe) au lieu de phrases
     lisibles.
