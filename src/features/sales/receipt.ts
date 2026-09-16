@@ -8,7 +8,7 @@ const escape=(value:unknown)=>String(value??'').replace(/[&<>"']/g,(character)=>
 
 function receiptHtml(sale:Sale,branding:ReceiptBranding,money:(value:number)=>string){
   const accent=/^#[0-9A-Fa-f]{6}$/.test(branding.accentColor)?branding.accentColor:'#084B50';
-  const rows=(sale.sale_items??[]).map(item=>`<tr><td>${escape(item.variant?`${item.product?.name} - ${item.variant.name}`:item.product?.name??'Produit')}</td><td>${formatQuantity(item.quantity)}</td><td>${escape(money(Number(item.sale_price)))}</td><td>${escape(money(Number(item.line_total)+Number(item.tax_amount??0)))}</td></tr>`).join('');
+  const rows=(sale.sale_items??[]).map(item=>`<tr><td>${escape(item.variant?`${item.product?.name} - ${item.variant.name}`:item.product?.name??'Produit')}</td><td>${formatQuantity(item.quantity)}</td><td>${escape(money(Number(item.sale_price)))}</td><td>${escape(money(Number(item.line_total)))}</td></tr>`).join('');
   const customer=sale.customer?.name??'Client de passage';
   const seller=sale.creator?.full_name?.trim()||'Administrateur';
   const discount=Number(sale.discount_total)>0?`<div class="line"><span>Remise</span><b>-${escape(money(Number(sale.discount_total)))}</b></div>`:'';
