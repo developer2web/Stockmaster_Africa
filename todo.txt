@@ -849,6 +849,18 @@
   avec le titre du dialogue ("Régler {nom}"). La consultation (achats
   non soldés, historique, impression/partage des reçus) reste au même
   endroit, rien d'autre ne change. 238/238 tests, tsc propre. Déployé.
+- [x] Attributs autocomplete des champs de connexion (username/
+  current-password/new-password au lieu de "on"). login.tsx (admin) et
+  employee/index.tsx (employé) n'en passaient aucun — sans valeur
+  explicite, un champ web se comporte comme "on" : remplissage
+  automatique et proposition d'enregistrement moins fiables qu'avec les
+  jetons standard. Ajoutés sur les deux écrans de connexion,
+  forgot-password.tsx, register.tsx (username/new-password),
+  reset-password.tsx (lien de réinitialisation par email, qui n'en
+  avait aucun). Complété textContentType (équivalent iOS) partout où il
+  manquait, y compris sur les écrans qui avaient déjà le bon
+  autoComplete web. Vérifié en direct (Playwright) : attribut HTML
+  rendu correct. 238/238 tests, tsc propre. Déployé.
 
   **Reste à traiter, dans l'ordre approximatif de priorité** — trop
   volumineux pour tout faire d'un coup, en cours :
@@ -875,8 +887,6 @@
     confirmation demandés à la saisie.
   - Boutiques avec "Adresse non renseignée" — à compléter, donnée pas
     code.
-  - Attributs autocomplete des champs de connexion (username/
-    current-password/new-password au lieu de "on").
   - Warning useNativeDriver sur web (limitation connue de React Native
     Web, pas un vrai bug corrigible ici).
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
