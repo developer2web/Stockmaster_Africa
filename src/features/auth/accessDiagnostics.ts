@@ -34,7 +34,7 @@ export async function diagnoseAccess(membership: MembershipContext | null, saleI
       return row?.company_id === companyId && row?.store_id === storeId && row?.role === membership.role;
     }),
     check('Droit de consulter les ventes', 'has_permission', signal => supabase.rpc('has_permission', { p_company: companyId, p_code: 'sales.read' }).abortSignal(signal), data => data === true),
-    check('Historique des ventes', 'get_sales_history_safe', signal => supabase.rpc('get_sales_history_safe', { p_company_id: companyId, p_store_id: storeId, p_offset: 0, p_limit: 1 }).abortSignal(signal)),
+    check('Historique des ventes', 'get_sales_history_safe', signal => supabase.rpc('get_sales_history_safe', { p_company_id: companyId, p_store_id: storeId, p_limit: 1 }).abortSignal(signal)),
     check('Produits', 'products', signal => supabase.from('products').select('id,name,sale_price').eq('company_id', companyId).eq('store_id', storeId).limit(1).abortSignal(signal)),
     check('Stock', 'stock_levels', signal => supabase.from('stock_levels').select('id,quantity').eq('company_id', companyId).eq('store_id', storeId).limit(1).abortSignal(signal)),
     check('Clients', 'customers', signal => supabase.from('customers').select('id').eq('company_id', companyId).eq('store_id', storeId).limit(1).abortSignal(signal)),

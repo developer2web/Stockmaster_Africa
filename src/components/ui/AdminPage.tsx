@@ -14,7 +14,7 @@ import { PageIntro } from './PageIntro';
 import { design } from '@/constants/design';
 import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 
 const scrollPositions = new Map<string, number>();
 
@@ -43,6 +43,13 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
     restoredFor.current = '';
     requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: scrollPositions.get(pathname) ?? 0, animated: false }));
   }, [pathname]));
+  // Le Tabs d'(admin) garde par défaut tous les écrans déjà visités montés
+  // en arrière-plan (comportement normal d'un onglet, mais appliqué ici à
+  // 22 écrans dont 16 secondaires jamais censés rester en mémoire) : le DOM
+  // grossit sans fin au fil de la navigation, avec des titres/boutons en
+  // double pour les lecteurs d'écran. Un écran non actif ne rend donc plus
+  // rien du tout ici plutôt que de rester cousu, invisible, dans la page.
+  const isFocused = useIsFocused();
   const toolsFallback = employee ? '/employee/more' : '/more';
   const cameFromTools = returnTo === toolsFallback;
   const employeeHeader = '#084B50';
@@ -58,6 +65,7 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
   // derniers jours (seul l'écran de bienvenue, vu une fois, le mentionnait) —
   // repère continu discret en plus, pas à la place de l'alerte urgente ci-dessus.
   const showTrialBanner = !showRenewalWarning && subscription?.status === 'trialing' && remainingDays !== null && remainingDays >= 0;
+  if (!isFocused) return null;
   return (
     <KeyboardAvoidingView
       onLayout={event => onContentWidthChange?.(Math.max(0, Math.min(event.nativeEvent.layout.width, employee ? 1100 : design.contentMaxWidth) - (compact ? 24 : 40)))}

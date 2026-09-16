@@ -14,6 +14,7 @@ export default function Layout() {
     <RoleGuard roles={['company_admin']}>
       <Tabs
         tabBar={(props)=><AdminNavigation {...props}/>}
+        detachInactiveScreens
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: BRAND,
