@@ -708,4 +708,19 @@
     d'abord.
   Vérifié en direct de bout en bout à chaque étape (comptes de test
   réels, capture d'écran, inspection réseau). 239/239 tests, tsc propre.
+- [x] Écran Forfaits sans issue quand l'abonnement est expiré/suspendu
+  (16/09, signalé avec capture d'écran depuis un vrai téléphone). Le
+  bouton retour ne menait nulle part : la racine (/) redirige toujours
+  vers cet écran tant que l'abonnement est bloqué, donc le clic
+  bouclait silencieusement sur place — aucune déconnexion possible non
+  plus. Corrigé : le bouton retour est remplacé par une déconnexion
+  (avec message expliquant pourquoi) dans ce cas précis uniquement ;
+  sinon comportement inchangé. Bug reproduit sur un vrai compte de test
+  (abonnement forcé à expiré) avant correctif — capture identique au
+  signalement — puis corrigé et revérifié en direct après redéploiement.
+  Au passage : nouveau scripts/prepare-web-export-for-vercel.cjs qui
+  automatise la préparation de l'export web mobile avant chaque
+  déploiement Vercel (le contournement node_modules + le vercel.json
+  cleanUrls/rewrites étaient refaits à la main à chaque fois). 239/239
+  tests, tsc propre.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
