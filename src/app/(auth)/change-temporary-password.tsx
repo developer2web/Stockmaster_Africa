@@ -63,8 +63,8 @@ export default function ChangeTemporaryPasswordScreen() {
             <Text>Le mot de passe transmis par votre administrateur était provisoire.</Text>
           </View>
         </View>
-        <FormField control={control} name="password" label="Nouveau mot de passe" passwordToggle autoComplete="new-password" autoFocus />
-        <FormField control={control} name="confirmation" label="Confirmer le mot de passe" passwordToggle autoComplete="new-password" />
+        <FormField control={control} name="password" label="Nouveau mot de passe" passwordToggle autoComplete="new-password" textContentType="newPassword" autoFocus />
+        <FormField control={control} name="confirmation" label="Confirmer le mot de passe" passwordToggle autoComplete="new-password" textContentType="newPassword" />
         <HelperText type="info" visible>Majuscule, minuscule, chiffre et caractère spécial.</HelperText>
         {!!error && <HelperText type="error" visible>{error}</HelperText>}
         <AppButton loading={formState.isSubmitting} disabled={formState.isSubmitting} onPress={submit}>Enregistrer et continuer</AppButton>

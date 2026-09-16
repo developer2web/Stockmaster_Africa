@@ -31,8 +31,8 @@ export default function LoginScreen() {
 
   return <AuthScreen title="Connexion administrateur" subtitle="Accédez à la gestion StockMaster.">
     {!!notice && <HelperText type="info" visible>{String(notice)}</HelperText>}
-    <FormField control={control} name="email" label="Email" autoCapitalize="none" keyboardType="email-address"/>
-    <FormField control={control} name="password" label="Mot de passe" passwordToggle/>
+    <FormField control={control} name="email" label="Email" autoCapitalize="none" keyboardType="email-address" autoComplete="username" textContentType="username"/>
+    <FormField control={control} name="password" label="Mot de passe" passwordToggle autoComplete="current-password" textContentType="password"/>
     {!!error&&<HelperText type="error" visible>{error}</HelperText>}
     <AppButton onPress={submit} loading={isSubmitting} disabled={isSubmitting}>Se connecter</AppButton>
     <AppButton mode="text" onPress={()=>setMode('choice')}>Changer d’espace</AppButton>

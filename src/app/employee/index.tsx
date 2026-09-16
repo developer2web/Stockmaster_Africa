@@ -184,7 +184,8 @@ function EmployeeLogin() {
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
-        textContentType="emailAddress"
+        textContentType="username"
+        autoComplete="username"
       />
       <TextInput
         mode="outlined"
@@ -194,6 +195,7 @@ function EmployeeLogin() {
         onChangeText={setPassword}
         secureTextEntry={passwordHidden}
         textContentType="password"
+        autoComplete="current-password"
         right={<TextInput.Icon icon={passwordHidden ? 'eye' : 'eye-off'} onPress={() => setPasswordHidden((value) => !value)} />}
         onSubmitEditing={login}
       />

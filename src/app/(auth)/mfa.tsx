@@ -66,7 +66,7 @@ export default function MfaChallenge() {
   });
 
   return <AuthScreen title="Vérification en deux étapes" subtitle="Confirmez votre identité pour continuer.">
-    <TextInput mode="outlined" label="Code à 6 chiffres" accessibilityLabel="Code à 6 chiffres" autoComplete="one-time-code" value={code} onChangeText={value => setCode(value.replace(/\D/g, ''))} keyboardType="number-pad" maxLength={6} />
+    <TextInput mode="outlined" label="Code à 6 chiffres" accessibilityLabel="Code à 6 chiffres" autoComplete="one-time-code" textContentType="oneTimeCode" value={code} onChangeText={value => setCode(value.replace(/\D/g, ''))} keyboardType="number-pad" maxLength={6} />
     {!!(loadError || verify.error) && <HelperText type="error" visible>{loadError || verify.error?.message}</HelperText>}
     <AppButton icon="shield-check" loading={verify.isPending} disabled={!factorId || code.trim().length !== 6 || verify.isPending} onPress={() => verify.mutate()}>Vérifier</AppButton>
     <AppButton mode="text" onPress={() => void signOut()}>Se déconnecter</AppButton>

@@ -43,6 +43,8 @@ export default function ForgotPassword() {
         label="Email"
         keyboardType="email-address"
         autoCapitalize="none"
+        autoComplete="username"
+        textContentType="username"
       />
       <HelperText type={failed ? 'error' : 'info'} visible={!!message}>{message}</HelperText>
       <AppButton onPress={submit} loading={formState.isSubmitting} disabled={formState.isSubmitting}>

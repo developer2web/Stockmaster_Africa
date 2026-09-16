@@ -129,21 +129,25 @@ export default function RegisterScreen() {
     <AuthScreen title="Créer votre compte" subtitle="Étape 1 sur 2 · Votre adresse email devra être confirmée.">
       <Card mode="contained" style={{ backgroundColor: '#E1F1F2' }}><Card.Content style={{ gap: 6 }}><Text variant="titleMedium" style={{ fontWeight: '800', color: '#084B50' }}>Commencez simplement</Text><Text>Renseignez les champs marqués *, confirmez votre email, puis ajoutez votre entreprise et votre boutique.</Text></Card.Content></Card>
       {!!error && <HelperText type="error" visible>{error}</HelperText>}
-      <FormField control={control} name="fullName" label="Nom complet *" />
+      <FormField control={control} name="fullName" label="Nom complet *" autoComplete="name" textContentType="name" />
       <FormField
         control={control}
         name="email"
         label="Email"
         autoCapitalize="none"
         keyboardType="email-address"
+        autoComplete="username"
+        textContentType="username"
       />
-      <FormField control={control} name="password" label="Mot de passe" passwordToggle />
+      <FormField control={control} name="password" label="Mot de passe" passwordToggle autoComplete="new-password" textContentType="newPassword" />
       <HelperText type="info" visible style={styles.passwordHint}>Majuscule, minuscule, chiffre et caractère spécial.</HelperText>
       <FormField
         control={control}
         name="confirmPassword"
         label="Confirmer le mot de passe"
         passwordToggle
+        autoComplete="new-password"
+        textContentType="newPassword"
       />
       <View style={{flexDirection:'row',alignItems:'flex-start',gap:4}}>
         <Checkbox status={acceptedLegal?'checked':'unchecked'} onPress={()=>setAcceptedLegal(value=>!value)} />

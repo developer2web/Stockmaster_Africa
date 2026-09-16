@@ -43,9 +43,9 @@ export default function EmployeeSecurity() {
       <View style={styles.copy}><Text variant="titleLarge" style={styles.bold}>Action protégée</Text><Text style={{ color: theme.colors.onPrimaryContainer }}>Votre mot de passe actuel est obligatoire avant toute modification.</Text></View>
     </Card.Content></Card>
     <Card mode="outlined"><Card.Content style={styles.form}>
-      <FormField control={control} name="currentPassword" label="Mot de passe actuel" passwordToggle autoComplete="current-password" />
-      <FormField control={control} name="password" label="Nouveau mot de passe" passwordToggle autoComplete="new-password" />
-      <FormField control={control} name="confirm" label="Confirmer le nouveau mot de passe" passwordToggle autoComplete="new-password" />
+      <FormField control={control} name="currentPassword" label="Mot de passe actuel" passwordToggle autoComplete="current-password" textContentType="password" />
+      <FormField control={control} name="password" label="Nouveau mot de passe" passwordToggle autoComplete="new-password" textContentType="newPassword" />
+      <FormField control={control} name="confirm" label="Confirmer le nouveau mot de passe" passwordToggle autoComplete="new-password" textContentType="newPassword" />
       <HelperText type="info" visible>Majuscule, minuscule, chiffre et caractère spécial.</HelperText>
       {!!error && <HelperText type="error" visible>{error}</HelperText>}
       {!!message && <HelperText type="info" visible>{message}</HelperText>}

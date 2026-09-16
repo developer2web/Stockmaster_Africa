@@ -22,7 +22,7 @@ export default function ResetPassword(){
     router.replace('/');
   });
   return <AuthScreen title="Nouveau mot de passe" subtitle="Choisissez un mot de passe sécurisé.">
-    <FormField control={control} name="password" label="Nouveau mot de passe" passwordToggle/>
+    <FormField control={control} name="password" label="Nouveau mot de passe" passwordToggle autoComplete="new-password" textContentType="newPassword"/>
     {!!error&&<HelperText type="error" visible>{error}</HelperText>}
     <AppButton onPress={submit} loading={formState.isSubmitting} disabled={formState.isSubmitting}>Mettre à jour</AppButton>
   </AuthScreen>;
