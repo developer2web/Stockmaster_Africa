@@ -35,7 +35,8 @@ export default function Root({ children }: PropsWithChildren) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
         <meta name="theme-color" content="#084B50" />
-        <title>StockMaster</title>
+        <title>StockMaster — Gestion de stock, ventes et caisse</title>
+        <meta name="description" content="StockMaster : gestion de stock, ventes, caisse et rapports pour commerces en Afrique." />
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: autofillStyles }} />
       </head>

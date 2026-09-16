@@ -3,6 +3,7 @@ import 'react-native-url-polyfill/auto';
 import { assertMutationAllowed } from '@/features/subscriptions/readOnlyAccess';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Redirect, Stack, usePathname } from 'expo-router';
+import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useMemo } from 'react';
 import { Platform, useColorScheme, View } from 'react-native';
@@ -83,6 +84,12 @@ function RootNavigator() {
 
   return (
     <View style={{ flex: 1 }}>
+      {/* expo-router gère lui-même un <title> (via react-helmet-async), vide
+          par défaut tant qu'aucun écran n'en fournit un — dans le HTML statique
+          exporté, cette balise vide arrivait avant celle de +html.tsx et
+          l'emportait pour un lecteur qui n'exécute pas le JS (moteur de
+          recherche, aperçu de lien). On lui donne un vrai contenu. */}
+      <Head><title>StockMaster — Gestion de stock, ventes et caisse</title><meta name="description" content="StockMaster : gestion de stock, ventes, caisse et rapports pour commerces en Afrique." /></Head>
       <OfflineStatus />
       <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
