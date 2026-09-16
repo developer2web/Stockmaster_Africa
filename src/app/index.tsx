@@ -1,5 +1,6 @@
 import { Redirect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import { isSubscriptionBlocked } from '@/constants/commercial';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
@@ -51,7 +52,7 @@ export default function Index() {
   if(membership.role==='company_admin'&&billingOnboarding.isLoading)return <LoadingScreen label="Préparation de votre abonnement…"/>;
   if(membership.role==='company_admin'&&billingOnboarding.error)return <ErrorState title="Vérification de l’abonnement interrompue" message={readableError(billingOnboarding.error)} onRetry={()=>void billingOnboarding.refetch()} onCancel={()=>void signOut()}/>;
   if(membership.role==='company_admin'&&billingOnboarding.data)return <Redirect href="/(subscription)/welcome"/>;
-  if (['pending', 'expired', 'canceled', 'cancelled', 'suspended'].includes(membership.subscriptionStatus ?? '')) {
+  if (isSubscriptionBlocked(membership.subscriptionStatus)) {
     return <Redirect href="/(subscription)" />;
   }
   if (membership.role === 'company_admin') return <Redirect href="/(admin)" />;

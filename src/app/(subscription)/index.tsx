@@ -1,4 +1,4 @@
-import { featureLabelsFor, formatBillingMoney, subscriptionStatusLabel } from '@/constants/commercial';
+import { featureLabelsFor, formatBillingMoney, isSubscriptionBlocked, subscriptionStatusLabel } from '@/constants/commercial';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -18,7 +18,8 @@ import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 
 export default function SubscriptionScreen() {
   const theme = useTheme();
-  const { membership, businesses } = useAuth();
+  const { membership, businesses, signOut } = useAuth();
+  const trapped = isSubscriptionBlocked(membership?.subscriptionStatus);
   const { subscription, plans, isLoading, error, refreshSubscription } = useSubscription();
   const [cycle, setCycle] = useState<BillingCycle>('monthly');
   const [pendingDowngrade, setPendingDowngrade] = useState<{ planId: string; cycle: BillingCycle } | null>(null);
@@ -55,12 +56,13 @@ export default function SubscriptionScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header>
-        <AppBackButton fallback="/" />
+        {trapped ? <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" onPress={() => void signOut()} /> : <AppBackButton fallback="/" />}
         <Appbar.Content title="Forfaits StockMaster" />
         {membership?.role === 'company_admin' && (
           <Appbar.Action icon="history" onPress={() => router.push('/(subscription)/history' as never)} />
         )}
       </Appbar.Header>
+      {trapped && <HelperText type="info" visible style={styles.trappedNotice}>Votre abonnement est {subscriptionStatusLabel(membership?.subscriptionStatus).toLocaleLowerCase('fr')} : choisissez un forfait ci-dessous pour continuer, ou déconnectez-vous.</HelperText>}
       <ScrollView contentContainerStyle={styles.page}>
         {!!accountError && <HelperText type="error" visible>{accountError}</HelperText>}
         {subscription && (
@@ -187,4 +189,5 @@ const styles = StyleSheet.create({
   emptyPlans: { gap: 10, alignItems: 'flex-start' },
   dialogContent: { gap: 12 },
   businessCard: { borderRadius: 14 },
+  trappedNotice: { paddingHorizontal: 18 },
 });

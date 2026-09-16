@@ -96,6 +96,7 @@
     "doctor": "npx expo-doctor",
     "export:web": "node --experimental-websocket ./node_modules/expo/bin/cli export --platform web",
     "postexport:web": "node scripts/security-headers.cjs dist",
+    "export:web:vercel": "npm run export:web && node scripts/prepare-web-export-for-vercel.cjs",
     "security:audit": "node scripts/security-audit.cjs"
   },
   "private": true

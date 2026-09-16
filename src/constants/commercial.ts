@@ -42,6 +42,11 @@ export function subscriptionStatusLabel(status?: string | null) {
   } as Record<string, string>)[status ?? ''] ?? (status || 'Non disponible');
 }
 
+const blockedSubscriptionStatuses = ['pending', 'expired', 'canceled', 'cancelled', 'suspended'];
+export function isSubscriptionBlocked(status?: string | null) {
+  return blockedSubscriptionStatuses.includes(status ?? '');
+}
+
 export function remainingTrialDays(status?: string | null, expiresAt?: string | null, now = Date.now()) {
   if (status !== 'trialing' || !expiresAt) return null;
   const remaining = Date.parse(expiresAt) - now;
