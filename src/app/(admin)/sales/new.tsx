@@ -104,17 +104,15 @@ export default function NewSale() {
   const totals = useMemo(() => {
     const subtotal=items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
     const discount=items.reduce((sum,item)=>sum+item.discount,0);
-    const tax=Math.round((subtotal-discount)*Number(companySettings.data?.tax_rate??0))/100;
     return ({
     subtotal,
     discount,
-    tax,
     total: subtotal-discount,
     grossProfit: items.reduce(
       (sum, item) => sum + (item.salePrice - item.purchasePrice) * item.quantity-item.discount,
       0,
     ),
-  })}, [companySettings.data?.tax_rate, items]);
+  })}, [items]);
   const discountTooHigh=items.some(item=>item.discount>item.salePrice*item.quantity*Number(companySettings.data?.max_discount_percent??100)/100);
   const save = useMutation({
     mutationFn: () => createSale(company, storeId, payment, items, customerId, payment==='credit'?0:payment==='partial'?parseDecimal(amountPaid):totals.total,operationId.current,!!companySettings.data?.allow_negative_stock,totals.total),

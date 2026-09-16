@@ -73,7 +73,10 @@ export default function CompanyScreen() {
     onSuccess: refresh,
   });
   const locked = !!company.data?.currency_locked_at;
-  const settingsMutation=useMutation({mutationFn:()=>updateBusinessSettings(companyId,{...settings,taxRate:0,allowCreditSales:false,maxDiscountPercent:Math.min(100,Math.max(0,Number(settings.maxDiscountPercent)||0)),cashOpeningRequired:canUseFeature('advanced_cash_closure')&&settings.cashOpeningRequired,cashVarianceReasonThreshold:canUseFeature('advanced_cash_closure')?Math.max(0,Number(settings.cashVarianceReasonThreshold)||0):0,expenseApprovalThreshold:canUseFeature('expense_approval')&&settings.expenseApprovalThreshold.trim()?Math.max(0,Number(settings.expenseApprovalThreshold)||0):null}),onSuccess:refresh});
+  // Pas de taxes pour cette activité (demande explicite) : aucun champ ne
+  // permet de la régler, donc on l'enregistre toujours à 0 plutôt que de
+  // garder un champ interne qui ne correspond plus à rien de visible.
+  const settingsMutation=useMutation({mutationFn:()=>updateBusinessSettings(companyId,{...settings,taxRate:0,maxDiscountPercent:Math.min(100,Math.max(0,Number(settings.maxDiscountPercent)||0)),cashOpeningRequired:canUseFeature('advanced_cash_closure')&&settings.cashOpeningRequired,cashVarianceReasonThreshold:canUseFeature('advanced_cash_closure')?Math.max(0,Number(settings.cashVarianceReasonThreshold)||0):0,expenseApprovalThreshold:canUseFeature('expense_approval')&&settings.expenseApprovalThreshold.trim()?Math.max(0,Number(settings.expenseApprovalThreshold)||0):null}),onSuccess:refresh});
 
   return (
     <AdminPage title="Entreprise">
@@ -147,6 +150,7 @@ export default function CompanyScreen() {
           <TextInput mode="outlined" label="Message en bas du reçu" accessibilityLabel="Message en bas du reçu" value={settings.receiptFooter} onChangeText={(receiptFooter) => setSettings((value) => ({ ...value, receiptFooter }))} />
           {([
             ['Autoriser les remises', 'allowDiscounts'],
+            ['Autoriser les ventes à crédit et les acomptes', 'allowCreditSales'],
             ['Autoriser le stock négatif', 'allowNegativeStock'],
             ['Motif obligatoire pour les remboursements', 'requireRefundReason'],
             ['Alertes de stock faible', 'lowStockAlerts'],
@@ -155,6 +159,7 @@ export default function CompanyScreen() {
               <Card.Title title={label} right={() => <Switch value={settings[key]} onValueChange={(checked) => setSettings((value) => ({ ...value, [key]: checked }))} style={{ marginRight: 12 }} />} />
             </Card>
           ))}
+          <AppButton loading={settingsMutation.isPending} onPress={() => settingsMutation.mutate()}>Enregistrer les règles de vente</AppButton>
         </Card.Content>
       </Card>
 
