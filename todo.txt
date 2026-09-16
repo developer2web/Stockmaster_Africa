@@ -774,22 +774,69 @@
     taxe mort dans l'écran de vente (jamais affiché ni inclus dans le
     total facturé de toute façon).
   239/239 tests, tsc propre à chaque étape. Déployé.
+- [x] "Vérifier les accès" déplacé de l'app mobile vers le Super Admin
+  (16/09, demande explicite). Retiré des espaces propriétaire et
+  employé (réglages) et des deux affichages de secours sur la fiche
+  d'une vente ; accessDiagnostics.ts et AccessDiagnosticsCard.tsx
+  supprimés (plus aucune référence), test devenu obsolète retiré
+  (233/239 tests, 6 en moins). Remplacé côté serveur en étendant
+  super_admin_server_health() (déjà affiché dans Paramètres > Emails /
+  API côté Super Admin) plutôt que de construire un outil séparé :
+  ajouté get_sales_history_safe et get_sale_detail_safe à la liste des
+  fonctions vérifiées via to_regprocedure — exactement le mécanisme
+  qui aurait détecté le bug PGRST202 plus haut si get_sales_history_safe
+  y avait déjà figuré. Au passage, en retirant l'affichage de secours,
+  repéré et retiré un dernier affichage de taxe oublié (par article, sur
+  la fiche de vente) + deux calculs qui ajoutaient tax_amount, toujours
+  à 0 — cohérent avec le retrait des taxes déjà fait plus haut. Déployé.
+- [x] Mauvaise fiche produit ouverte depuis "Derniers mouvements" (nom
+  vide, prix à 0). En creusant : les cartes de "Derniers mouvements" sur
+  l'écran Stock ne sont pas cliquables du tout (aucun onPress, confirmé
+  sur 30 jours d'historique git) — le vrai chemin, c'est un clic sur une
+  ligne du tableau Stock au-dessus (qui navigue bien vers la fiche), pas
+  les mouvements. Le vrai bug : ProductFormScreen affichait le
+  formulaire avec ses valeurs par défaut (nom vide, prix à 0) pendant
+  que la fiche chargeait encore, et se remplissait d'un coup une fois
+  les données arrivées — pas un mauvais produit, un formulaire affiché
+  trop tôt. Le formulaire n'apparaît plus tant que la fiche n'a pas fini
+  de charger en modification ; "Chargement du produit…" à la place, et
+  un bouton Réessayer en cas d'erreur (absent jusqu'ici). 233/233 tests,
+  tsc propre. Déployé.
+- [x] Rapports : "0 unité" affiché à tort sous "Performance des
+  boutiques", "Moyens de paiement" et "Performance des employés" malgré
+  de vraies ventes. Cause : get_business_report_with_financials ne
+  calcule une quantité que pour "Produits les plus rentables" (seule
+  CTE à la sélectionner) ; ReportMetricRow déclare bien tous ces champs
+  optionnels pour cette raison, et l'écran n'affiche la ligne de détail
+  que si la quantité n'est pas undefined — mais la normalisation côté
+  client mettait 0 par défaut sur les champs absents au lieu de les
+  laisser indéfinis, donc la condition était toujours vraie. Le chiffre
+  principal de chaque classement (celui réellement calculé : montant,
+  CA ou bénéfice) a toujours été correct, seule cette ligne de détail en
+  trop était fausse. Les "doublons" dans "Produits les plus rentables"
+  ne viennent pas de là (la requête groupe par id de produit) : deux
+  lignes distinctes veulent dire deux fiches produit distinctes — voir
+  l'entrée suivante. 235/235 tests (2 nouveaux), tsc propre. Déployé.
+- [x] Doublons produits insensibles à la casse (Coca cola / coca cola).
+  La création manuelle vérifiait déjà le catalogue à la casse près
+  (findSimilarProduct, ilike) et prévenait l'utilisateur — non bloquant
+  par choix ("créer quand même"), adapté à un seul produit à la fois.
+  Le vrai trou : l'import Excel ne fait QUE créer (jamais de mise à
+  jour), et ne vérifiait les doublons qu'à l'intérieur du fichier
+  importé, jamais contre le catalogue déjà en boutique — réimporter
+  deux fois le même fichier (un tarif corrigé, par exemple) recréait
+  donc silencieusement chaque produit en double. Ajouté une lecture du
+  catalogue actif avant la prévisualisation, comparée à la casse près ;
+  une ligne déjà existante est marquée invalide ("Produit déjà existant
+  dans la boutique") et non importée par défaut, cohérent avec "Les
+  lignes invalides ne seront pas importées" déjà affiché sur cet écran.
+  238/238 tests (3 nouveaux), tsc propre. Déployé.
 
   **Reste à traiter, dans l'ordre approximatif de priorité** — trop
   volumineux pour tout faire d'un coup, en cours :
   - Informations légales (raison sociale, adresse, immatriculation) :
     bloqué, attend les informations réelles du propriétaire.
   - 2FA administrateur : en pause sur demande explicite antérieure.
-  - Mauvaise fiche produit ouverte depuis "Derniers mouvements" (nom
-    vide, prix à 0) alors que la même fiche est correcte depuis Stock —
-    probablement un mauvais identifiant transmis à la navigation.
-  - Rapports : "Performance des boutiques" et "Moyens de paiement"
-    affichent 0 unité malgré de vraies ventes ; performances employés
-    pareil (total correct, 0 par employé) ; "Produits les plus
-    rentables" répète les mêmes produits — probablement un mauvais
-    regroupement (par vente/ligne au lieu de par produit).
-  - Doublons produits insensibles à la casse (Coca cola / coca cola,
-    deux prix différents) — détection actuelle sensible à la casse.
   - Sélecteur de client : reste ouvert après sélection ; "Continuer
     sans client" supprime aussi le client déjà choisi.
   - Achats fournisseurs : pas de paiement partiel, échéance, numéro de
