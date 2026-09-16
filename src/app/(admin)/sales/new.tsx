@@ -219,11 +219,11 @@ export default function NewSale() {
                   </View>
                 </Card.Content>
                 <Card.Content style={styles.bulkButtons}>
-                  <AppButton mode={inCartBulk?'contained':'outlined'} compact disabled={!available || save.isPending} onPress={() => addOne('bulk')}>
-                    {inCartBulk ? `✓ ${formatQuantity(inCartBulk.quantity / (item.bulkQuantity ?? 1))} ${item.bulkUnitLabel}` : `+1 ${item.bulkUnitLabel} (${formatMoney(item.bulkPrice ?? 0)})`}
-                  </AppButton>
                   <AppButton mode={inCartUnit?'contained':'outlined'} compact disabled={!available || save.isPending} onPress={() => addOne('unit')}>
                     {inCartUnit ? `✓ ${formatQuantity(inCartUnit.quantity)} ${unitLabel(item.unit)}${plural(inCartUnit.quantity)}` : `+1 ${unitLabel(item.unit)} (${formatMoney(item.salePrice)})`}
+                  </AppButton>
+                  <AppButton mode={inCartBulk?'contained':'outlined'} compact disabled={!available || save.isPending} onPress={() => addOne('bulk')}>
+                    {inCartBulk ? `✓ ${formatQuantity(inCartBulk.quantity / (item.bulkQuantity ?? 1))} ${item.bulkUnitLabel}` : `+1 ${item.bulkUnitLabel} (${formatMoney(item.bulkPrice ?? 0)})`}
                   </AppButton>
                 </Card.Content>
                 {!available && <Card.Content><Text style={{ color: theme.colors.error }}>Ajoutez le stock depuis la fiche Produit ou le module Stock.</Text></Card.Content>}
