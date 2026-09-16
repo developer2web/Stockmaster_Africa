@@ -142,7 +142,10 @@ export default function Suppliers() {
             {' · '}Achats : {formatMoney(summary?.total ?? 0)}{' · '}{summary?.count ?? 0} livraison{summary?.count === 1 ? '' : 's'}
           </Text>
           <View style={styles.supplierActions}>
-            <AppButton mode="text" icon="file-document-outline" onPress={() => showPayment(item)}>Compte / Reçus</AppButton>
+            {/* Ouvre un formulaire de règlement (type/moyen de paiement) avant
+                l'historique des achats et reçus — "Compte / Reçus" laissait
+                croire à une simple consultation. */}
+            <AppButton mode="text" icon="file-document-outline" onPress={() => showPayment(item)}>Régler la dette / Historique</AppButton>
             <Menu
               visible={menuSupplierId === item.id}
               onDismiss={() => setMenuSupplierId(null)}
