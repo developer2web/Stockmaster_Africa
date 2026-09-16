@@ -723,4 +723,25 @@
   déploiement Vercel (le contournement node_modules + le vercel.json
   cleanUrls/rewrites étaient refaits à la main à chaque fois). 239/239
   tests, tsc propre.
+- [x] Bouton Renouveler sans effet (16/09, demande explicite). Trois
+  couches cassées l'une après l'autre, toutes pour la même raison
+  (domaine stockmaster.africa pas encore en ligne) :
+  - Client : pas de EXPO_PUBLIC_ACCOUNT_WEB_URL configuré.
+  - Serveur : le secret ACCOUNT_WEB_URL n'était configuré nulle part,
+    l'edge function account-portal-link refusait tout appel.
+  - CORS : ALLOWED_ORIGINS ne contenait aucune origine *.vercel.app.
+  Corrigées les trois (le dernier point avec votre accord explicite —
+  assouplissement CORS temporaire, documenté dans le code, à retirer
+  une fois le domaine réel branché ; rien d'affaibli côté vérification
+  session/rôle qui reste inchangée).
+  Au passage, bug plus profond découvert : le cache du bundler Metro
+  (utilisé par l'export web de l'app mobile) ne se réinvalide pas tout
+  seul quand seul .env change — une variable EXPO_PUBLIC_* nouvellement
+  ajoutée pouvait rester indéfinie dans un bundle reconstruit sans
+  vider le cache. export:web:vercel force maintenant toujours un cache
+  vide pour éviter que ça ne se reproduise silencieusement.
+  Vérifié en direct de bout en bout sur un vrai compte avec abonnement
+  expiré : clic sur Renouveler -> atterrit connecté automatiquement sur
+  Mon abonnement dans account-web, aucune erreur console. 239/239
+  tests, tsc propre.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
