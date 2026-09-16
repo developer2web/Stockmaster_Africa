@@ -10,6 +10,9 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Export web (Expo) préparé pour Vercel (scripts/prepare-web-export-for-vercel.cjs)
+/app-web-export/
+
 # Native
 .kotlin/
 *.orig.*
