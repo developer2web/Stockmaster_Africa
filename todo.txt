@@ -831,14 +831,23 @@
   dans la boutique") et non importée par défaut, cohérent avec "Les
   lignes invalides ne seront pas importées" déjà affiché sur cet écran.
   238/238 tests (3 nouveaux), tsc propre. Déployé.
+- [x] Sélecteur de client (écran de vente) : restait grand ouvert
+  (recherche + liste) après une sélection, sans confirmation claire, et
+  "Continuer sans client" restait affiché après coup — son clic
+  effaçait alors silencieusement le client déjà choisi malgré son
+  intitulé. SaleCustomerPicker se replie maintenant sur un résumé
+  ("Client choisi : X") avec Changer de client / Retirer ce client ; le
+  bouton du parent ne s'affiche plus qu'avant toute sélection. Vérifié
+  en direct (Playwright sur localhost) : sélection -> repli, bouton
+  parent disparu -> Changer -> recherche rouverte, sélection conservée
+  -> Annuler -> repli sans rien effacer -> Retirer -> vidé, bouton
+  parent revenu. 238/238 tests, tsc propre. Déployé.
 
   **Reste à traiter, dans l'ordre approximatif de priorité** — trop
   volumineux pour tout faire d'un coup, en cours :
   - Informations légales (raison sociale, adresse, immatriculation) :
     bloqué, attend les informations réelles du propriétaire.
   - 2FA administrateur : en pause sur demande explicite antérieure.
-  - Sélecteur de client : reste ouvert après sélection ; "Continuer
-    sans client" supprime aussi le client déjà choisi.
   - Achats fournisseurs : pas de paiement partiel, échéance, numéro de
     facture, référence, notes, pièce jointe à la réception.
   - Bouton fournisseur "Compte / Reçus" trompeur (ouvre en fait le
