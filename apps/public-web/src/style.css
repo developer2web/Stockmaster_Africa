@@ -74,6 +74,12 @@ p { color: var(--muted); line-height: 1.68; }
 .siteHeader nav a::after { content: ''; position: absolute; left: 0; right: 100%; bottom: 19px; height: 2px; background: var(--green); transition: .2s ease; }
 .siteHeader nav a:hover { color: var(--green-dark); }
 .siteHeader nav a:hover::after { right: 0; }
+/* Doublon volontaire de .headerActions .linkButton : cette entrée ne sert
+   que sous 780px, là où ce bouton-là disparaît et où le menu déroulant
+   devient sinon le seul moyen d'accéder au reste du site — sans elle,
+   "Se connecter" n'était atteignable sur téléphone qu'en détour par
+   "Commencer" puis "J'ai déjà un compte". */
+.navLogin { display: none; }
 .headerActions { display: flex; align-items: center; gap: 11px; }
 .linkButton { padding: 10px 12px; border: 0; background: transparent; color: var(--green-dark); font-weight: 700; }
 .primaryButton, .secondaryButton, .lightButton {
@@ -390,7 +396,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
 }
 
 @media (max-width: 780px) {
-  .siteHeader { height: 68px; padding: 0 16px; grid-template-columns: auto 1fr auto; gap: 8px; }.siteHeader .brand>strong{font-size:17px}.siteHeader .brandMark{width:34px;height:34px}.headerActions .linkButton{display:none}.headerActions{grid-column:2;justify-self:end}.menuButton{grid-column:3}.siteHeader nav{top:64px}
+  .siteHeader { height: 68px; padding: 0 16px; grid-template-columns: auto 1fr auto; gap: 8px; }.siteHeader .brand>strong{font-size:17px}.siteHeader .brandMark{width:34px;height:34px}.headerActions .linkButton{display:none}.headerActions{grid-column:2;justify-self:end}.menuButton{grid-column:3}.siteHeader nav{top:64px}.navLogin{display:block;color:var(--green-dark);font-weight:700;border-top:1px solid #dce8e4;margin-top:6px;padding-top:16px}
   .sectionShell,.contentSection{width:min(100% - 30px,1180px)}.softSection{width:100%;padding-inline:15px}.contentSection{padding-block:70px}
   .hero { min-height: auto; gap: 30px; padding-block: 42px 56px; }.hero h1{font-size:clamp(39px,11vw,56px)}.heroActions{flex-direction:column;align-items:stretch;max-width:420px;margin-inline:auto}.trustPoints{display:grid;grid-template-columns:1fr 1fr;text-align:left}.heroVisual{padding:0 0 25px}.heroVisual .dashboardMockup{width:100%;min-height:300px;grid-template-columns:72px 1fr;transform:none}.heroVisual .phoneMockup{width:125px;height:262px;right:-7px;bottom:-15px;padding:26px 9px 30px;border-width:5px}.heroVisual .phoneMockup h3{font-size:12px}.heroVisual .phoneKpis span{font-size:3px}.heroVisual .phoneKpis b{font-size:7px}.heroVisual .phoneChart{height:52px;margin:10px 0}.heroVisual .phoneRows{font-size:5px}.heroVisual .phoneRows>b{font-size:6px}
   .mockKpis{grid-template-columns:repeat(2,1fr)}.mockContent{grid-template-columns:1fr}.mockSales{display:none}.dashboardMockup{min-height:300px}.mockContent>article{height:120px}.lineChart{height:78px;margin-top:8px}.dashboardMockup aside>span i{display:none}.dashboardMockup aside>span{justify-content:center}.dashboardMockup aside .brand strong{display:none}

@@ -74,7 +74,14 @@ function App() {
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [demoView, setDemoView] = useState<'dashboard' | 'sales'>('dashboard');
-  const openAuth = (mode: AuthMode, plan: PlanCode = selectedPlan) => { setSelectedPlan(plan); setAuth(mode); setMenuOpen(false); };
+  // La connexion ne passe plus par une modale sur le site public : elle
+  // redirige directement vers le portail Account, qui a son propre
+  // formulaire de connexion complet (email/mot de passe, mot de passe
+  // oublié, retour au site). Seule l'inscription reste ici.
+  const openAuth = (mode: AuthMode, plan: PlanCode = selectedPlan) => {
+    if (mode === 'login') { location.assign(webSiteUrl('account')); return; }
+    setSelectedPlan(plan); setAuth(mode); setMenuOpen(false);
+  };
   const openDemo = () => { setDemoView('dashboard'); setMenuOpen(false); requestAnimationFrame(() => { const target = document.getElementById('product'); if (target) window.scrollTo({ top: Math.max(0, target.offsetTop - 76), behavior: 'smooth' }); }); };
 
   useEffect(() => {
@@ -117,7 +124,7 @@ function App() {
   }, [catalogAttempt]);
 
   return <div id="top" className="marketingSite">
-    <header className="siteHeader"><Brand/><button className="menuButton" onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-controls="public-navigation" aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}>{menuOpen ? '×' : '☰'}</button><nav id="public-navigation" className={menuOpen ? 'open' : ''}>{[['#features','Fonctionnalités'],['#solutions','Solutions'],['#pricing','Tarifs'],['#about','À propos'],['#faq','FAQ']].map(([href, label]) => <a key={href} href={href} onClick={() => setMenuOpen(false)}>{label}</a>)}</nav><div className="headerActions"><button className="linkButton" onClick={() => openAuth('login')}>Se connecter</button><button className="primaryButton small" onClick={() => openAuth('register')}>Commencer</button></div></header>
+    <header className="siteHeader"><Brand/><button className="menuButton" onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-controls="public-navigation" aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}>{menuOpen ? '×' : '☰'}</button><nav id="public-navigation" className={menuOpen ? 'open' : ''}>{[['#features','Fonctionnalités'],['#solutions','Solutions'],['#pricing','Tarifs'],['#about','À propos'],['#faq','FAQ']].map(([href, label]) => <a key={href} href={href} onClick={() => setMenuOpen(false)}>{label}</a>)}<a href="#" className="navLogin" onClick={event => { event.preventDefault(); openAuth('login'); }}>Se connecter</a></nav><div className="headerActions"><button className="linkButton" onClick={() => openAuth('login')}>Se connecter</button><button className="primaryButton small" onClick={() => openAuth('register')}>Commencer</button></div></header>
 
     <main>
       <section className="hero sectionShell">
@@ -150,7 +157,7 @@ function App() {
 
     <footer className="siteFooter"><div><Brand/><p>La plateforme de gestion pour les commerces et leurs équipes.</p></div><div><b>Produit</b><a href="#features">Fonctionnalités</a><a href="#pricing">Tarifs</a><a href="#product">Application mobile</a></div><div><b>Informations</b><a href="/terms/">Conditions d’utilisation</a><a href="/privacy/">Confidentialité</a></div><div><b>Aide</b><a href="#faq">FAQ</a>{supportEmail && <a href={`mailto:${supportEmail}`}>Support</a>}<a href="/account-deletion/">Supprimer un compte</a></div><div className="footerBottom"><span>© {new Date().getFullYear()} StockMaster. Tous droits réservés.</span><span>Informations légales à compléter avant publication.</span></div></footer>
 
-    {auth && <AuthModal mode={auth} initialPlan={selectedPlan} close={() => setAuth(null)} switchMode={setAuth}/>}
+    {auth && <AuthModal mode={auth} initialPlan={selectedPlan} close={() => setAuth(null)} switchMode={openAuth}/>}
   </div>;
 }
 
