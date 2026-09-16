@@ -875,6 +875,24 @@
   nôtre — mécanisme interne à expo-router (SDK 54), corrige plus loin
   disproportionné pour cet outil interne. 238/238 tests, tsc propre.
   Déployé.
+- [x] Bouton "Voir" des appareils connectés (Sécurité) sans effet
+  visible. Testé en direct (compte de test, connexion réelle) : deux
+  causes. (1) Le défilement est correct mais discret (section déjà
+  presque visible sur desktop) — mineur, pas retouché. (2) Plus
+  important : chaque connexion enregistrait le même device_label
+  générique ("StockMaster • web") quel que soit le navigateur, donc
+  "Appareils connectés" ne pouvait jamais compter plus d'un appareil
+  et le journal listait des connexions toutes identiques —
+  logoutAll() utilisait déjà le vrai user-agent pour ce même besoin,
+  pas les connexions elles-mêmes. Ajouté un vrai libellé par appareil
+  (parsing user-agent lisible sur web : "Chrome sur Windows" etc. ;
+  Device.modelName sur mobile natif), branché sur les 4 endroits qui
+  enregistraient un libellé générique. Vérifié de bout en bout
+  (reconnexion réelle + lecture directe en base) : le nouvel événement
+  porte "Chrome sur macOS". Les événements déjà enregistrés avant ce
+  correctif gardent leur ancienne étiquette (donnée existante, pas de
+  correction rétroactive). 243/243 tests (5 nouveaux), tsc propre.
+  Déployé (app mobile + account-web).
 
   **Reste à traiter, dans l'ordre approximatif de priorité** — trop
   volumineux pour tout faire d'un coup, en cours :
@@ -888,7 +906,6 @@
     lisibles.
   - Portail Account : toutes les sections gardent la même URL
     (?portal=subscription...) — casse retour/rechargement/liens directs.
-  - Bouton "Voir" des appareils connectés (Sécurité) sans effet visible.
   - Badge "Lecture seule" sur abonnement expiré alors qu'aucun accès en
     lecture n'est réellement fourni — choisir : vrai accès lecture seule
     ou renommer en "Accès suspendu".
