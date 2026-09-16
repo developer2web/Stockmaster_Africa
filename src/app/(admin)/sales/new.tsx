@@ -233,7 +233,7 @@ export default function NewSale() {
           return (
             <Card key={cartKey(item)} mode="contained" style={[styles.gridCard, { backgroundColor: theme.colors.surface }, !available && styles.unavailable, anyInCart && { borderColor: theme.colors.primary, borderWidth: 1.5 }]} onPress={available && !save.isPending && !inCartUnit ? () => addOne('unit') : undefined}>
               <View style={styles.gridImageWrap}>
-                <ProductThumbnail url={item.imageUrl} size={84} />
+                <ProductThumbnail url={item.imageUrl} size={94} />
               </View>
               <Card.Content style={styles.gridCopy}>
                 <Text variant="bodyMedium" numberOfLines={2} style={styles.gridName}>{item.name}</Text>
@@ -347,10 +347,13 @@ const styles = StyleSheet.create({
   // Grille façon Amazon pour les produits simples : flexBasis en pixels
   // fixes (pas en %) pour que le nombre de colonnes s'adapte tout seul à la
   // largeur de l'écran (3 sur téléphone, davantage sur un écran large).
-  // minWidth choisi pour qu'un 4e ne tienne jamais sur ~366px de contenu
-  // utile, mais que 3 y tiennent toujours confortablement.
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  gridCard: { flexBasis: 112, flexGrow: 1, minWidth: 108, maxWidth: 200, overflow: 'hidden' },
+  // C'est flexBasis (pas minWidth) que le passage à la ligne utilise pour
+  // décider combien tiennent par rangée — flexBasis doit donc rester assez
+  // bas pour que 3 tiennent sur ~351px de contenu utile (iPhone SE, l'écran
+  // le plus étroit couramment encore utilisé) ; minWidth ne sert qu'à
+  // empêcher une carte de trop rétrécir une fois la rangée décidée.
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  gridCard: { flexBasis: 111, flexGrow: 1, minWidth: 106, maxWidth: 210, overflow: 'hidden' },
   // Les produits vendus aussi en gros gardent une carte large (deux
   // boutons + texte) : elle prend toute la ligne sur téléphone et se
   // partage la ligne avec une autre sur un écran large.

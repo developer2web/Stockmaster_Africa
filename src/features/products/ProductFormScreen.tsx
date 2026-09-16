@@ -136,6 +136,13 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
           {!id && <FormField control={control} name="initialQuantity" label="Stock initial" required keyboardType="number-pad" integerOnly selectTextOnFocus />}
         </Card.Content>
       </Card>
+      {id && product.data && <ProductImagesCard productId={id} companyId={company} storeId={store} urls={productImages} />}
+      {!id && <Card mode="outlined">
+        <Card.Title title="Images du produit" subtitle="facultatives" />
+        <Card.Content style={styles.formContent}>
+          <Text variant="bodyMedium">Vous pourrez ajouter des images depuis cette fiche une fois le produit enregistré.</Text>
+        </Card.Content>
+      </Card>}
       {!productVariants.length && <Controller control={control} name="bulkEnabled" render={({ field: bulkField }) => <Card mode="outlined">
         <Card.Title title="Vendre aussi en gros" subtitle="Ex : un carton de 24, un sac de 50 kg" left={props => <Icon {...props} source="package-variant-closed" />} right={() => <Switch value={bulkField.value} onValueChange={bulkField.onChange} style={{ marginRight: 12 }} />} />
         {bulkField.value && <Card.Content style={styles.formContent}>
@@ -195,9 +202,8 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
             <Controller control={control} name="isActive" render={({ field }) => <Card mode="outlined">
               <Card.Title title="Produit actif" right={() => <Switch value={field.value} onValueChange={field.onChange} style={{ marginRight: 12 }} />} />
             </Card>} />
-            {id && product.data && <ProductImagesCard productId={id} companyId={company} storeId={store} urls={productImages} />}
             {id && <Variants productId={id} companyId={company} variants={productVariants} refresh={() => qc.invalidateQueries({ queryKey: ['product', id] })} />}
-            {!id && <Text variant="bodyMedium">Vous pourrez ajouter des images et des variantes depuis la fiche du produit après l’enregistrement.</Text>}
+            {!id && <Text variant="bodyMedium">Vous pourrez ajouter des variantes depuis la fiche du produit après l’enregistrement.</Text>}
           </View>
         </Card.Content>
       </Card>
