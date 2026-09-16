@@ -49,8 +49,13 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   // Prix par unité dans le lot, calculé en direct pour que le vendeur voie
   // tout de suite s'il vend vraiment moins cher en gros — sans avoir à
   // sortir une calculette.
-  const [bulkEnabledValue, bulkUnitLabelValue, bulkQuantityValue, bulkPriceValue, bulkPurchasePriceValue, salePriceValue] = useWatch({ control, name: ['bulkEnabled', 'bulkUnitLabel', 'bulkQuantity', 'bulkPrice', 'bulkPurchasePrice', 'salePrice'] });
+  const [bulkEnabledValue, bulkUnitLabelValue, bulkQuantityValue, bulkPriceValue, bulkPurchasePriceValue, salePriceValue, purchasePriceValue] = useWatch({ control, name: ['bulkEnabled', 'bulkUnitLabel', 'bulkQuantity', 'bulkPrice', 'bulkPurchasePrice', 'salePrice', 'purchasePrice'] });
   const perUnitBulkPrice = Number(bulkQuantityValue) > 0 ? Number(bulkPriceValue) / Number(bulkQuantityValue) : 0;
+  // Marge en direct sous les prix : on veut que l'erreur de saisie (prix de
+  // vente sous le prix d'achat) saute aux yeux tout de suite, pas seulement
+  // après enregistrement sur la fiche complète.
+  const liveMargin = Number(salePriceValue) - Number(purchasePriceValue);
+  const liveMarginPercent = Number(purchasePriceValue) > 0 ? (liveMargin / Number(purchasePriceValue)) * 100 : null;
   // Les 3 champs du lot sont liés par une seule règle (tout ou rien) : sans
   // ça, remplir la quantité et le prix après le nom ne fait pas disparaître
   // l'erreur affichée sur le nom tant qu'on n'y retouche pas soi-même.
@@ -133,6 +138,13 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
             <FormField control={control} name="purchasePrice" label={`Prix d’achat (${primaryCode})`} required keyboardType="decimal-pad" selectTextOnFocus />
             <FormField control={control} name="salePrice" label={`Prix de vente (${primaryCode})`} required keyboardType="decimal-pad" selectTextOnFocus />
           </ResponsiveFormGrid>
+          {(Number(purchasePriceValue) > 0 || Number(salePriceValue) > 0) && <HelperText type={liveMargin <= 0 ? 'error' : 'info'} visible>
+            {liveMargin < 0
+              ? `Attention : le prix de vente est inférieur au prix d’achat (${formatMoney(liveMargin)}).`
+              : liveMargin === 0
+                ? 'Aucune marge à ce prix : vente au prix d’achat.'
+                : `Marge : ${formatMoney(liveMargin)}${liveMarginPercent !== null ? ` (${liveMarginPercent.toFixed(1)} %)` : ''}`}
+          </HelperText>}
           {!id && <FormField control={control} name="initialQuantity" label="Stock initial" required keyboardType="number-pad" integerOnly selectTextOnFocus />}
         </Card.Content>
       </Card>
