@@ -311,7 +311,12 @@ export default function NewSale() {
       ].map(([value,label])=><Chip key={value} selected={payment===value} disabled={(value==='credit'||value==='partial')&&companySettings.data?.allow_credit_sales===false} onPress={()=>setPayment(value)}>{label}</Chip>)}</View>}
       {(payment === 'credit' || payment === 'partial' || showCustomer || customerId) ? <View style={styles.list}>
         <SaleCustomerPicker companyId={company} value={customerId} onChange={setCustomerId} required={payment === 'credit' || payment === 'partial'} />
-        {payment !== 'credit' && payment !== 'partial' && <AppButton mode="text" onPress={() => { setCustomerId(null); setShowCustomer(false); }}>Continuer sans client</AppButton>}
+        {/* Une fois un client choisi, SaleCustomerPicker propose déjà "Retirer
+            ce client" — ce bouton-ci ne doit rester que pour abandonner la
+            recherche sans avoir rien choisi. Il restait affiché même après
+            une sélection, et son clic effaçait silencieusement le client déjà
+            retenu malgré son intitulé ("continuer sans client"). */}
+        {payment !== 'credit' && payment !== 'partial' && !customerId && <AppButton mode="text" onPress={() => setShowCustomer(false)}>Continuer sans client</AppButton>}
       </View> : <AppButton mode="text" icon="account-plus-outline" onPress={() => setShowCustomer(true)}>Associer un client (facultatif)</AppButton>}
       {(payment==='credit'||payment==='partial')&&<Card mode="outlined"><Card.Content style={styles.list}>{payment==='partial'&&<TextInput mode="outlined" label="Montant payé maintenant" accessibilityLabel="Montant payé maintenant" keyboardType="decimal-pad" selectTextOnFocus value={amountPaid} onChangeText={setAmountPaid}/>}<Text>{payment==='credit'?`Dette client : ${formatMoney(totals.total)}`:`Reste dû : ${formatMoney(Math.max(0,totals.total-(parseDecimal(amountPaid)||0)))}`}</Text>{!customerId&&<HelperText type="error" visible>Choisissez obligatoirement le client associé à cette dette.</HelperText>}</Card.Content></Card>}
       <Card mode="contained" style={[styles.checkout,{ backgroundColor: theme.colors.primaryContainer }]}>
