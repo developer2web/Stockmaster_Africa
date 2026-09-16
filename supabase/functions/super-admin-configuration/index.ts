@@ -29,6 +29,11 @@ Deno.serve(async (request) => {
       apiKeyConfigured: !!apiKey,
       senderConfigured: !!from,
       senderValid: /^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(from) || /^[^<>\r\n]+<[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+>$/.test(from),
+    }, hosting: {
+      // Pas des identifiants (pas de clé/mot de passe) : juste la config
+      // de routage inter-sites, utile à inspecter en direct sans deviner.
+      allowedOrigins: (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map(o => o.trim()).filter(Boolean),
+      accountWebUrl: Deno.env.get('ACCOUNT_WEB_URL') ?? null,
     } });
   } catch { return json(request, { error: 'Vérification de configuration indisponible.' }, 500); }
 });
