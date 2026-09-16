@@ -677,4 +677,35 @@
   passé, rechargement) : panier vidé au bon cycle de vérification,
   bandeau bien visible et lisible, aucune erreur console. 239/239 tests,
   tsc propre.
+- [x] Les 4 sites déployés en test sur Vercel (16/09, demande explicite,
+  sans toucher au DNS). Deux bugs propres au déploiement trouvés et
+  corrigés en testant en direct après coup :
+  - App mobile en web : toutes les icônes s'affichaient en petits
+    carrés + erreur au démarrage. Cause : Vercel ignore silencieusement
+    tout fichier dont le chemin contient « node_modules », et l'export
+    web d'Expo y range justement la police d'icônes. Corrigé en
+    renommant ce dossier avant déploiement.
+  - Même site : les pages fonctionnaient au clic mais pas en accès
+    direct/rafraîchissement (ex. /login, une fiche produit) — 404 à
+    chaque fois. Corrigé avec un vercel.json (cleanUrls + règles pour
+    les routes dynamiques comme /products/[id]).
+  - Redirection après connexion sur le site public : elle existait déjà
+    dans le code (vers Admin/Compte/App selon le rôle) mais pointait
+    vers les vrais sous-domaines stockmaster.africa, encore morts —
+    corrigé en pointant temporairement vers les liens Vercel actuels
+    tant que le DNS n'est pas branché.
+  - Au passage : config Supabase Auth en ligne corrigée (liste de
+    redirections autorisées était vide, site_url pointait vers un vieux
+    localhost jamais mis à jour) — les liens de réinitialisation de mot
+    de passe ne fonctionnaient pas du tout avant ça. Adresses
+    stockmaster.com obsolètes remplacées par .africa au passage.
+  - Mot de passe Super Admin réinitialisé sur demande (identifiants
+    perdus), généré côté Postgres, jamais écrit en clair nulle part.
+  - Repéré mais volontairement pas touché : une fois redirigé de
+    public-web vers account-web, la session ne suit pas (origines
+    différentes) — il faut se reconnecter une deuxième fois. Nécessite
+    un vrai mécanisme de transfert de session, pas fait sans confirmer
+    d'abord.
+  Vérifié en direct de bout en bout à chaque étape (comptes de test
+  réels, capture d'écran, inspection réseau). 239/239 tests, tsc propre.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
