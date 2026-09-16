@@ -21,17 +21,21 @@ port = 54323
 
 [auth]
 enabled = true
-site_url = "http://localhost:4173"
+site_url = "https://app-web-export.vercel.app"
 additional_redirect_urls = [
   "stockmaster://**",
   "http://localhost:8081/**",
   "http://localhost:4173/**",
   "http://localhost:4174/**",
   "http://localhost:4175/**",
-  "https://stockmaster.com/**",
-  "https://app.stockmaster.com/**",
-  "https://account.stockmaster.com/**",
-  "https://admin.stockmaster.com/**"
+  "https://stockmaster.africa/**",
+  "https://app.stockmaster.africa/**",
+  "https://account.stockmaster.africa/**",
+  "https://admin.stockmaster.africa/**",
+  "https://app-web-export.vercel.app/**",
+  "https://public-web-silk.vercel.app/**",
+  "https://account-web-three.vercel.app/**",
+  "https://admin-web-kappa-seven.vercel.app/**"
 ]
 
 [functions.invite-employee]

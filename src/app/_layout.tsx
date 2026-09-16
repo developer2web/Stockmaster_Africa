@@ -93,7 +93,6 @@ function RootNavigator() {
       <Stack.Screen name="employee" />
       <Stack.Screen name="(subscription)" />
       <Stack.Screen name="(settings)" />
-      <Stack.Screen name="legal" />
       </Stack>
     </View>
   );
