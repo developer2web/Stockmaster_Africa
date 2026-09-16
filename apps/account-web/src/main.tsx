@@ -1,6 +1,7 @@
 import { WebSessionGate } from '../../shared/WebSessionGate';
 import { notificationCutoff } from '../../../src/features/notifications/retention';
 import { plural } from '../../../src/utils/plural';
+import { readableUserAgent } from '../../../src/utils/readableUserAgent';
 import { requiresRetainedBusinessChoice } from '../../../src/features/subscriptions/businessLimit';
 import { useActiveNotifications } from '../../../src/features/notifications/useActiveNotifications';
 import { featureLabelsFor, formatBillingMoney, subscriptionStatusLabel } from '../../../src/constants/commercial';
@@ -270,7 +271,7 @@ function App() {
   }
   async function saveCompany() { if (!context?.company_id) return; setLoading(true); setError(''); const [userResult, companyResult] = await Promise.all([supabase.auth.updateUser({ data: { full_name: fullName.trim() } }), supabase.from('companies').update({ name: company.name.trim(), email: company.email || null, phone: company.phone || null, address: company.address || null }).eq('id', context.company_id)]); setLoading(false); if (userResult.error || companyResult.error) setError(userResult.error?.message ?? companyResult.error?.message ?? 'Enregistrement impossible.'); else { setNotice('Informations de l’entreprise enregistrées.'); setProfileOpen(false); await load(); } }
   async function resetPassword() { const result = await supabase.auth.resetPasswordForEmail(userEmail, { redirectTo: location.origin }); if (result.error) setError(result.error.message); else setNotice('Un lien sécurisé de changement de mot de passe vous a été envoyé.'); }
-  async function logoutAll() { if (!confirm('Déconnecter tous les appareils de ce compte ?')) return; await supabase.rpc('record_security_event', { p_event_type: 'global_logout', p_device_label: navigator.userAgent.slice(0, 120) }); await supabase.auth.signOut({ scope: 'global' }); setContext(null); }
+  async function logoutAll() { if (!confirm('Déconnecter tous les appareils de ce compte ?')) return; await supabase.rpc('record_security_event', { p_event_type: 'global_logout', p_device_label: readableUserAgent(navigator.userAgent) }); await supabase.auth.signOut({ scope: 'global' }); setContext(null); }
   async function markNotifications() {
     if (!context?.company_id) return;
     setError('');

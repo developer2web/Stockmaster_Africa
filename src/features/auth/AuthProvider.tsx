@@ -25,6 +25,7 @@ import {
 } from './offlineAccess';
 import { clearOfflineCaches } from '@/features/offline/storage';
 import { isDeviceOffline, probeBackendAccess } from '@/features/offline/connectivity';
+import { currentDeviceLabel } from '@/utils/deviceLabel';
 import { canUseOfflineFallback, errorKind, userErrorMessage } from '@/utils/errors';
 
 async function confirmSignOutWithPendingOperations(){
@@ -508,7 +509,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
               if (next.user.app_metadata?.must_change_password === true || await needsMfaChallenge(supabase)) return;
               const { error } = await supabase.rpc('record_security_event', {
                 p_event_type: 'login',
-                p_device_label: `StockMaster • ${Platform.OS}`,
+                p_device_label: currentDeviceLabel(),
               });
               if (error) await logger.warning('login_security_event_failed', error);
             } catch (error) {
