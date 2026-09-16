@@ -146,7 +146,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
       {!productVariants.length && <Controller control={control} name="bulkEnabled" render={({ field: bulkField }) => <Card mode="outlined">
         <Card.Title title="Vendre aussi en gros" subtitle="Ex : un carton de 24, un sac de 50 kg" left={props => <Icon {...props} source="package-variant-closed" />} right={() => <Switch value={bulkField.value} onValueChange={bulkField.onChange} style={{ marginRight: 12 }} />} />
         {bulkField.value && <Card.Content style={styles.formContent}>
-          <Text variant="bodySmall">Le vendeur touchera deux boutons à la vente (gros / détail) avec le bon prix déjà calculé — aucun calcul à faire à chaque vente.</Text>
+          <Text variant="bodySmall">Le vendeur touchera deux boutons à la vente (détail / gros) avec le bon prix déjà calculé — aucun calcul à faire à chaque vente.</Text>
           <ResponsiveFormGrid>
             <FormField control={control} name="bulkUnitLabel" label="Nom de l’unité de gros (ex : Carton, Sac)" required />
             <FormField control={control} name="bulkQuantity" label="Quantité par lot (ex : 24)" required keyboardType="number-pad" integerOnly selectTextOnFocus />
