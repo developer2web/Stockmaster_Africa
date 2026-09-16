@@ -5,7 +5,16 @@ import type { BusinessReport, ReportFilters, ReportMetricRow } from '@/types/dat
 export interface ReportQuery { startDate:string; endDate:string; storeId:string|null; employeeId:string|null; productId:string|null }
 const number=(value:unknown)=>Number(value??0);
 const object=(value:unknown):Record<string,unknown>=>value!==null&&typeof value==='object'?value as Record<string,unknown>:{};
-const rows=(value:unknown):ReportMetricRow[]=>Array.isArray(value)?value.map((item)=>{const row=object(item);return{id:typeof row.id==='string'?row.id:undefined,name:typeof row.name==='string'?row.name:'',revenue:number(row.revenue),gross_profit:number(row.gross_profit),quantity:number(row.quantity),amount:number(row.amount),count:number(row.count),sales:number(row.sales)}}):[];
+// Chaque classement (produits/paiements/boutiques/employés) ne renvoie côté
+// serveur qu'un sous-ensemble de ces champs (ex. quantity n'existe que pour
+// les produits) — ReportMetricRow les déclare tous optionnels exprès, et
+// l'écran ne montre la ligne de détail (quantité + CA) que si la valeur est
+// présente. Mettre 0 par défaut ici cassait ce contrat : un champ jamais
+// renvoyé par le serveur devenait 0 au lieu de rester absent, et affichait
+// « 0 unité » sous des boutiques/employés/moyens de paiement qui n'ont
+// pourtant aucune quantité à montrer.
+const numeric=(row:Record<string,unknown>,key:string):number|undefined=>key in row?Number((row[key] as number|null|undefined)??0):undefined;
+const rows=(value:unknown):ReportMetricRow[]=>Array.isArray(value)?value.map((item)=>{const row=object(item);return{id:typeof row.id==='string'?row.id:undefined,name:typeof row.name==='string'?row.name:'',revenue:numeric(row,'revenue'),gross_profit:numeric(row,'gross_profit'),quantity:numeric(row,'quantity'),amount:numeric(row,'amount'),count:numeric(row,'count'),sales:numeric(row,'sales')}}):[];
 export async function getReportFilters(storeId:string|null,companyId?:string):Promise<ReportFilters>{const{data,error}=await supabase.rpc('get_report_filters',{p_store_id:storeId,p_company_id:storeId?null:companyId??null});if(error)throw new Error(error.message);const value=(data??{})as Partial<ReportFilters>;return{stores:value.stores??[],employees:value.employees??[],products:value.products??[]}}
 export async function getBusinessReport(query:ReportQuery):Promise<BusinessReport>{const{data,error}=await supabase.rpc('get_business_report',{p_start_date:query.startDate,p_end_date:query.endDate,p_store_id:query.storeId,p_employee_id:query.employeeId,p_product_id:query.productId,p_category_id:null});if(error)throw new Error(error.message);const value=object(data);const previous=object(value.previous);return{startDate:typeof value.startDate==='string'?value.startDate:query.startDate,endDate:typeof value.endDate==='string'?value.endDate:query.endDate,revenue:number(value.revenue),costOfGoods:number(value.costOfGoods),grossProfit:number(value.grossProfit),expenses:number(value.expenses),netProfit:number(value.netProfit),quantitySold:number(value.quantitySold),saleCount:number(value.saleCount),stockValue:number(value.stockValue),previous:{revenue:number(previous.revenue),grossProfit:number(previous.grossProfit),expenses:number(previous.expenses),netProfit:number(previous.netProfit)},topProducts:rows(value.topProducts),paymentMethods:rows(value.paymentMethods),stores:rows(value.stores),employees:rows(value.employees)}}
 export async function getCashBalance(companyId: string, storeId: string | null = null): Promise<number> {
