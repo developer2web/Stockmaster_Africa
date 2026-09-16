@@ -861,6 +861,20 @@
   manquait, y compris sur les écrans qui avaient déjà le bon
   autoComplete web. Vérifié en direct (Playwright) : attribut HTML
   rendu correct. 238/238 tests, tsc propre. Déployé.
+- [x] Titre HTML et description SEO vides sur l'app mobile. +html.tsx
+  n'avait qu'un titre statique générique "StockMaster", aucune balise
+  meta description. Ajoutés un titre et une description explicites, et
+  un <Head> racine pour que le titre "géré" par expo-router (vide par
+  défaut, react-helmet-async — précède celui de +html.tsx dans le HTML
+  statique) porte le même vrai contenu. Vérifié en direct (export
+  statique servi localement) : document.title et meta description
+  corrects une fois le JS exécuté — vrai navigateur, et robots qui
+  exécutent le JS (Googlebot). Limite honnête non résolue : un robot
+  qui lit le HTML brut sans JS (aperçus de lien WhatsApp/Facebook)
+  verrait encore la balise <title> vide du routeur, qui précède la
+  nôtre — mécanisme interne à expo-router (SDK 54), corrige plus loin
+  disproportionné pour cet outil interne. 238/238 tests, tsc propre.
+  Déployé.
 
   **Reste à traiter, dans l'ordre approximatif de priorité** — trop
   volumineux pour tout faire d'un coup, en cours :
@@ -880,7 +894,6 @@
     ou renommer en "Accès suspendu".
   - Contenu de support inapproprié visible dans un vrai espace client
     ("tu es un fou") — à supprimer, c'est de la donnée pas du code.
-  - Titre HTML et description SEO vides sur l'app mobile.
   - Remise maximale réglable à 100 % (déjà configurable, vérifier si le
     propriétaire veut un plafond plus bas par défaut).
   - Paiement Mobile Money sans opérateur/numéro/référence/statut de
