@@ -1,6 +1,7 @@
 import { describe,expect,it } from 'vitest';
 import { registerSchema } from '../src/schemas/auth';
 import { productSchema } from '../src/schemas/catalog';
+import { customerSchema } from '../src/schemas/customers';
 import { stockMovementSchema } from '../src/schemas/inventory';
 
 describe('validations critiques',()=>{
@@ -16,4 +17,13 @@ describe('validations critiques',()=>{
   });
   it('accepte un prix entier',()=>{expect(productSchema.safeParse({name:'Produit',description:'',sku:'',barcode:'',supplierId:null,unit:'piece',purchasePrice:'12',salePrice:'20',initialQuantity:'5',lowStockThreshold:'2',isActive:true}).success).toBe(true)});
   it('refuse une quantité de stock nulle ou négative',()=>{expect(stockMovementSchema.safeParse({storeId:'00000000-0000-4000-8000-000000000001',variantId:null,direction:'out',quantity:'0',note:''}).success).toBe(false)});
+  // Audit externe (SM-14) : ce numéro sert de clé de recherche du client en
+  // caisse et de contact Orange Money — "abc" y était accepté avant.
+  it('refuse un téléphone client non numérique, mais accepte un numéro valide ou vide',()=>{
+    const base={name:'Client',email:'',address:'',note:'',creditLimit:'',isActive:true};
+    expect(customerSchema.safeParse({...base,phone:'abc'}).success).toBe(false);
+    expect(customerSchema.safeParse({...base,phone:'622334455'}).success).toBe(true);
+    expect(customerSchema.safeParse({...base,phone:'+224622334455'}).success).toBe(true);
+    expect(customerSchema.safeParse({...base,phone:''}).success).toBe(true);
+  });
 });
