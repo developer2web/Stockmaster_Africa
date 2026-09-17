@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { supabase } from '@/services/supabase/client';
@@ -17,7 +18,20 @@ export async function selectProductWorkbook(companyId:string,storeId:string):Pro
   // statique, tout le monde la télécharge dès le premier chargement de
   // l'app ; en import dynamique, seul un vrai import de fichier la charge.
   const XLSX = await import('@e965/xlsx');
-  const bytes=await new File(asset.uri).bytes();const book=XLSX.read(bytes,{type:'array'});const firstSheet=book.SheetNames[0];
+  // Bug réel trouvé en testant en direct (invisible aux tests automatisés,
+  // qui simulent entièrement expo-file-system) : la classe File d'
+  // expo-file-system ne supporte pas le web (Android/iOS/tvOS seulement,
+  // documentation SDK 54) — chaque tentative d'import échouait sur le web
+  // avec « this.validatePath is not a function », fonctionnalité entière
+  // inutilisable en pratique puisque c'est la seule plateforme déployée
+  // pour l'instant. Sur web, expo-document-picker fournit déjà un vrai
+  // objet File natif du navigateur (asset.file) : on l'utilise directement
+  // plutôt que de passer par expo-file-system, qui n'a rien à y faire.
+  if(Platform.OS==='web'&&!asset.file)throw new Error('Fichier illisible sur ce navigateur.');
+  const bytes=Platform.OS==='web'
+    ?new Uint8Array(await asset.file!.arrayBuffer())
+    :await new File(asset.uri).bytes();
+  const book=XLSX.read(bytes,{type:'array'});const firstSheet=book.SheetNames[0];
   if(!firstSheet||!book.Sheets[firstSheet])throw new Error('Le fichier Excel ne contient aucune feuille.');
   const rows=XLSX.utils.sheet_to_json<ProductRow>(book.Sheets[firstSheet],{defval:''});if(rows.length>1000)throw new Error('Un import est limité à 1 000 produits.');
   // L'import crée toujours de nouveaux produits (jamais une mise à jour d'un
