@@ -1039,5 +1039,52 @@
   format que le numéro Mobile Money déjà validé ailleurs (+
   facultatif, 8-15 chiffres), toujours facultatif.
   249/249 tests (3 nouveaux), tsc propre à chaque étape. Déployé.
-  Suite (SM-12, SM-16 et plus) en cours.
+- [x] SM-16 MOYEN — interrupteurs et boutons icône sans nom accessible
+  pour les lecteurs d'écran. Balayage ciblé, pas exhaustif : les 11/11
+  <Switch> qui n'avaient aucun accessibilityLabel (8 fichiers) et les 2
+  <IconButton> vraiment orphelins (sur 17 au total — les 15 autres en
+  avaient déjà un, faux positifs d'un grep sur une seule ligne qui
+  ratait les attributs JSX multi-lignes). Sweep Pressable/Card
+  volontairement non fait (6 sur 14 repérés par grep, la plupart ont
+  déjà accessibilityRole + texte visible à côté, priorité plus basse) —
+  noté comme partiel plutôt que présenté comme complet.
+- [x] SM-19 MOYEN — messages d'erreur Postgres bruts renvoyés tels
+  quels côté client ("Le montant/paiement dépasse la dette restante
+  (450000.00)"). Nouvelle règle dans utils/errors.ts (même mécanisme
+  que les autres traductions déjà en place) : montant reformaté en
+  FCFA lisible (450 000 GNF). Vérifié directement en base le libellé
+  exact des deux fonctions concernées (record_customer_entry et sa v2,
+  "montant" vs "paiement") avant d'écrire la règle.
+  251/251 tests, tsc propre. Déployé.
+- [x] SM-18 MOYEN — signalé comme faux positif après vérification en
+  direct (Playwright, compte de test à 2 adhésions) : le lien "Rôles"
+  existe bel et bien dans le menu Plus, volontairement caché derrière
+  la condition hasTeammates (déjà commentée dans le code) et un tap
+  supplémentaire sur "Afficher la gestion avancée" — comportement
+  voulu, pas un bug. Aucun changement de code.
+- [x] Caisse en négatif : assouplissement du blocage strict de SM-01
+  (17/09, demande explicite du propriétaire — "je veux pas que la
+  caisse soit à négatif facilement il faut un message qui le mets en
+  garde ou de confirmation", propriétaire ET Manager seulement).
+  Détails techniques dans le commit dédié (44fea0b) ; en résumé :
+  nouvelle permission cash_transactions.override_negative_balance,
+  rattrapée sur les rôles "Manager" déjà créés par les entreprises
+  existantes ; le trigger reste l'unique arbitre mais honore un
+  drapeau posé uniquement par les 3 RPC concernées après vérification
+  serveur du rôle/permission ; ConfirmDialog "Caisse insuffisante"
+  affiché uniquement aux utilisateurs autorisés sur les 3 écrans
+  concernés (Caisse, Dépenses, Approvisionnement) — un employé simple
+  garde le blocage strict d'origine, sans recours.
+  251/251 tests, tsc propre. Vérifié en base : permission créée,
+  rattrapage effectif sur 8 entreprises existantes ayant un rôle
+  "Manager", rôle "Employé" de base toujours sans cette permission.
+  Vérification bout-en-bout par clic (Playwright) tentée mais bloquée
+  par une donnée de test (abonnement de l'entreprise QA expiré, un
+  changement de statut en base a été refusé par le mode automatique
+  car donnée partagée) — pas relancée sans autorisation explicite,
+  voir rapport à l'utilisateur. Déployé.
+  Suite (SM-12, SM-17, SM-20, SM-21 et plus) en cours — voir aussi le
+  solde test à -101 000 GNF laissé par l'auditeur (Sahel Commerce
+  SARL/Boutique Kaloum Centre), pas encore remis à zéro faute de
+  réponse du propriétaire sur ce point précis.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
