@@ -6,6 +6,7 @@ import { Card, Chip, HelperText, Menu, Text, useTheme } from 'react-native-paper
 
 import { ProductThumbnail } from '@/components/products/ProductThumbnail';
 import { AdminPage } from '@/components/ui/AdminPage';
+import { resolveNotice } from '@/constants/notices';
 import { AppButton } from '@/components/ui/AppButton';
 import { plural } from '@/utils/plural';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -33,7 +34,7 @@ export default function ProductsScreen() {
   const setSearchValue=useProductListView(state=>state.setSearch);
   const [actionsOpen,setActionsOpen]=useState(false);
   const [actionError,setActionError]=useState('');
-  const [feedback,setFeedback]=useState(notice??'');
+  const [feedback,setFeedback]=useState(resolveNotice(notice));
   const debounced = useDebouncedValue(search);
   const products = useInfiniteQuery({
     queryKey: ['products', company, store, debounced, 'without-cost'],

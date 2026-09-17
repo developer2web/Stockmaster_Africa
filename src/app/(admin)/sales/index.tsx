@@ -23,6 +23,7 @@ import { useSalesRealtime } from '@/hooks/useSalesRealtime';
 import { AppFeedback } from '@/components/ui/AppFeedback';
 import { formatDateTime } from '@/utils/format';
 import { nextPageCursor, type PageCursor } from '@/utils/pagination';
+import { resolveNotice } from '@/constants/notices';
 
 const paymentLabels: Record<string, string> = {
   cash: 'Espèces', card: 'Carte', mobile_money: 'Mobile Money',
@@ -32,7 +33,7 @@ const paymentLabels: Record<string, string> = {
 export default function SalesScreen() {
   const can = usePermissions();
   const {notice}=useLocalSearchParams<{notice?:string}>();
-  const [feedback,setFeedback]=useState(notice??'');
+  const [feedback,setFeedback]=useState(resolveNotice(notice));
   const [search,setSearch]=useState('');
   const theme = useTheme();
   const [filters, setFilters] = useState<SalesFilters>(emptySalesFilters);

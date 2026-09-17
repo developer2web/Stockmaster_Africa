@@ -54,7 +54,7 @@ export default function MfaChallenge() {
         if (selectedPortal) {
           const access = await validateCurrentPortal(selectedPortal);
           if (!access.ok) {
-            router.replace({ pathname: selectedPortal === 'employee' ? '/employee' : '/(auth)/login', params: { notice: access.message } });
+            router.replace({ pathname: selectedPortal === 'employee' ? '/employee' : '/(auth)/login', params: { notice: access.code } });
             return;
           }
         }

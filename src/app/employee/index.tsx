@@ -13,6 +13,7 @@ import { AuthScreen } from '@/features/auth/AuthScreen';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { hasAnyPermission, hasPermission } from '@/features/auth/permissions';
 import { signInForPortal } from '@/features/auth/portalLogin';
+import { resolveNotice } from '@/constants/notices';
 import { usePortalLoginState } from '@/features/auth/portalLoginState';
 
 export default function EmployeeEntry() {
@@ -144,6 +145,7 @@ export default function EmployeeEntry() {
 
 function EmployeeLogin() {
   const { notice } = useLocalSearchParams<{ notice?: string }>();
+  const noticeText = resolveNotice(notice);
   const { refreshMembership } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -168,7 +170,7 @@ function EmployeeLogin() {
 
   return (
     <AuthScreen title="Espace employé" subtitle="Accédez à votre espace de travail.">
-      {!!notice && <HelperText type="info" visible>{notice}</HelperText>}
+      {!!noticeText && <HelperText type="info" visible>{noticeText}</HelperText>}
       <View style={[styles.loginIcon, { backgroundColor: theme.colors.primaryContainer }]}>
         <Icon source="account-lock-outline" size={40} color={theme.colors.primary} />
       </View>

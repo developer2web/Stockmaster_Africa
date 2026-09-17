@@ -45,7 +45,7 @@ export default function SaleRefundScreen() {
     onSuccess: async () => {
       await Promise.allSettled([cache.invalidateQueries({ queryKey: ['sale-returns', id] }), cache.invalidateQueries({ queryKey: ['sale', id] }), cache.invalidateQueries({ queryKey: ['sale-stock'] }), cache.invalidateQueries({ queryKey: ['stock-levels'] }), cache.invalidateQueries({ queryKey: ['cash-summary'] }), cache.invalidateQueries({ queryKey: ['customer-ledger'] })]);
       setConfirming(false);
-      router.replace({ pathname: (membership?.role === 'employee' ? `/employee/sales/${id}` : `/sales/${id}`) as never, params: { notice: 'Retour enregistré' } });
+      router.replace({ pathname: (membership?.role === 'employee' ? `/employee/sales/${id}` : `/sales/${id}`) as never, params: { notice: 'retour_enregistre' } });
     },
   });
   const reasonRequired = company.data?.require_refund_reason ?? true;

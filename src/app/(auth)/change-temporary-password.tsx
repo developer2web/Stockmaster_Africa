@@ -41,7 +41,7 @@ export default function ChangeTemporaryPasswordScreen() {
       if (loginState.requestedPortal) {
         const access = await validateCurrentPortal(loginState.requestedPortal);
         if (!access.ok) {
-          router.replace({ pathname: loginState.requestedPortal === 'employee' ? '/employee' : '/(auth)/login', params: { notice: access.message } });
+          router.replace({ pathname: loginState.requestedPortal === 'employee' ? '/employee' : '/(auth)/login', params: { notice: access.code } });
           return;
         }
       }

@@ -93,7 +93,7 @@ describe('portal login validation', () => {
 
   it('distinguishes a server verification failure from missing authorization', async () => {
     backend.rpc.mockResolvedValue({ data: null, error: { message: 'Failed to fetch' } });
-    expect(await signInForPortal('test@example.invalid', 'fixture', 'admin')).toEqual({ ok: false, message: 'Impossible de vérifier le type de ce compte. Réessayez.' });
+    expect(await signInForPortal('test@example.invalid', 'fixture', 'admin')).toEqual({ ok: false, message: 'Impossible de vérifier le type de ce compte. Réessayez.', code: 'verification_compte_impossible' });
     expect(backend.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(usePortalLoginState.getState().pending).toBe(false);
   });
@@ -101,13 +101,13 @@ describe('portal login validation', () => {
   it('rejects an employee from the owner portal and releases the login state', async () => {
     backend.rpc.mockResolvedValue({ data: [{ role: 'employee' }], error: null });
     const result = await signInForPortal('test@example.invalid', 'fixture', 'admin');
-    expect(result).toEqual({ ok: false, message: 'Ce compte ne possède pas d’accès administrateur.' });
+    expect(result).toEqual({ ok: false, message: 'Ce compte ne possède pas d’accès administrateur.', code: 'acces_admin_absent' });
     expect(backend.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(usePortalLoginState.getState().pending).toBe(false);
   });
   it('rejects an owner from the employee portal', async () => {
     backend.rpc.mockResolvedValue({ data: [{ role: 'company_admin' }], error: null });
-    expect(await signInForPortal('test@example.invalid', 'fixture', 'employee')).toEqual({ ok: false, message: 'Ce compte ne possède pas d’accès employé.' });
+    expect(await signInForPortal('test@example.invalid', 'fixture', 'employee')).toEqual({ ok: false, message: 'Ce compte ne possède pas d’accès employé.', code: 'acces_employe_absent' });
   });
   it('keeps an authorized owner session and cleans up on unexpected failure', async () => {
     backend.rpc.mockResolvedValue({ data: [{ role: 'company_admin' }], error: null });

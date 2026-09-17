@@ -42,7 +42,7 @@ export default function PaymentStatusScreen() {
             onPress={async () => {
               if (success) {
                 await refreshSubscription();
-                router.replace({ pathname: '/(auth)/login' as never, params: { notice: 'Votre forfait a bien été activé. Connectez-vous pour démarrer.' } });
+                router.replace({ pathname: '/(auth)/login' as never, params: { notice: 'forfait_active' } });
                 return;
               }
               router.replace('/(subscription)' as never);

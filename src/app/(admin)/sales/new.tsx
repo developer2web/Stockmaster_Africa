@@ -142,7 +142,7 @@ export default function NewSale() {
         cache.invalidateQueries({ queryKey: ['customers', company] }),
         invalidateOperationalSummaries(cache, company, storeId),
       ]);
-      router.replace({pathname:(employee ? `/employee/sales/${result.saleId}` : `/sales/${result.saleId}`) as never,params:{notice:'Vente enregistrée'}});
+      router.replace({pathname:(employee ? `/employee/sales/${result.saleId}` : `/sales/${result.saleId}`) as never,params:{notice:'vente_enregistree'}});
     },
   });
   const invalidQuantity = items.some(item => {

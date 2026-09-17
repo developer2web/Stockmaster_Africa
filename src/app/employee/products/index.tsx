@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Card, FAB, HelperText, Text } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
+import { resolveNotice } from '@/constants/notices';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PermissionGuard } from '@/features/auth/PermissionGuard';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -27,7 +28,7 @@ export default function EmployeeProducts() {
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? '';
   const canWrite = can('products.write');
-  const [feedback,setFeedback]=useState(notice??'');
+  const [feedback,setFeedback]=useState(resolveNotice(notice));
   const listScope=`${company}:${store}:employee`;
   const search=useProductListView(state=>state.searches[listScope]??'');
   const setSearch=useProductListView(state=>state.setSearch);

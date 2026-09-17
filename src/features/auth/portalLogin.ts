@@ -2,16 +2,21 @@ import { needsMfaChallenge } from './mfaAccess';
 import { clearCachedSession, supabase } from '@/services/supabase/client';
 import { isJwtIssuedInFuture, retryJwtClockSkew } from '@/services/supabase/jwtRetry';
 import type { AppRole } from '@/types/database';
-import { portalAccessDeniedMessage } from './portalMessages';
+import { portalAccessDeniedMessage, portalAccessDeniedCode } from './portalMessages';
 import { portalAllowsRoles, type LoginPortal } from './portalRules';
 import { usePortalLoginState } from './portalLoginState';
 import { withRequestTimeout } from '@/services/supabase/requestTimeout';
+import type { NoticeCode } from '@/constants/notices';
 
 export type { LoginPortal } from './portalRules';
 
 type PortalLoginResult = {
   ok: boolean;
   message?: string;
+  // Équivalent de `message` sous forme de code fixe (voir constants/notices) —
+  // à utiliser à la place de `message` dès que ce résultat part vers un
+  // paramètre d'URL (notice=...), jamais le texte libre lui-même (SM-04).
+  code?: NoticeCode;
   mfaRequired?: boolean;
 };
 
@@ -51,7 +56,7 @@ async function performPortalSignIn(
 
 export async function validateCurrentPortal(portal: LoginPortal, knownUser?: { id?: string }): Promise<PortalLoginResult> {
   const user = knownUser ?? (await supabase.auth.getUser()).data.user;
-  if (!user) return { ok: false, message: 'Reconnectez-vous.' };
+  if (!user) return { ok: false, message: 'Reconnectez-vous.', code: 'reconnexion_requise' };
   const [{ data: businesses, error: businessesError }, { data: context, error: contextError }, { data: accessStatus, error: statusError }] = await Promise.all([
     withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_accessible_businesses').abortSignal(signal))),
     withRequestTimeout(signal => retryJwtClockSkew(() => supabase.rpc('get_my_context').abortSignal(signal))),
@@ -60,7 +65,7 @@ export async function validateCurrentPortal(portal: LoginPortal, knownUser?: { i
 
   if (businessesError || contextError || statusError) {
     await supabase.auth.signOut({ scope: 'local' });
-    return { ok: false, message: 'Impossible de vérifier le type de ce compte. Réessayez.' };
+    return { ok: false, message: 'Impossible de vérifier le type de ce compte. Réessayez.', code: 'verification_compte_impossible' };
   }
 
   const roles = normalizeRoles(businesses);
@@ -80,6 +85,7 @@ export async function validateCurrentPortal(portal: LoginPortal, knownUser?: { i
     return {
       ok: false,
       message: portalAccessDeniedMessage(portal),
+      code: portalAccessDeniedCode(portal),
     };
   }
 

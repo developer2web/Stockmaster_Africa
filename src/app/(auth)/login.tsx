@@ -10,9 +10,11 @@ import { AuthScreen } from '@/features/auth/AuthScreen';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { signInForPortal } from '@/features/auth/portalLogin';
 import { loginSchema, LoginInput } from '@/schemas/auth';
+import { resolveNotice } from '@/constants/notices';
 
 export default function LoginScreen() {
   const { notice } = useLocalSearchParams<{ notice?: string }>();
+  const noticeText = resolveNotice(notice);
   const [mode,setMode]=useState<'choice'|'admin'>('choice');
   const [error,setError]=useState('');
   const { refreshMembership } = useAuth();
@@ -20,7 +22,7 @@ export default function LoginScreen() {
   const submit=handleSubmit(async values=>{setError('');const result=await signInForPortal(values.email,values.password,'admin');if(!result.ok)return setError(result.message??'Connexion impossible.');if(result.mfaRequired){router.replace({pathname:'/(auth)/mfa',params:{portal:'admin'}});return;}await refreshMembership();router.replace('/')});
 
   if(mode==='choice')return <AuthScreen title="Choisir votre espace" subtitle="Connectez-vous selon votre rôle.">
-    {!!notice && <HelperText type="info" visible>{String(notice)}</HelperText>}
+    {!!noticeText && <HelperText type="info" visible>{noticeText}</HelperText>}
     <Card mode="outlined" onPress={()=>setMode('admin')} accessibilityLabel="Administrateur"><Card.Content style={{flexDirection:'row',alignItems:'center',gap:10}}><Icon source="shield-account" size={36}/><View style={{flexGrow:1,minWidth:0}}><Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit>Administrateur</Text><Text numberOfLines={1} adjustsFontSizeToFit>Entreprise, boutiques et équipe</Text></View></Card.Content></Card>
     <Card mode="outlined" onPress={()=>router.push('/employee' as never)} accessibilityLabel="Employé"><Card.Content style={{flexDirection:'row',alignItems:'center',gap:10}}><Icon source="account-hard-hat" size={36}/><View style={{flexGrow:1,minWidth:0}}><Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit>Employé</Text><Text numberOfLines={1} adjustsFontSizeToFit>Accès fourni par l’administrateur</Text></View></Card.Content></Card>
     <View style={{gap:12,alignItems:'center',marginTop:6}}>
@@ -30,7 +32,7 @@ export default function LoginScreen() {
   </AuthScreen>;
 
   return <AuthScreen title="Connexion administrateur" subtitle="Accédez à la gestion StockMaster.">
-    {!!notice && <HelperText type="info" visible>{String(notice)}</HelperText>}
+    {!!noticeText && <HelperText type="info" visible>{noticeText}</HelperText>}
     <FormField control={control} name="email" label="Email" autoCapitalize="none" keyboardType="email-address" autoComplete="username" textContentType="username"/>
     <FormField control={control} name="password" label="Mot de passe" passwordToggle autoComplete="current-password" textContentType="password"/>
     {!!error&&<HelperText type="error" visible>{error}</HelperText>}

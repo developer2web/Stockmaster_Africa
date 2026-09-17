@@ -11,6 +11,7 @@ import { Card, Chip, Dialog, HelperText, Icon, IconButton, Portal, Switch, Text,
 import { Controller, useForm } from 'react-hook-form';
 
 import { AdminPage } from '@/components/ui/AdminPage';
+import { resolveNotice } from '@/constants/notices';
 import { AppButton } from '@/components/ui/AppButton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FormField } from '@/components/forms/FormField';
@@ -55,7 +56,7 @@ export default function CustomerDetails() {
   const [note, setNote] = useState('');
   const [editing, setEditing] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [message, setMessage] = useState(notice??'');
+  const [message, setMessage] = useState(resolveNotice(notice));
   const [scheduleOpen,setScheduleOpen]=useState(false);
   const [scheduleRows,setScheduleRows]=useState([{dueDate:localDateValue(new Date(Date.now()+30*86400000)),amount:''}]);
 

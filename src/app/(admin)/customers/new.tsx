@@ -28,7 +28,7 @@ export default function NewCustomer() {
     mutationFn: (value: CustomerInput) => saveCustomer(company, store, value),
     onSuccess: async (id) => {
       await queryClient.invalidateQueries({ queryKey: ['customers', company] });
-      router.replace({pathname:`/customers/${id}` as never,params:{notice:'Client enregistré'}});
+      router.replace({pathname:`/customers/${id}` as never,params:{notice:'client_enregistre'}});
     },
   });
 

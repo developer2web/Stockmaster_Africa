@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Card, Divider, HelperText, IconButton, Menu, Text, useTheme } from 'react-native-paper';
 
 import { AdminPage } from '@/components/ui/AdminPage';
+import { resolveNotice } from '@/constants/notices';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { formatQuantity } from '@/utils/number';
@@ -33,7 +34,7 @@ export default function SaleDetails() {
   const [showDetails, setShowDetails] = useState(!notice);
   const canCreateSale = can('sales.write');
   const returns = useQuery({ queryKey: ['sale-returns', id], queryFn: () => getSaleReturns(id!), enabled: !!id && can('sales.read') });
-  const [feedback,setFeedback]=useState(notice??'');
+  const [feedback,setFeedback]=useState(resolveNotice(notice));
   const { formatForCurrency } = useCurrency();
   const sale = useQuery({ queryKey: ['sale', id, 'receipt'], queryFn: () => getSale(id!, false), enabled: !!id && !!membership });
   const financials = useQuery({
