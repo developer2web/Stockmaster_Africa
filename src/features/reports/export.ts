@@ -12,7 +12,10 @@ const escape = (value: string) => value.replace(/[&<>"']/g, (character) => ({ '&
 
 function reportHtml({ report, companyName, storeName, currencyCode, periodLabel, cashBalance, details, preparedBy, scopeLabel,address,phone,email,logoUrl,footer,accentColor }: ExportContext) {
   const brandColor = accentColor && /^#[0-9A-Fa-f]{6}$/.test(accentColor) ? accentColor : '#084B50';
-  const money = (value: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currencyCode, currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+  // fr-CA plutôt que fr-FR : même remarque que CurrencyProvider.formatMoney —
+  // le séparateur de milliers fr-FR (espace fine insécable) peut ne pas
+  // s'afficher selon le moteur de rendu PDF, contrairement à celui de fr-CA.
+  const money = (value: number) => new Intl.NumberFormat('fr-CA', { style: 'currency', currency: currencyCode, currencyDisplay: 'code', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
   const shopValue = report.stockValue + cashBalance;
   const metric = (label: string, value: string, accent = '#102A24') => `<div class="metric"><span>${escape(label)}</span><strong style="color:${accent}">${escape(value)}</strong></div>`;
   const rows = report.topProducts.map((row, index) => `<tr><td>${index + 1}</td><td>${escape(row.name)}</td><td>${formatQuantity(row.quantity)}</td><td>${money(Number(row.revenue ?? 0))}</td><td>${money(Number(row.gross_profit ?? 0))}</td></tr>`).join('');

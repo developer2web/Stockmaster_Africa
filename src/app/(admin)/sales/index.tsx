@@ -28,6 +28,10 @@ import { resolveNotice } from '@/constants/notices';
 const paymentLabels: Record<string, string> = {
   cash: 'Espèces', card: 'Carte', mobile_money: 'Mobile Money',
   bank_transfer: 'Virement', mixed: 'Mixte',
+  // SM-20 (audit externe) : une vente entièrement ou partiellement à crédit
+  // affichait sa valeur brute ('credit', 'partial') faute d'entrée ici — déjà
+  // correctement nommées ailleurs (features/sales/receipt.ts), reprises ici.
+  credit: 'Crédit', partial: 'Paiement partiel',
 };
 
 export default function SalesScreen() {

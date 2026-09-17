@@ -19,6 +19,7 @@ import { expenseSchema, type ExpenseInput } from '@/schemas/reports';
 import { createExpense, EXPENSE_PAGE_SIZE, getExpenseRequests, getExpenses, reviewExpenseRequest, type ExpenseRequest } from './expensesApi';
 import { getCashSummary } from '@/features/cash/api';
 import { parseDecimal } from '@/utils/number';
+import { formatLocalDate } from '@/utils/format';
 import { useOffline } from '@/features/offline/OfflineProvider';
 
 const today = () => localDateValue();
@@ -83,8 +84,8 @@ export default function ExpensesScreen() {
     <PermissionGuard permission="expenses.read">
       <AdminPage title="Dépenses" action={canWrite ? <AppButton icon="plus" onPress={() => setOpen(true)}>Ajouter</AppButton> : undefined}>
         <HelperText type="info" visible>Une dépense validée est immuable. Toute correction doit être tracée par une nouvelle opération autorisée.</HelperText>
-        {(requests.data??[]).filter(item=>item.status==='pending').map(item=><Card key={item.id} mode="contained"><Card.Title title={`En attente • ${item.label}`} subtitle={`${item.expense_date} • ${formatMoney(Number(item.amount))}`}/>{membership?.role==='company_admin'&&<Card.Actions><AppButton mode="text" textColor="#C92A2A" onPress={()=>setReviewing({request:item,approve:false})}>Refuser</AppButton><AppButton onPress={()=>setReviewing({request:item,approve:true})}>Approuver</AppButton></Card.Actions>}</Card>)}
-        {expenses.map((expense) => <Card key={expense.id} mode="outlined"><Card.Title title={expense.label} subtitle={`${expense.store?.name ?? 'Boutique'} • ${expense.expense_date}`} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{formatForCurrency(Number(expense.amount), expense.currency_code)}</Text>} /></Card>)}
+        {(requests.data??[]).filter(item=>item.status==='pending').map(item=><Card key={item.id} mode="contained"><Card.Title title={`En attente • ${item.label}`} subtitle={`${formatLocalDate(item.expense_date)} • ${formatMoney(Number(item.amount))}`}/>{membership?.role==='company_admin'&&<Card.Actions><AppButton mode="text" textColor="#C92A2A" onPress={()=>setReviewing({request:item,approve:false})}>Refuser</AppButton><AppButton onPress={()=>setReviewing({request:item,approve:true})}>Approuver</AppButton></Card.Actions>}</Card>)}
+        {expenses.map((expense) => <Card key={expense.id} mode="outlined"><Card.Title title={expense.label} subtitle={`${expense.store?.name ?? 'Boutique'} • ${formatLocalDate(expense.expense_date)}`} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{formatForCurrency(Number(expense.amount), expense.currency_code)}</Text>} /></Card>)}
         {!list.isLoading && !expenses.length && <EmptyState icon="cash-minus" title="Aucune dépense" message="Ajoutez les charges pour obtenir un bénéfice net exact." />}
         {!!list.error && <HelperText type="error" visible>{(list.error as Error).message}</HelperText>}
         {list.hasNextPage && <AppButton mode="outlined" loading={list.isFetchingNextPage} onPress={() => void list.fetchNextPage()}>Charger plus de dépenses</AppButton>}

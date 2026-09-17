@@ -11,11 +11,16 @@ export function parseDecimal(value: unknown): number {
   return Number(normalized);
 }
 
-/** Affiche une quantité sans zéros décimaux inutiles, avec au plus 3 décimales. */
+/**
+ * Affiche une quantité sans zéros décimaux inutiles, avec au plus 3 décimales.
+ * fr-CA plutôt que fr-FR : même séparateur de milliers (espace insécable),
+ * mais toujours visible dans cette pile technique — fr-FR utilise une espace
+ * fine insécable qui peut ne pas s'afficher selon la police/le rendu.
+ */
 export function formatQuantity(value: unknown): string {
   const quantity = Number(value ?? 0);
   if (!Number.isFinite(quantity)) return '0';
-  return new Intl.NumberFormat('fr-FR', {
+  return new Intl.NumberFormat('fr-CA', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 3,
   }).format(quantity);

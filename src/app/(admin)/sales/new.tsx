@@ -286,7 +286,7 @@ export default function NewSale() {
               <View style={styles.productCopy}>
                 <Text variant="titleMedium">{item.name}{isBulk ? ` · ${item.bulkUnitLabel}` : ''}</Text>
                 <Text>{formatMoney(item.salePrice)} {isBulk ? `par ${unitLabel(item.unit)}` : ''}</Text>
-                <Text>Disponible : {formatQuantity(item.available)} {item.unit}</Text>
+                <Text>Disponible : {formatQuantity(item.available)} {unitLabel(item.unit)}{plural(item.available)}</Text>
               </View>
               <IconButton icon="delete" accessibilityLabel={`Retirer ${item.name} du panier`} onPress={() => { remove(id); setQuantityDrafts(current => { const next = { ...current }; delete next[id]; return next; }); }} />
             </Card.Content>

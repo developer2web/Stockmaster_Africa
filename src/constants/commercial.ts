@@ -30,8 +30,11 @@ export function formatBillingMoney(value: number, currency = 'GNF') {
   // l’app (CurrencyProvider.formatMoney) affiche GNF partout ailleurs (ventes,
   // caisse, rapports) — les écrans d’abonnement doivent rester cohérents.
   const code = currency.trim().toUpperCase() === 'FG' ? 'GNF' : currency.trim().toUpperCase();
-  try { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: code, currencyDisplay: 'code' }).format(value); }
-  catch { return `${new Intl.NumberFormat('fr-FR').format(value)} ${code}`; }
+  // fr-CA plutôt que fr-FR : même remarque que CurrencyProvider.formatMoney,
+  // le séparateur de milliers fr-FR (espace fine insécable) peut ne pas
+  // s'afficher selon la police/le rendu, contrairement à celui de fr-CA.
+  try { return new Intl.NumberFormat('fr-CA', { style: 'currency', currency: code, currencyDisplay: 'code' }).format(value); }
+  catch { return `${new Intl.NumberFormat('fr-CA').format(value)} ${code}`; }
 }
 
 export function subscriptionStatusLabel(status?: string | null) {

@@ -32,11 +32,12 @@ function range(preset: Preset) {
   return { start: iso(start), end: iso(now) };
 }
 const options = (items: ReportFilterOption[], all: string): SelectOption[] => [{ label: all, value: null }, ...items.map((item) => ({ label: item.name, value: item.id }))];
-const paymentLabels: Record<string, string> = { cash: 'Espèces', card: 'Carte', mobile_money: 'Mobile Money', bank_transfer: 'Virement', mixed: 'Mixte', unknown: 'Non précisé' };
+const paymentLabels: Record<string, string> = { cash: 'Espèces', card: 'Carte', mobile_money: 'Mobile Money', bank_transfer: 'Virement', mixed: 'Mixte', unknown: 'Non précisé', credit: 'Crédit', partial: 'Paiement partiel' };
 function variation(current: number, previous: number) {
   if (previous === 0) return current === 0 ? '0 %' : 'Nouveau';
   const result = ((current - previous) / Math.abs(previous)) * 100;
-  return `${result >= 0 ? '+' : ''}${result.toFixed(1)} %`;
+  // Virgule française, pas le point de toFixed() (JS ne connaît que le point).
+  return `${result >= 0 ? '+' : ''}${result.toFixed(1).replace('.', ',')} %`;
 }
 
 function MetricCard({ label, value, icon, color }: { label: string; value: string; icon: string; color: string }) {

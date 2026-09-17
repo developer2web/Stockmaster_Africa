@@ -26,10 +26,10 @@ import { useReceiptBranding } from '@/features/payments/branding';
 import { parseDecimal } from '@/utils/number';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
 import { AppFeedback } from '@/components/ui/AppFeedback';
-import { formatDate,formatDateTime } from '@/utils/format';
+import { formatDate,formatDateTime,formatLocalDate } from '@/utils/format';
 import { readableError } from '@/utils/errors';
 
-const paymentLabels: Record<string, string> = { cash: 'Espèces', card: 'Carte', mobile_money: 'Mobile Money', bank_transfer: 'Virement', mixed: 'Mixte' };
+const paymentLabels: Record<string, string> = { cash: 'Espèces', card: 'Carte', mobile_money: 'Mobile Money', bank_transfer: 'Virement', mixed: 'Mixte', credit: 'Crédit', partial: 'Paiement partiel' };
 
 export default function CustomerDetails() {
   const can = usePermissions();
@@ -146,7 +146,7 @@ export default function CustomerDetails() {
             </Card.Content>}
           </Card>
 
-          {schedule.data&&<Card mode="outlined"><Card.Title title="Échéancier actif" subtitle={`${schedule.data.customer_debt_installments.length} échéance${plural(schedule.data.customer_debt_installments.length)}`}/><Card.Content style={{gap:6}}>{schedule.data.customer_debt_installments.map(row=><Text key={row.id}>{formatDate(row.due_date)} • {formatMoney(Number(row.amount)-Number(row.paid_amount))} restant • {row.status}</Text>)}</Card.Content></Card>}
+          {schedule.data&&<Card mode="outlined"><Card.Title title="Échéancier actif" subtitle={`${schedule.data.customer_debt_installments.length} échéance${plural(schedule.data.customer_debt_installments.length)}`}/><Card.Content style={{gap:6}}>{schedule.data.customer_debt_installments.map(row=><Text key={row.id}>{formatLocalDate(row.due_date)} • {formatMoney(Number(row.amount)-Number(row.paid_amount))} restant • {row.status}</Text>)}</Card.Content></Card>}
           {membership?.role==='company_admin'&&balance>0&&<AppButton mode="outlined" icon="calendar-clock" onPress={()=>setScheduleOpen(true)}>Définir l’échéancier</AppButton>}
 
           {canWrite && (

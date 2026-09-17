@@ -152,7 +152,12 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
               ? `Attention : le prix de vente est inférieur au prix d’achat (${formatMoney(liveMargin)}).`
               : liveMargin === 0
                 ? 'Aucune marge à ce prix : vente au prix d’achat.'
-                : `Marge : ${formatMoney(liveMargin)}${liveMarginPercent !== null ? ` (${liveMarginPercent.toFixed(1)} %)` : ''}`}
+                // SM-21 (audit externe) : ce pourcentage divise la marge par le
+                // prix d'achat (marge ÷ coût), donc c'est un taux de marque, pas
+                // un taux de marge (marge ÷ prix de vente) — nommé explicitement
+                // pour ne pas laisser croire au second. Indicateurs du produit
+                // (fiche existante) affiche déjà les deux, correctement nommés.
+                : `Marge : ${formatMoney(liveMargin)}${liveMarginPercent !== null ? ` (taux de marque : ${liveMarginPercent.toFixed(1).replace('.', ',')} %)` : ''}`}
           </HelperText>}
           {!id && <FormField control={control} name="initialQuantity" label="Stock initial" required keyboardType="number-pad" integerOnly selectTextOnFocus />}
         </Card.Content>
@@ -261,7 +266,12 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
       onConfirm={() => { if (pendingSave) save.mutate(pendingSave); setSimilarProduct(null); }}
     />
     {id&&<Card mode="contained" style={{backgroundColor:stockQuantity>0?'#E1F1F2':'#FFF3E0'}}><Card.Title title="Stock de la boutique active" subtitle={membership?.storeName??'Boutique'} left={()=><Icon source="package-variant-closed" size={28} color="#084B50"/>}/><Card.Content style={{gap:8}}><Text variant="displaySmall" style={{fontWeight:'900',color:stockQuantity>0?'#084B50':'#C25B00'}}>{formatQuantity(stockQuantity)}</Text><Text>Valeur au prix d’achat : {formatMoney(stockValue)}</Text>{!canAdjustStock&&<Text>Vous pouvez consulter ce stock, mais votre rôle ne permet pas de le modifier.</Text>}</Card.Content>{canAdjustStock&&<Card.Actions><AppButton mode="contained" icon="plus" onPress={()=>setAdjust('in')}>Ajouter du stock</AppButton><AppButton mode="outlined" icon="minus" disabled={stockQuantity<=0} onPress={()=>setAdjust('out')}>Retirer</AppButton></Card.Actions>}</Card>}
-    {id&&product.data&&<Card mode="outlined"><Card.Title title="Indicateurs du produit"/><Card.Content style={{gap:6}}><Text>Marge unitaire : {formatMoney(margin)}</Text><Text>Taux de marge : {Number(product.data.purchase_price)>0?`${((margin/Number(product.data.purchase_price))*100).toFixed(1)} %`:'Non calculable'}</Text><Text>Unité : {unitOptions.find(option=>option.value===product.data.unit)?.label??'Pièce'}</Text><Text>Valeur du stock : {formatMoney(stockValue)}</Text><Text>Fournisseur : {product.data.supplier?.name??'Sans fournisseur'}</Text></Card.Content></Card>}
+    {/* SM-21 (audit externe) : "Taux de marge" divisait la marge par le prix
+        d'achat (marge ÷ coût) — c'est en réalité un taux de marque. Renommé,
+        et le vrai taux de marge (marge ÷ prix de vente, la question que se
+        pose un commerçant en fixant son prix) ajouté à côté plutôt que
+        remplacé, les deux ayant un usage réel. */}
+    {id&&product.data&&<Card mode="outlined"><Card.Title title="Indicateurs du produit"/><Card.Content style={{gap:6}}><Text>Marge unitaire : {formatMoney(margin)}</Text><Text>Taux de marque (marge ÷ coût) : {Number(product.data.purchase_price)>0?`${((margin/Number(product.data.purchase_price))*100).toFixed(1).replace('.',',')} %`:'Non calculable'}</Text><Text>Taux de marge (marge ÷ prix de vente) : {Number(product.data.sale_price)>0?`${((margin/Number(product.data.sale_price))*100).toFixed(1).replace('.',',')} %`:'Non calculable'}</Text><Text>Unité : {unitOptions.find(option=>option.value===product.data.unit)?.label??'Pièce'}</Text><Text>Valeur du stock : {formatMoney(stockValue)}</Text><Text>Fournisseur : {product.data.supplier?.name??'Sans fournisseur'}</Text></Card.Content></Card>}
     {id&&!!levels.data?.some(level=>level.variant)&&<Card><Card.Title title="Détail par variante"/><Card.Content>{levels.data.map(level=><Text key={level.id}>{level.variant?.name??'Produit simple'} : {formatQuantity(level.quantity)}</Text>)}</Card.Content></Card>}
     {id&&<AppButton mode="outlined" destructive icon="delete-outline" onPress={()=>setConfirm(true)}>Supprimer le produit</AppButton>}
     <ConfirmDialog visible={confirm} title="Supprimer ce produit ?" message="Cette action est refusée si le produit est déjà utilisé dans une opération." destructive loading={remove.isPending} onCancel={()=>setConfirm(false)} onConfirm={()=>remove.mutate()}/>

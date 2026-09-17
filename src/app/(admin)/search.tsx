@@ -24,7 +24,10 @@ async function searchWorkspace(companyId: string, storeId: string, term: string)
     ...(products.data ?? []).map((item) => ({ id: item.id, title: item.name, subtitle: `Produit · ${item.sku ?? item.barcode ?? 'Sans code'}`, kind: 'Produit' as const, path: `/products/${item.id}` })),
     ...(customers.data ?? []).map((item) => ({ id: item.id, title: item.name, subtitle: `Client · ${item.phone ?? 'Téléphone non renseigné'}`, kind: 'Client' as const, path: `/customers/${item.id}` })),
     ...(suppliers.data ?? []).map((item) => ({ id: item.id, title: item.name, subtitle: `Fournisseur · ${item.phone ?? 'Téléphone non renseigné'}`, kind: 'Fournisseur' as const, path: `/suppliers/${item.id}` })),
-    ...(sales.data ?? []).map((item) => ({ id: item.id, title: item.reference ?? 'Vente', subtitle: `Vente · ${Number(item.total).toLocaleString('fr-FR')} · ${new Date(item.created_at).toLocaleDateString('fr-FR')}`, kind: 'Vente' as const, path: `/sales/${item.id}` })),
+    // fr-CA pour le montant (séparateur de milliers toujours visible,
+    // contrairement à l'espace fine insécable de fr-FR) ; fr-FR reste correct
+    // pour la date, seul le formatage des nombres est concerné.
+    ...(sales.data ?? []).map((item) => ({ id: item.id, title: item.reference ?? 'Vente', subtitle: `Vente · ${Number(item.total).toLocaleString('fr-CA')} · ${new Date(item.created_at).toLocaleDateString('fr-FR')}`, kind: 'Vente' as const, path: `/sales/${item.id}` })),
   ];
 }
 
