@@ -23,7 +23,7 @@ import { lookupOpenFoodFacts, type OpenFoodFactsMatch } from './openFoodFacts';
 import { productSchema, ProductInput, variantSchema, VariantInput } from '@/schemas/catalog';
 import type { ProductVariant } from '@/types/database';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
-import { formatQuantity, numericFieldValue } from '@/utils/number';
+import { formatQuantity, numericFieldValue, parseDecimal } from '@/utils/number';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
 import { readableError } from '@/utils/errors';
 
@@ -50,12 +50,15 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   // tout de suite s'il vend vraiment moins cher en gros — sans avoir à
   // sortir une calculette.
   const [bulkEnabledValue, bulkUnitLabelValue, bulkQuantityValue, bulkPriceValue, bulkPurchasePriceValue, salePriceValue, purchasePriceValue] = useWatch({ control, name: ['bulkEnabled', 'bulkUnitLabel', 'bulkQuantity', 'bulkPrice', 'bulkPurchasePrice', 'salePrice', 'purchasePrice'] });
-  const perUnitBulkPrice = Number(bulkQuantityValue) > 0 ? Number(bulkPriceValue) / Number(bulkQuantityValue) : 0;
+  const perUnitBulkPrice = parseDecimal(bulkQuantityValue) > 0 ? parseDecimal(bulkPriceValue) / parseDecimal(bulkQuantityValue) : 0;
   // Marge en direct sous les prix : on veut que l'erreur de saisie (prix de
   // vente sous le prix d'achat) saute aux yeux tout de suite, pas seulement
   // après enregistrement sur la fiche complète.
-  const liveMargin = Number(salePriceValue) - Number(purchasePriceValue);
-  const liveMarginPercent = Number(purchasePriceValue) > 0 ? (liveMargin / Number(purchasePriceValue)) * 100 : null;
+  // parseDecimal, pas Number() : Number("12,50") vaut NaN (JS n'accepte que
+  // le point), donc taper une virgule (habitude française) affichait une
+  // marge à 0 ici pendant la saisie — audit externe, SM-08.
+  const liveMargin = parseDecimal(salePriceValue) - parseDecimal(purchasePriceValue);
+  const liveMarginPercent = parseDecimal(purchasePriceValue) > 0 ? (liveMargin / parseDecimal(purchasePriceValue)) * 100 : null;
   // Les 3 champs du lot sont liés par une seule règle (tout ou rien) : sans
   // ça, remplir la quantité et le prix après le nom ne fait pas disparaître
   // l'erreur affichée sur le nom tant qu'on n'y retouche pas soi-même.
@@ -141,10 +144,10 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
             <Text variant="bodySmall" style={styles.lookupText}>Nom suggéré depuis une base de données publique{lookupMatch.brand ? ` (${lookupMatch.brand})` : ''} — vérifiez qu’il correspond avant d’enregistrer.</Text>
           </View>}
           <ResponsiveFormGrid>
-            <FormField control={control} name="purchasePrice" label={`Prix d’achat (${primaryCode})`} required keyboardType="decimal-pad" selectTextOnFocus />
-            <FormField control={control} name="salePrice" label={`Prix de vente (${primaryCode})`} required keyboardType="decimal-pad" selectTextOnFocus />
+            <FormField control={control} name="purchasePrice" label={`Prix d’achat (${primaryCode})`} required keyboardType="number-pad" integerOnly selectTextOnFocus />
+            <FormField control={control} name="salePrice" label={`Prix de vente (${primaryCode})`} required keyboardType="number-pad" integerOnly selectTextOnFocus />
           </ResponsiveFormGrid>
-          {(Number(purchasePriceValue) > 0 || Number(salePriceValue) > 0) && <HelperText type={liveMargin <= 0 ? 'error' : 'info'} visible>
+          {(parseDecimal(purchasePriceValue) > 0 || parseDecimal(salePriceValue) > 0) && <HelperText type={liveMargin <= 0 ? 'error' : 'info'} visible>
             {liveMargin < 0
               ? `Attention : le prix de vente est inférieur au prix d’achat (${formatMoney(liveMargin)}).`
               : liveMargin === 0
@@ -171,13 +174,13 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
           </ResponsiveFormGrid>
           {!id && <Text variant="bodySmall" style={{ fontStyle: 'italic' }}>Remplissez plutôt les prix du lot : les prix à l’unité en haut se calculent tout seuls.</Text>}
           <ResponsiveFormGrid>
-            {!id && <FormField control={control} name="bulkPurchasePrice" label={`Prix d’achat du lot (${primaryCode}, facultatif)`} keyboardType="decimal-pad" selectTextOnFocus />}
-            <FormField control={control} name="bulkPrice" label={`Prix de vente du lot (${primaryCode})`} required keyboardType="decimal-pad" selectTextOnFocus />
+            {!id && <FormField control={control} name="bulkPurchasePrice" label={`Prix d’achat du lot (${primaryCode}, facultatif)`} keyboardType="number-pad" integerOnly selectTextOnFocus />}
+            <FormField control={control} name="bulkPrice" label={`Prix de vente du lot (${primaryCode})`} required keyboardType="number-pad" integerOnly selectTextOnFocus />
           </ResponsiveFormGrid>
-          {perUnitBulkPrice > 0 && <HelperText type={perUnitBulkPrice > Number(salePriceValue) && Number(salePriceValue) > 0 ? 'error' : 'info'} visible>
-            {perUnitBulkPrice > Number(salePriceValue) && Number(salePriceValue) > 0
-              ? `Attention : ${formatMoney(perUnitBulkPrice)} par unité dans le lot, c’est plus cher que le prix au détail (${formatMoney(Number(salePriceValue))}). Vérifiez le prix du lot.`
-              : `Soit ${formatMoney(perUnitBulkPrice)} par unité dans le lot, contre ${formatMoney(Number(salePriceValue))} au détail.`}
+          {perUnitBulkPrice > 0 && <HelperText type={perUnitBulkPrice > parseDecimal(salePriceValue) && parseDecimal(salePriceValue) > 0 ? 'error' : 'info'} visible>
+            {perUnitBulkPrice > parseDecimal(salePriceValue) && parseDecimal(salePriceValue) > 0
+              ? `Attention : ${formatMoney(perUnitBulkPrice)} par unité dans le lot, c’est plus cher que le prix au détail (${formatMoney(parseDecimal(salePriceValue))}). Vérifiez le prix du lot.`
+              : `Soit ${formatMoney(perUnitBulkPrice)} par unité dans le lot, contre ${formatMoney(parseDecimal(salePriceValue))} au détail.`}
           </HelperText>}
         </Card.Content>}
       </Card>} />}
@@ -287,7 +290,7 @@ function Variants({ productId, companyId, variants, refresh }: { productId:strin
   const remove=useMutation({mutationFn:()=>deleteVariant(deleting!.id),onSuccess:async()=>{await refresh();setDeleting(null)}});
   const show=(v?:ProductVariant)=>{setEditing(v??null);setOpen(true)};
   return <><Card><Card.Title title="Variantes" subtitle={`${variants.length} variante${plural(variants.length)}`} right={()=><AppButton compact mode="text" icon="plus" style={{marginRight:8}} onPress={()=>show()}>Ajouter</AppButton>}/><Card.Content>{variants.map(v=><Card key={v.id} mode="outlined" onPress={()=>show(v)} style={{marginBottom:8}}><Card.Title title={v.name} right={()=><AppButton mode="text" destructive onPress={()=>setDeleting(v)}>Retirer</AppButton>}/></Card>)}{!variants.length&&<Text>Aucune variante. Le produit simple reste utilisable.</Text>}</Card.Content></Card>
-    <Portal><Dialog visible={open} onDismiss={()=>setOpen(false)}><Dialog.Title>{editing?'Modifier la variante':'Nouvelle variante'}</Dialog.Title><Dialog.ScrollArea style={{paddingHorizontal:0}}><ScrollView nestedScrollEnabled contentContainerStyle={{gap:12,paddingHorizontal:24,paddingBottom:12}} keyboardShouldPersistTaps="handled"><FormField control={control} name="name" label="Nom"/><FormField control={control} name="barcode" label="Code-barres"/><FormField control={control} name="purchasePrice" label="Prix d’achat spécifique" keyboardType="decimal-pad" selectTextOnFocus/><FormField control={control} name="salePrice" label="Prix de vente spécifique" keyboardType="decimal-pad" selectTextOnFocus/><Controller control={control} name="isActive" render={({field})=><Card mode="outlined"><Card.Title title="Variante active" right={()=><Switch value={field.value} onValueChange={field.onChange} style={{marginRight:12}}/>}/></Card>}/>{!!save.error&&<HelperText type="error" visible>{save.error.message}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setOpen(false)}>Annuler</AppButton><AppButton loading={save.isPending} onPress={handleSubmit(v=>save.mutate(v))}>Enregistrer</AppButton></Dialog.Actions></Dialog></Portal>
+    <Portal><Dialog visible={open} onDismiss={()=>setOpen(false)}><Dialog.Title>{editing?'Modifier la variante':'Nouvelle variante'}</Dialog.Title><Dialog.ScrollArea style={{paddingHorizontal:0}}><ScrollView nestedScrollEnabled contentContainerStyle={{gap:12,paddingHorizontal:24,paddingBottom:12}} keyboardShouldPersistTaps="handled"><FormField control={control} name="name" label="Nom"/><FormField control={control} name="barcode" label="Code-barres"/><FormField control={control} name="purchasePrice" label="Prix d’achat spécifique" keyboardType="number-pad" integerOnly selectTextOnFocus/><FormField control={control} name="salePrice" label="Prix de vente spécifique" keyboardType="number-pad" integerOnly selectTextOnFocus/><Controller control={control} name="isActive" render={({field})=><Card mode="outlined"><Card.Title title="Variante active" right={()=><Switch value={field.value} onValueChange={field.onChange} style={{marginRight:12}}/>}/></Card>}/>{!!save.error&&<HelperText type="error" visible>{save.error.message}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setOpen(false)}>Annuler</AppButton><AppButton loading={save.isPending} onPress={handleSubmit(v=>save.mutate(v))}>Enregistrer</AppButton></Dialog.Actions></Dialog></Portal>
     <ConfirmDialog visible={!!deleting} title="Supprimer la variante ?" message="Cette action est définitive." destructive loading={remove.isPending} onCancel={()=>setDeleting(null)} onConfirm={()=>remove.mutate()}/>
   </>;
 }
