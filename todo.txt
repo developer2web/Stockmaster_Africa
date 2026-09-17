@@ -919,4 +919,49 @@
     code.
   - Warning useNativeDriver sur web (limitation connue de React Native
     Web, pas un vrai bug corrigible ici).
+- [x] Deuxième audit externe reçu en PDF (16/09, 35 constats : 2
+  bloquants, 8 majeurs, 15 moyens, 10 mineurs — testé sur la prod,
+  compte dédié, jeu de test volontairement laissé en place). Demande
+  explicite : tout corriger. En cours, dans l'ordre de priorité de
+  l'audit ; chaque correctif vérifié en direct (Playwright et/ou
+  requêtes SQL réelles) avant commit. SM-01 à SM-04 faits :
+  - SM-01 BLOQUANT — la caisse pouvait passer sous zéro sans
+    avertissement via "Effectuer une dépense" (Caisse), alors que
+    l'approvisionnement payé maintenant avertit déjà. En creusant :
+    AUCUN des trois chemins qui sortent de l'argent de la caisse
+    n'avait de vérification côté serveur, avertissement client ou pas.
+    Corrigé une fois, au niveau le plus bas commun (trigger sur
+    cash_transactions, verrou par boutique contre les écritures
+    concurrentes) plutôt que dans chaque fonction séparément.
+  - SM-02 BLOQUANT — record_cash_transaction acceptait une sortie de
+    caisse dès que cash_transactions.write OU expenses.write était
+    coché (les deux accordés à l'Employé par défaut), alors qu'une
+    sortie devient une vraie dépense : décocher "Gérer les dépenses"
+    n'avait donc aucun effet sur ce chemin précis. Corrigé : une
+    sortie exige maintenant les deux permissions. Vérifié en direct
+    avec un compte employé de test, permission décochée : refusée par
+    le serveur.
+  - SM-03 MAJEUR — texte invisible en thème sombre (contraste mesuré à
+    1,0) sur l'encadré d'aide de l'inscription, le même encadré sur
+    "Finaliser votre espace", et le solde de caisse de la démo :
+    couleurs figées en dur pensées pour le thème clair uniquement.
+    Corrigé en utilisant les jetons du thème (déjà utilisés
+    correctement ailleurs, ex. l'écran Caisse réel) plutôt qu'en
+    rajoutant une couleur manquante. Au passage : demo.tsx ne posait
+    jamais le fond du thème actif sur son propre écran, corrigé aussi.
+  - SM-04 MAJEUR/SÉCURITÉ — `?notice=` affichait n'importe quel texte
+    comme message de confirmation officiel (hameçonnage : un lien
+    WhatsApp pouvait faire croire à un message de l'application).
+    `notice` ne transporte plus que des codes fixes (nouveau
+    constants/notices.ts), jamais de texte libre — un lien forgé ne
+    peut plus afficher qu'un message déjà prévu par l'app. 13 écrans
+    corrigés (7 qui l'affichaient, 6 qui l'envoyaient). Au passage,
+    repéré en revérifiant : AppFeedback (le bandeau partagé) calculait
+    une couleur par type mais ne l'appliquait jamais au Snackbar (code
+    mort) — corrigé, et fixée en couleurs non réactives au thème (les
+    couleurs du thème actif deviennent pastel clair en thème sombre,
+    aussi illisibles avec le texte blanc fixe de ce bandeau que le bug
+    d'origine).
+  247/247 tests, tsc propre à chaque étape. Déployé après chaque étape.
+  Suite (SM-05 et plus) en cours.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
