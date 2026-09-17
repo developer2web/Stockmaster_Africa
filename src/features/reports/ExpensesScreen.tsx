@@ -3,7 +3,7 @@ import { localDateValue } from '@/utils/calendar';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Card, Dialog, HelperText, Portal, Text } from 'react-native-paper';
 
 import { FormField } from '@/components/forms/FormField';
@@ -17,6 +17,8 @@ import { PermissionGuard } from '@/features/auth/PermissionGuard';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { expenseSchema, type ExpenseInput } from '@/schemas/reports';
 import { createExpense, EXPENSE_PAGE_SIZE, getExpenseRequests, getExpenses, reviewExpenseRequest, type ExpenseRequest } from './expensesApi';
+import { getCashSummary } from '@/features/cash/api';
+import { parseDecimal } from '@/utils/number';
 import { useOffline } from '@/features/offline/OfflineProvider';
 
 const today = () => localDateValue();
@@ -41,6 +43,14 @@ export default function ExpensesScreen() {
   const expenses = list.data?.pages.flat() ?? [];
   const requests=useQuery({queryKey:['expense-requests',company,store],queryFn:()=>getExpenseRequests(company,store),enabled:!!company&&!!store});
   const { control, handleSubmit, reset } = useForm<ExpenseInput>({ resolver: zodResolver(expenseSchema), defaultValues: { label: '', amount: '', expenseDate: today(), storeId: store || null } });
+  const amountValue = useWatch({ control, name: 'amount' });
+  const cashSummary = useQuery({ queryKey: ['cash-summary', store], queryFn: () => getCashSummary(store), enabled: !!store });
+  const cashBalance = cashSummary.data?.balance ?? 0;
+  // Audit externe (SM-01) : une dépense qui dépasserait la caisse actuelle
+  // était acceptée sans aucun avertissement. Le serveur la refuse
+  // maintenant de toute façon, mais avertir avant l'envoi évite une erreur
+  // surprise après la saisie.
+  const wouldGoNegative = parseDecimal(amountValue ?? '0') > 0 && cashBalance - parseDecimal(amountValue ?? '0') < 0;
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['expenses', company, store] }),
@@ -73,8 +83,8 @@ export default function ExpensesScreen() {
         <Portal>
           <Dialog visible={open} onDismiss={() => setOpen(false)}>
             <Dialog.Title>Nouvelle dépense</Dialog.Title>
-            <Dialog.Content><FormField control={control} name="label" label="Motif" /><FormField control={control} name="amount" label="Montant" keyboardType="decimal-pad" selectTextOnFocus /><Controller control={control} name="expenseDate" render={({ field, fieldState }) => <DateField label="Date de la dépense" value={field.value} onChange={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} />} />{!!add.error && <HelperText type="error" visible>{add.error.message}</HelperText>}</Dialog.Content>
-            <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={add.isPending} disabled={add.isPending} onPress={handleSubmit((value) => add.mutate(value))}>Enregistrer</AppButton></Dialog.Actions>
+            <Dialog.Content><FormField control={control} name="label" label="Motif" /><FormField control={control} name="amount" label="Montant" keyboardType="decimal-pad" selectTextOnFocus /><Controller control={control} name="expenseDate" render={({ field, fieldState }) => <DateField label="Date de la dépense" value={field.value} onChange={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} />} />{wouldGoNegative && <HelperText type="error" visible>Ce montant dépasse la caisse actuelle ({formatMoney(cashBalance)}) : la dépense sera refusée.</HelperText>}{!!add.error && <HelperText type="error" visible>{add.error.message}</HelperText>}</Dialog.Content>
+            <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={add.isPending} disabled={add.isPending || wouldGoNegative} onPress={handleSubmit((value) => add.mutate(value))}>Enregistrer</AppButton></Dialog.Actions>
           </Dialog>
         </Portal>
         <AppFeedback message={successMessage} onDismiss={() => setSuccessMessage('')} />
