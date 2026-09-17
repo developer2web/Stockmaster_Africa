@@ -41,10 +41,20 @@ const DYNAMIC_ROUTES = [
 function vercelConfig() {
   return {
     cleanUrls: true,
-    rewrites: DYNAMIC_ROUTES.map(({ prefix, siblings }) => ({
-      source: `${prefix}/:id((?!${siblings.map((s) => `${s}$`).join('|')}).*)`,
-      destination: `${prefix}/%5Bid%5D`,
-    })),
+    rewrites: [
+      ...DYNAMIC_ROUTES.map(({ prefix, siblings }) => ({
+        source: `${prefix}/:id((?!${siblings.map((s) => `${s}$`).join('|')}).*)`,
+        destination: `${prefix}/%5Bid%5D`,
+      })),
+      // Doit rester en dernier : Vercel sert d'abord un fichier réel s'il
+      // existe (JS/CSS/images, pages .html via cleanUrls) et ne retombe sur
+      // les rewrites que sinon, donc cette règle ne peut pas intercepter un
+      // contenu qui existe vraiment. Sans elle, une adresse inconnue tombait
+      // sur la page d'erreur générique de Vercel (en anglais, avec un
+      // identifiant technique interne, aucun retour vers l'app — audit
+      // externe SM-05) au lieu de l'écran "Page introuvable" de l'app.
+      { source: '/(.*)', destination: '/+not-found' },
+    ],
   };
 }
 
