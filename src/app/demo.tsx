@@ -60,15 +60,20 @@ export default function DemoScreen() {
   const last = step === steps.length - 1;
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
+    // Cet écran n'est pas enveloppé dans AuthScreen (contrairement aux
+    // autres écrans d'authentification) et ne posait donc jamais le fond du
+    // thème actif — sans ça, un texte devenu correctement clair en thème
+    // sombre (theme.colors.primary) se serait retrouvé sur un fond resté
+    // clair par défaut, tout aussi peu lisible que le bug d'origine.
+    <ScrollView style={{ backgroundColor: theme.colors.background }} contentContainerStyle={styles.page}>
       <View style={styles.header}>
-        <Text variant="headlineMedium" style={styles.title}>StockMaster en action</Text>
+        <Text variant="headlineMedium" style={[styles.title, { color: theme.colors.primary }]}>StockMaster en action</Text>
         <Text style={styles.subtitle}>Explorez un aperçu interactif sans créer de compte. Les données sont fictives et rien n’est enregistré.</Text>
         <AppButton mode="outlined" icon="arrow-left" onPress={() => router.back()}>Retour</AppButton>
       </View>
 
       <View style={styles.stepper}>
-        <Text style={styles.stepLabel}>Étape {step + 1} sur {steps.length} · {steps[step]}</Text>
+        <Text style={[styles.stepLabel, { color: theme.colors.primary }]}>Étape {step + 1} sur {steps.length} · {steps[step]}</Text>
         <View style={styles.dots}>
           {steps.map((label, index) => (
             <View key={label} style={[styles.dot, { backgroundColor: index === step ? theme.colors.primary : theme.colors.outlineVariant }]} />
@@ -157,8 +162,8 @@ export default function DemoScreen() {
         <>
           <Card mode="contained" style={{ backgroundColor: theme.colors.primaryContainer }}>
             <Card.Content>
-              <Text style={styles.label}>Solde de caisse</Text>
-              <Text variant="headlineSmall" style={styles.value}>{money(cashBalance)}</Text>
+              <Text style={[styles.label, { color: theme.colors.onPrimaryContainer }]}>Solde de caisse</Text>
+              <Text variant="headlineSmall" style={[styles.value, { color: theme.colors.onPrimaryContainer }]}>{money(cashBalance)}</Text>
             </Card.Content>
           </Card>
           <Card mode="contained">
@@ -188,10 +193,13 @@ export default function DemoScreen() {
 const styles = StyleSheet.create({
   page: { padding: 20, gap: 16, maxWidth: 900, width: '100%', alignSelf: 'center' },
   header: { gap: 10 },
-  title: { color: '#084B50', fontWeight: '900' },
+  // Couleur posée en ligne (theme.colors.primary/onPrimaryContainer) plutôt
+  // qu'ici : #084B50 en dur devenait illisible en thème sombre, où c'est
+  // justement la couleur de fond de primaryContainer (audit externe, SM-03).
+  title: { fontWeight: '900' },
   subtitle: { lineHeight: 22 },
   stepper: { gap: 8 },
-  stepLabel: { fontWeight: '800', color: '#084B50' },
+  stepLabel: { fontWeight: '800' },
   dots: { flexDirection: 'row', gap: 6 },
   dot: { width: 28, height: 5, borderRadius: 3 },
   stepIntro: { color: '#5C6E6B' },
@@ -199,7 +207,7 @@ const styles = StyleSheet.create({
   stat: { flexGrow: 1, flexBasis: 220, minWidth: 0 },
   productContent: { gap: 2 },
   label: { marginTop: 12 },
-  value: { color: '#084B50', fontWeight: '800', marginTop: 4 },
+  value: { fontWeight: '800', marginTop: 4 },
   list: { gap: 12 },
   row: { flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   rowText: { flexGrow: 1, flexBasis: 180, minWidth: 0 },

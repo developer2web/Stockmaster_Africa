@@ -4,7 +4,7 @@ import { Link, router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useForm } from 'react-hook-form';
-import { Card, Checkbox, HelperText, Icon, Text } from 'react-native-paper';
+import { Card, Checkbox, HelperText, Icon, Text, useTheme } from 'react-native-paper';
 
 import { FormField } from '@/components/forms/FormField';
 import { AppButton } from '@/components/ui/AppButton';
@@ -13,6 +13,7 @@ import { registerSchema, type RegisterInput } from '@/schemas/auth';
 import { supabase } from '@/services/supabase/client';
 
 export default function RegisterScreen() {
+  const theme = useTheme();
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [createdEmail, setCreatedEmail] = useState('');
@@ -127,7 +128,11 @@ export default function RegisterScreen() {
 
   return (
     <AuthScreen title="Créer votre compte" subtitle="Étape 1 sur 2 · Votre adresse email devra être confirmée.">
-      <Card mode="contained" style={{ backgroundColor: '#E1F1F2' }}><Card.Content style={{ gap: 6 }}><Text variant="titleMedium" style={{ fontWeight: '800', color: '#084B50' }}>Commencez simplement</Text><Text>Renseignez les champs marqués *, confirmez votre email, puis ajoutez votre entreprise et votre boutique.</Text></Card.Content></Card>
+      {/* Fond et texte tirés du thème (et non plus figés en clair) : en
+          thème sombre, ce texte reprenait par défaut la couleur claire du
+          thème sur un fond resté clair — quasi invisible (audit externe,
+          SM-03). */}
+      <Card mode="contained" style={{ backgroundColor: theme.colors.primaryContainer }}><Card.Content style={{ gap: 6 }}><Text variant="titleMedium" style={{ fontWeight: '800', color: theme.colors.onPrimaryContainer }}>Commencez simplement</Text><Text style={{ color: theme.colors.onPrimaryContainer }}>Renseignez les champs marqués *, confirmez votre email, puis ajoutez votre entreprise et votre boutique.</Text></Card.Content></Card>
       {!!error && <HelperText type="error" visible>{error}</HelperText>}
       <FormField control={control} name="fullName" label="Nom complet *" autoComplete="name" textContentType="name" />
       <FormField

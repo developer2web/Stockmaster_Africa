@@ -1,7 +1,7 @@
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Card, HelperText, Text } from 'react-native-paper';
+import { Card, HelperText, Text, useTheme } from 'react-native-paper';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppBackButton } from '@/components/ui/AppBackButton';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
@@ -14,6 +14,7 @@ import { supportedCountries } from '@/constants/countries';
 import { getAccessibleBusinesses } from '@/features/workspace/api';
 
 export default function CompleteProfile() {
+  const theme = useTheme();
   const { session, membership, businesses, stores, needsOnboarding, isLoading, isWorkspaceLoading, refreshMembership } = useAuth();
   const meta = session?.user.user_metadata;
   const [error, setError] = useState('');
@@ -41,5 +42,8 @@ export default function CompleteProfile() {
   if (!needsOnboarding) return <Redirect href="/" />;
   const employeeOnly = businesses.length > 0 && businesses.every((business) => business.role === 'employee');
   if (employeeOnly) return <Redirect href={stores.length > 1 ? '/choose-store' : '/'} />;
-  return <AuthScreen title="Finaliser votre espace" subtitle="Étape 2 sur 2 · Ces informations configurent votre boutique."><Card mode="contained" style={{ backgroundColor: '#E1F1F2' }}><Card.Content style={{ gap: 6 }}><Text variant="titleMedium" style={{ fontWeight: '800', color: '#084B50' }}>Dernière étape</Text><Text>Renseignez les champs marqués *. Après cela, vous pourrez consulter les abonnements et les conditions d’essai disponibles pour votre compte.</Text></Card.Content></Card><FormField control={control} name="companyName" label="Nom de l’entreprise *" /><FormField control={control} name="storeName" label="Nom de la première boutique *" /><Controller control={control} name="countryCode" render={({field})=><SelectField label="Pays d’activité *" value={field.value} onChange={(value)=>field.onChange(value??'GN')} options={supportedCountries.map((country)=>({label:`${country.name} — ${country.currency}`,value:country.code}))}/>} />{!!error && <HelperText type="error" visible>{error}</HelperText>}<AppButton onPress={submit} loading={formState.isSubmitting}>Créer mon espace et continuer</AppButton><AppBackButton fallback="/" /></AuthScreen>;
+  // Fond et texte tirés du thème (et non plus figés en clair) : en thème
+  // sombre, ce texte reprenait par défaut la couleur claire du thème sur un
+  // fond resté clair — quasi invisible (audit externe, SM-03).
+  return <AuthScreen title="Finaliser votre espace" subtitle="Étape 2 sur 2 · Ces informations configurent votre boutique."><Card mode="contained" style={{ backgroundColor: theme.colors.primaryContainer }}><Card.Content style={{ gap: 6 }}><Text variant="titleMedium" style={{ fontWeight: '800', color: theme.colors.onPrimaryContainer }}>Dernière étape</Text><Text style={{ color: theme.colors.onPrimaryContainer }}>Renseignez les champs marqués *. Après cela, vous pourrez consulter les abonnements et les conditions d’essai disponibles pour votre compte.</Text></Card.Content></Card><FormField control={control} name="companyName" label="Nom de l’entreprise *" /><FormField control={control} name="storeName" label="Nom de la première boutique *" /><Controller control={control} name="countryCode" render={({field})=><SelectField label="Pays d’activité *" value={field.value} onChange={(value)=>field.onChange(value??'GN')} options={supportedCountries.map((country)=>({label:`${country.name} — ${country.currency}`,value:country.code}))}/>} />{!!error && <HelperText type="error" visible>{error}</HelperText>}<AppButton onPress={submit} loading={formState.isSubmitting}>Créer mon espace et continuer</AppButton><AppBackButton fallback="/" /></AuthScreen>;
 }
