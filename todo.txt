@@ -1083,8 +1083,55 @@
   changement de statut en base a été refusé par le mode automatique
   car donnée partagée) — pas relancée sans autorisation explicite,
   voir rapport à l'utilisateur. Déployé.
-  Suite (SM-12, SM-17, SM-20, SM-21 et plus) en cours — voir aussi le
-  solde test à -101 000 GNF laissé par l'auditeur (Sahel Commerce
-  SARL/Boutique Kaloum Centre), pas encore remis à zéro faute de
-  réponse du propriétaire sur ce point précis.
+  Suite (SM-20, SM-21 et plus) en cours — voir aussi le solde test à
+  -101 000 GNF laissé par l'auditeur (Sahel Commerce SARL/Boutique
+  Kaloum Centre), pas encore remis à zéro faute de réponse du
+  propriétaire sur ce point précis.
+- [x] SM-12 MOYEN — export PDF (rapports) et impression de reçu sur
+  web : printHtmlDocument levait déjà une erreur claire quand
+  window.open() renvoie null (pop-up bloquée), déjà affichée par
+  ReportsScreen — pas un échec silencieux dans ce cas précis. Durci
+  quand même pour le cas où un bloqueur renvoie un objet non-null mais
+  déjà fermé/inaccessible (comportement qui varie selon le
+  navigateur) : chaque accès qui suivait levait alors une erreur
+  technique différente au lieu du message clair. Les deux cas
+  remontent maintenant le même message, généralisé en "document"
+  plutôt que "reçu" (la fonction sert aux deux). 3 tests isolés
+  (aucun compte de test requis, le vrai blocage navigateur n'est de
+  toute façon pas reproductible sous Playwright).
+- [x] SM-17 MOYEN — 4,1 Mo de JS en un seul fichier (1,1 Mo compressé
+  Brotli en réalité, pas 4,27 Mo bruts comme mesuré par l'auditeur,
+  mais le problème de fond reste réel). @e965/xlsx (SheetJS, gros)
+  était importé en tête de excel.ts, donc inclus pour tout le monde
+  dès le premier chargement alors qu'il ne sert qu'à l'import Excel de
+  produits. Passé en import dynamique : Metro le sépare en chunk à
+  part (~480 Ko), chargé seulement à l'usage réel. Bundle principal :
+  3,6 Mo (794 Ko compressé), -28% sur ce que tout le monde télécharge
+  au premier chargement. Fichiers statiques hashés (_expo/static,
+  assets) mis en cache immuable un an au passage (servaient en
+  max-age=0 par défaut chez Vercel alors que leur nom change forcément
+  avec leur contenu) — pages .html non concernées, doivent rester
+  revalidables. @zxing/browser (scan code-barres) repéré comme
+  candidat similaire mais plus risqué (composant caméra, permissions,
+  cycle de vie) — laissé de côté pour cette passe.
+  En vérifiant ce correctif en direct (upload réel d'un fichier, pas
+  seulement la préview écran) : bug réel et bloquant découvert au
+  passage, voir entrée séparée ci-dessous.
+- [x] BLOQUANT (hors liste de l'audit, trouvé en vérifiant SM-17 en
+  conditions réelles) — l'import Excel de produits était totalement
+  cassé sur le web, sans exception : « this.validatePath is not a
+  function » à chaque tentative, invisible aux tests automatisés qui
+  simulaient entièrement expo-file-system (exactement la partie
+  cassée) et jamais testé jusqu'ici dans un vrai navigateur. Cause :
+  la classe File d'expo-file-system ne supporte pas le web
+  (Android/iOS/tvOS seulement, documentation SDK 54). Corrigé en
+  utilisant l'objet File natif du navigateur qu'expo-document-picker
+  fournit déjà sur web (asset.file), expo-file-system réservé aux
+  plateformes natives où il est réellement supporté. Comme l'app n'est
+  pour l'instant déployée qu'en web, cette fonctionnalité était
+  inutilisable à 100%, pour tout le monde, depuis toujours. Vérifié en
+  direct après correctif, upload d'un vrai fichier .xlsx généré pour
+  le test : aperçu correct, ligne valide, import effectif — en local
+  puis en production.
+  257/257 tests (2 nouveaux), tsc propre. Déployé.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
