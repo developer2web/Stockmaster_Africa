@@ -963,5 +963,41 @@
     aussi illisibles avec le texte blanc fixe de ce bandeau que le bug
     d'origine).
   247/247 tests, tsc propre à chaque étape. Déployé après chaque étape.
-  Suite (SM-05 et plus) en cours.
+  SM-05 à SM-10 faits (les 8 majeurs sont maintenant tous traités) :
+  - SM-05 MAJEUR — adresse inconnue → page d'erreur générique Vercel
+    (anglais, identifiant technique, aucun retour). vercel.json n'avait
+    de règles que pour les routes dynamiques connues. Ajouté une règle
+    générique en dernière position (sans risque : Vercel sert d'abord
+    un fichier réel s'il existe) + un écran "Page introuvable" propre
+    à l'app (src/app/+not-found.tsx, n'existait pas). Vérifié en direct
+    sur la prod : adresse inconnue → 200, écran de l'app affiché.
+  - SM-06 MAJEUR — mot de passe admin proposé sur l'écran employé
+    (gestionnaires de mots de passe ne distinguant pas les deux
+    formulaires, même origine). autoComplete="off" côté employé plutôt
+    qu'une distinction imparfaite — un appareil de caisse partagé ne
+    devrait de toute façon mémoriser le mot de passe de personne ici.
+  - SM-07 MAJEUR — premier clic sur "Se déconnecter" sans retour
+    visuel (aucun des ~10 boutons ne changeait d'apparence tant que la
+    vérification des opérations hors ligne en attente tournait).
+    Nouveau hook useSignOutAction (état signingOut dès le clic, avant
+    tout travail asynchrone), branché sur tous les boutons de
+    déconnexion de l'app.
+  - SM-08 MAJEUR — virgule décimale ("12,50") cassait le calcul de
+    marge en direct sur la fiche produit (Number() au lieu de
+    parseDecimal() sur la saisie brute). Corrigé, et prix produits
+    passés en saisie entière (le seul pays pris en charge est la
+    Guinée, GNF n'a pas de centimes) plutôt que juste mieux tolérer la
+    virgule. Vérifié en direct : "12,50" → 1250, marge correcte.
+  - SM-09 MAJEUR — sélecteur de langue sans effet (rien ne traduit
+    l'interface) et sans bouton d'enregistrement à lui (un bouton
+    éloigné, sur une autre carte, sauvegardait ces champs sans le
+    dire). Sélecteur retiré, bouton "Enregistrer les coordonnées"
+    ajouté à la bonne carte.
+  - SM-10 MAJEUR — "Journal d'activité" moitié basse blanche en thème
+    sombre. flexGrow:1 ajouté sur AdminPage (pratique standard,
+    protège tout écran à contenu court) mais non reproduit malgré
+    plusieurs tentatives, y compris sur la prod telle que testée par
+    l'audit — gardé en renforcement, pas annoncé comme vérifié.
+  249/249 tests, tsc propre à chaque étape. Déployé après chaque étape.
+  Suite (moyens et mineurs, SM-11 et plus) en cours.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
