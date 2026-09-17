@@ -1000,4 +1000,25 @@
     l'audit — gardé en renforcement, pas annoncé comme vérifié.
   249/249 tests, tsc propre à chaque étape. Déployé après chaque étape.
   Suite (moyens et mineurs, SM-11 et plus) en cours.
+- [ ] SM-11 MOYEN — investigué en profondeur, non corrigé : les menus
+  déroulants (SelectField, composant partagé) s'ouvrent par-dessus leur
+  propre bouton au lieu d'en dessous ou au-dessus proprement — reproduit
+  en direct sur deux écrans différents (Unité d'un produit, Pays
+  d'activité d'Entreprise), y compris hors de toute section repliable,
+  donc probablement partout où SelectField est utilisé. C'est un bug
+  connu et documenté de react-native-paper (Menu se positionne mal sur
+  react-native-web, y compris avec anchorPosition="bottom" censé forcer
+  l'ouverture en dessous — plusieurs tickets ouverts sur leur dépôt
+  GitHub, aucun corrigé à ce jour). Deux correctifs tentés côté app
+  (anchorPosition="bottom", faire défiler le bouton vers une zone
+  dégagée avant l'ouverture avec un délai) : aucun n'a résolu le
+  problème en vérification directe (Playwright) — abandonnés plutôt que
+  gardés sans effet. react-native-paper est déjà à sa dernière version
+  5.x (5.15.3) : pas de correctif disponible sans passer à une version
+  majeure supérieure, un projet à part (comme la migration Expo SDK,
+  voir AGENTS.md), pas quelque chose à faire au fil d'une correction de
+  bug. Vraie option restante : patch-package ciblé sur le calcul de
+  position du Menu (risqué sans certitude du correctif exact) ou
+  remplacer SelectField par un composant de liste déroulante différent
+  (changement plus large qu'un correctif ponctuel). Laissé tel quel.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
