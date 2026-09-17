@@ -1134,4 +1134,50 @@
   le test : aperçu correct, ligne valide, import effectif — en local
   puis en production.
   257/257 tests (2 nouveaux), tsc propre. Déployé.
+- [x] SM-20 MINEUR (fautes et valeurs brutes) :
+  - « Disponible : 40 piece » (transfert entre boutiques) — unité
+    brute jamais pluralisée. unitLabel()+plural(), déjà utilisés
+    correctement ailleurs dans le même fichier, repris ici.
+  - Moyen de paiement affiché en brut (« credit », « partial ») sur 3
+    écrans (liste des ventes, fiche client, rapports) — vraies valeurs
+    (vente à crédit/paiement partiel), juste absentes des tables de
+    libellés locales à ces 3 endroits ; déjà bien nommées ailleurs
+    (features/sales/receipt.ts), reprises à l'identique.
+  - Dates de dépense/échéance en format brut de la base
+    ("2026-09-01"), ou risquant de basculer sur la veille selon le
+    fuseau (new Date("2026-09-01") vaut minuit UTC). Nouveau
+    formatLocalDate (utils/format.ts) qui centralise le correctif midi
+    déjà utilisé pour la clôture de caisse — cash.tsx refactorisé pour
+    s'en servir aussi plutôt que garder deux implémentations.
+  - Rôle « Employe » sans accent : vérifié en base (rôles existants,
+    historique des clôtures) — introuvable aujourd'hui, déjà accentué
+    dans le code (roles.tsx, RPC close_store_cash). Déjà corrigé avant
+    cet audit ou instantané dépassé côté auditeur ; rien à changer.
+- [x] SM-21 MINEUR — « Marge : 22,2 % » (fiche produit, aperçu en
+  direct) divise la marge par le prix d'achat (marge ÷ coût) : un taux
+  de marque, pas un taux de marge (marge ÷ prix de vente). Renommé
+  explicitement. Sur la fiche complète (Indicateurs du produit), qui
+  avait déjà le bon terme, le vrai taux de marge est ajouté à côté du
+  taux de marque plutôt que de le remplacer — les deux ont un usage
+  réel pour fixer un prix.
+  Repéré et corrigé au passage, même famille que SM-20/21 mais hors
+  liste de l'audit : formatNumber, formatCurrency, formatQuantity,
+  formatBillingMoney, l'export PDF et une recherche utilisaient tous
+  fr-FR pour un montant/nombre — séparateur de milliers en espace fine
+  insécable (U+202F), pouvant ne pas s'afficher selon la police/le
+  rendu, déjà identifié et évité ailleurs (CurrencyProvider.formatMoney,
+  utilisé partout ailleurs dans l'app, et la règle SM-19 de cet audit)
+  via fr-CA (espace insécable normale U+00A0, toujours visible).
+  Alignés. Pourcentages à une décimale (marge, variation de rapport) :
+  point de toFixed() remplacé par une virgule française (3 occurrences
+  dans tout le projet).
+  264/264 tests (13 nouveaux), tsc propre. Déployé.
+  → Audit PDF (35 constats) entièrement traité : 2 bloquants, 8
+  majeurs, 15 moyens, 10 mineurs. Reste : les 14 constats supplémentaires
+  que l'audit dit détaillés uniquement dans sa "version web" (non
+  fournie, donc pas actionnables), et le solde test à -101 000 GNF
+  laissé par l'auditeur (Sahel Commerce SARL/Boutique Kaloum Centre),
+  toujours pas remis à zéro faute de réponse du propriétaire sur ce
+  point précis (question posée le 17/09, la réponse reçue portait sur
+  autre chose — le blocage de la caisse négative — traité séparément).
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
