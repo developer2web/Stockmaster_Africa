@@ -1173,11 +1173,10 @@
   dans tout le projet).
   264/264 tests (13 nouveaux), tsc propre. Déployé.
   → Audit PDF (35 constats) entièrement traité : 2 bloquants, 8
-  majeurs, 15 moyens, 10 mineurs. Reste : les 14 constats supplémentaires
-  que l'audit dit détaillés uniquement dans sa "version web" (non
-  fournie, donc pas actionnables), et le solde test à -101 000 GNF
-  laissé par l'auditeur (Sahel Commerce SARL/Boutique Kaloum Centre),
-  toujours pas remis à zéro faute de réponse du propriétaire sur ce
-  point précis (question posée le 17/09, la réponse reçue portait sur
-  autre chose — le blocage de la caisse négative — traité séparément).
+  majeurs, 15 moyens, 10 mineurs. Reste seulement les 14 constats
+  supplémentaires que l'audit dit détaillés uniquement dans sa "version
+  web" (non fournie, donc pas actionnables sans elle). Le solde test à
+  -101 000 GNF (Sahel Commerce SARL/Boutique Kaloum Centre) : question
+  posée explicitement le 17/09, réponse du propriétaire « Non, laisse-
+  le tel quel » — laissé en l'état volontairement, ne pas y toucher.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
