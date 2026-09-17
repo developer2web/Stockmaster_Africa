@@ -173,7 +173,12 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0, minHeight: 0 },
   scroll: { flex: 1, minWidth: 0 },
   headerContent: { flex: 1, minWidth: 0 },
-  page: { padding: 20, paddingBottom: 40, gap: 16, width: '100%', maxWidth: design.contentMaxWidth, alignSelf: 'center' },
+  // flexGrow:1 : sans lui, un écran dont le contenu tient en moins d'un
+  // écran (peu d'activité pour une entreprise récente, par exemple) laisse
+  // l'espace sous le contenu hors du fond du thème posé plus haut sur le
+  // conteneur parent — visible en thème sombre comme une zone restée
+  // blanche (audit externe, SM-10, sur le Journal d'activité).
+  page: { flexGrow: 1, padding: 20, paddingBottom: 40, gap: 16, width: '100%', maxWidth: design.contentMaxWidth, alignSelf: 'center' },
   compactPage: { padding: 12, paddingBottom: 28, gap: 12 },
   compactTitle: { fontSize: 18 },
   employeeTitle: { color: '#FFFFFF', fontWeight: '800' },

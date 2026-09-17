@@ -139,7 +139,15 @@ export default function CompanyScreen() {
           <TextInput mode="outlined" label="Téléphone" accessibilityLabel="Téléphone" value={settings.phone} onChangeText={(phone) => setSettings((value) => ({ ...value, phone }))} />
           <TextInput mode="outlined" label="Email" accessibilityLabel="Email" keyboardType="email-address" value={settings.email} onChangeText={(email) => setSettings((value) => ({ ...value, email }))} />
           <TextInput mode="outlined" label="Adresse" accessibilityLabel="Adresse" value={settings.address} onChangeText={(address) => setSettings((value) => ({ ...value, address }))} />
-          <SelectField label="Langue" value={settings.language} onChange={(language) => setSettings((value) => ({ ...value, language: (language ?? 'fr') as 'fr' | 'en' }))} options={[{ label: 'Français', value: 'fr' }, { label: 'English', value: 'en' }]} />
+          {/* Audit externe (SM-09) : cette carte n'avait pas de bouton
+              d'enregistrement à elle (seul celui de "Règles de vente", plus
+              bas, sauvegarde en réalité tout settings d'un coup — pas
+              évident pour quelqu'un qui ne modifie que les coordonnées).
+              Le sélecteur de langue qui s'y trouvait est retiré : rien dans
+              l'app ne traduit l'interface, le choisir n'avait donc aucun
+              effet visible même une fois enregistré. */}
+          {!!settingsMutation.error && <HelperText type="error" visible>{settingsMutation.error.message}</HelperText>}
+          <AppButton loading={settingsMutation.isPending} onPress={() => settingsMutation.mutate()}>Enregistrer les coordonnées</AppButton>
         </Card.Content>
       </Card>
 
