@@ -94,8 +94,8 @@ export default function PurchasesScreen() {
           <AppButton mode="outlined" icon="plus" onPress={add}>Ajouter à la commande</AppButton>
         </Card.Content>
       </Card>
-      {items.map((item) => <Card key={item.productId} mode="contained"><Card.Title title={item.name} subtitle={`${formatQuantity(item.quantity)} × ${formatMoney(item.unitCost)}`} right={() => <IconButton icon="delete" onPress={() => setItems((rows) => rows.filter((row) => row.productId !== item.productId))} />} /></Card>)}
-      <Card mode="contained"><Card.Title title={`Total : ${formatMoney(total)}`} subtitle={!canCreateSupplierDebt ? 'Paiement immédiat · les dettes fournisseurs nécessitent Pro' : paid ? 'Payé maintenant' : 'Dette fournisseur'} right={() => canCreateSupplierDebt ? <Switch value={paid} onValueChange={setPaid} style={{ marginRight: 12 }} /> : null} /></Card>
+      {items.map((item) => <Card key={item.productId} mode="contained"><Card.Title title={item.name} subtitle={`${formatQuantity(item.quantity)} × ${formatMoney(item.unitCost)}`} right={() => <IconButton icon="delete" accessibilityLabel={`Retirer ${item.name} de la commande`} onPress={() => setItems((rows) => rows.filter((row) => row.productId !== item.productId))} />} /></Card>)}
+      <Card mode="contained"><Card.Title title={`Total : ${formatMoney(total)}`} subtitle={!canCreateSupplierDebt ? 'Paiement immédiat · les dettes fournisseurs nécessitent Pro' : paid ? 'Payé maintenant' : 'Dette fournisseur'} right={() => canCreateSupplierDebt ? <Switch value={paid} onValueChange={setPaid} accessibilityLabel="Payé maintenant" style={{ marginRight: 12 }} /> : null} /></Card>
       {/* Audit externe (SM-01) : ce paiement était accepté même en dépassant
           la caisse actuelle, via un « Continuer quand même ? » — la caisse
           ne peut plus passer en négatif côté serveur, quel que soit

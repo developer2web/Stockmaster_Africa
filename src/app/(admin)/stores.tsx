@@ -92,7 +92,7 @@ export default function StoresScreen() {
           <Text variant="titleMedium" style={styles.bold}>Informations de la boutique</Text>
           <FormField control={control} name="name" label="Nom de la boutique" required autoFocus />
           <FormField control={control} name="address" label="Adresse de la boutique (facultative)" multiline />
-          <Controller control={control} name="isActive" render={({ field }) => <Card mode="outlined"><Card.Title title="Boutique active" right={() => <Switch value={field.value} onValueChange={field.onChange} style={styles.switch} />} /></Card>} />
+          <Controller control={control} name="isActive" render={({ field }) => <Card mode="outlined"><Card.Title title="Boutique active" right={() => <Switch value={field.value} onValueChange={field.onChange} accessibilityLabel="Boutique active" style={styles.switch} />} /></Card>} />
 
           <View style={[styles.section, { borderTopColor: theme.colors.outlineVariant }]}><Text variant="titleMedium" style={styles.bold}>Personnalisation des reçus</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>Les champs vides utilisent automatiquement les informations générales de l’entreprise.</Text></View>
           <FormField control={control} name="receiptDisplayName" label="Nom affiché sur les reçus" placeholder={preview.name || 'Nom de la boutique'} />

@@ -22,6 +22,13 @@ describe('messages utilisateur',()=>{
   it('masque les erreurs réseau techniques',()=>expect(userErrorMessage(new Error('TypeError: Failed to fetch'))).toContain('Connexion internet'));
   it('traduit le stock insuffisant avec la quantité disponible, accord pluriel',()=>expect(userErrorMessage(new Error('Stock insuffisant : quantité disponible 2'))).toBe('Quantité insuffisante : 2 disponibles.'));
   it('traduit le stock insuffisant avec la quantité disponible, accord singulier',()=>expect(userErrorMessage(new Error('Stock insuffisant : quantité disponible 1'))).toBe('Quantité insuffisante : 1 disponible.'));
+  // Audit externe (SM-19) : message Postgres brut — décimales et séparateur
+  // anglais, devise absente. Les deux formulations vivantes en base
+  // (record_customer_entry et sa v2) sont couvertes.
+  it('reformate le montant qui dépasse la dette restante (devise, séparateur français, sans décimales GNF)',()=>{
+    expect(userErrorMessage(new Error('Le paiement dépasse la dette restante (450000.00)'))).toBe(`Le montant dépasse la dette restante (${(450000).toLocaleString('fr-CA')} GNF).`);
+    expect(userErrorMessage(new Error('Le montant dépasse la dette restante (12500)'))).toBe(`Le montant dépasse la dette restante (${(12500).toLocaleString('fr-CA')} GNF).`);
+  });
   it('traduit les refus RLS',()=>expect(userErrorMessage(new Error('new row violates row-level security policy'))).toContain('autorisation'));
   it('masque les erreurs structurées de Supabase',()=>expect(userErrorMessage({ message: 'relation customer_balances does not exist' })).toContain('configuration de la base'));
   it('traduit une erreur native d’impression',()=>expect(userErrorMessage(new Error('Printing did not complete'))).toContain('Impossible d’imprimer'));

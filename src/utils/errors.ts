@@ -37,6 +37,13 @@ const rules:Rule[]=[
   [/sharing is not available|partage.*(?:indisponible|impossible)/i,()=>`Le partage de fichiers n’est pas disponible sur cet appareil.`],
   [insufficientStockPattern,(technical)=>{const amount=technical.match(/(?:disponible|available)\D*(\d+(?:[.,]\d+)?)/i)?.[1];return amount?`Quantité insuffisante : ${amount} disponible${plural(Number(amount.replace(',','.')))}.`:`Stock insuffisant pour terminer cette opération.`}],
   [duplicateKeyPattern,()=>`Cette information est déjà utilisée.`],
+  // "Le montant dépasse la dette restante (450000.00)" / "...dépasse le
+  // paiement restant (...)" : message Postgres brut (audit externe, SM-19)
+  // — decimales et séparateur anglais, devise absente. GNF n'a pas de
+  // centimes (seul pays pris en charge, voir constants/countries.ts), donc
+  // arrondi à l'entier ; fr-CA (pas fr-FR) pour le séparateur de milliers,
+  // comme CurrencyProvider (voir todo.txt / commits SM-08).
+  [/(?:montant|paiement) dépasse la dette restante\s*\(([\d.,]+)\)/i,(_technical,match)=>`Le montant dépasse la dette restante (${Math.round(Number(match[1].replace(',','.'))).toLocaleString('fr-CA')} GNF).`],
   [/not found|introuvable/i,()=>`La donnée demandée est introuvable.`],
 ];
 function technicalMessage(error:unknown){return error instanceof Error?error.message:typeof error==='string'?error:error&&typeof error==='object'&&'message'in error&&typeof error.message==='string'?error.message:''}

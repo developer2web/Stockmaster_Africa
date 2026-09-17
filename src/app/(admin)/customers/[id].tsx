@@ -214,7 +214,7 @@ export default function CustomerDetails() {
             <FormField control={control} name="address" label="Adresse" />
             <FormField control={control} name="note" label="Note" multiline />
             <FormField control={control} name="creditLimit" label="Limite de crédit (vide = illimitée)" keyboardType="decimal-pad" selectTextOnFocus />
-            <Controller control={control} name="isActive" render={({ field }) => <Card mode="outlined"><Card.Title title="Client actif" right={() => <Switch value={field.value} onValueChange={field.onChange} style={{ marginRight: 12 }} />} /></Card>} />
+            <Controller control={control} name="isActive" render={({ field }) => <Card mode="outlined"><Card.Title title="Client actif" right={() => <Switch value={field.value} onValueChange={field.onChange} accessibilityLabel="Client actif" style={{ marginRight: 12 }} />} /></Card>} />
             {!!edit.error && <HelperText type="error" visible>{readableError(edit.error)}</HelperText>}
           </ScrollView></Dialog.ScrollArea>
           <Dialog.Actions style={{ flexWrap: 'wrap' }}>

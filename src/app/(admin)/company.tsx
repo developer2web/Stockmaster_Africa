@@ -164,7 +164,7 @@ export default function CompanyScreen() {
             ['Alertes de stock faible', 'lowStockAlerts'],
           ] as const).map(([label, key]) => (
             <Card key={key} mode="contained">
-              <Card.Title title={label} right={() => <Switch value={settings[key]} onValueChange={(checked) => setSettings((value) => ({ ...value, [key]: checked }))} style={{ marginRight: 12 }} />} />
+              <Card.Title title={label} right={() => <Switch value={settings[key]} onValueChange={(checked) => setSettings((value) => ({ ...value, [key]: checked }))} accessibilityLabel={label} style={{ marginRight: 12 }} />} />
             </Card>
           ))}
           <AppButton loading={settingsMutation.isPending} onPress={() => settingsMutation.mutate()}>Enregistrer les règles de vente</AppButton>
@@ -177,7 +177,7 @@ export default function CompanyScreen() {
           <Card.Content style={{ gap: 12 }}>
             <TextInput mode="outlined" label="Justifier un écart de caisse supérieur à" accessibilityLabel="Justifier un écart de caisse supérieur à" keyboardType="decimal-pad" selectTextOnFocus value={settings.cashVarianceReasonThreshold} onChangeText={(cashVarianceReasonThreshold) => setSettings((value) => ({ ...value, cashVarianceReasonThreshold }))} />
             <Card mode="contained">
-              <Card.Title title="Ouverture de caisse obligatoire" right={() => <Switch value={settings.cashOpeningRequired} onValueChange={(cashOpeningRequired) => setSettings((value) => ({ ...value, cashOpeningRequired }))} style={{ marginRight: 12 }} />} />
+              <Card.Title title="Ouverture de caisse obligatoire" right={() => <Switch value={settings.cashOpeningRequired} onValueChange={(cashOpeningRequired) => setSettings((value) => ({ ...value, cashOpeningRequired }))} accessibilityLabel="Ouverture de caisse obligatoire" style={{ marginRight: 12 }} />} />
             </Card>
             <AppButton loading={settingsMutation.isPending} onPress={() => settingsMutation.mutate()}>Enregistrer la caisse</AppButton>
           </Card.Content>

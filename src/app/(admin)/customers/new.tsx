@@ -44,7 +44,7 @@ export default function NewCustomer() {
         control={control}
         name="isActive"
         render={({ field }) => (
-          <Card mode="outlined"><Card.Title title="Client actif" right={() => <Switch value={field.value} onValueChange={field.onChange} style={{ marginRight: 12 }} />} /></Card>
+          <Card mode="outlined"><Card.Title title="Client actif" right={() => <Switch value={field.value} onValueChange={field.onChange} accessibilityLabel="Client actif" style={{ marginRight: 12 }} />} /></Card>
         )}
       />
       {!!save.error && <HelperText type="error" visible>{readableError(save.error)}</HelperText>}

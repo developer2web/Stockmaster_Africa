@@ -183,7 +183,7 @@ export default function Suppliers() {
           <FormField control={control} name="email" label="Email" keyboardType="email-address" autoCapitalize="none" />
           <FormField control={control} name="phone" label="Téléphone" keyboardType="phone-pad" />
           <FormField control={control} name="address" label="Adresse" multiline />
-          <Controller control={control} name="isActive" render={({ field }) => <Card mode="outlined"><Card.Title title="Fournisseur actif" right={() => <Switch value={field.value} onValueChange={field.onChange} style={{ marginRight: 12 }} />} /></Card>} />
+          <Controller control={control} name="isActive" render={({ field }) => <Card mode="outlined"><Card.Title title="Fournisseur actif" right={() => <Switch value={field.value} onValueChange={field.onChange} accessibilityLabel="Fournisseur actif" style={{ marginRight: 12 }} />} /></Card>} />
           {!!mutation.error && <HelperText type="error" visible>{mutation.error.message}</HelperText>}
         </ScrollView></Dialog.ScrollArea>
         <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" disabled={mutation.isPending} onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={mutation.isPending} disabled={!isValid||!isDirty||mutation.isPending} onPress={handleSubmit((value) => mutation.mutate(value))}>Enregistrer</AppButton></Dialog.Actions>

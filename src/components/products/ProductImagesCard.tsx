@@ -27,10 +27,10 @@ export function ProductImagesCard({ productId, companyId, storeId, urls }: { pro
   return <Card mode="outlined">
     <Card.Title title="Images du produit" subtitle={`${urls.length}/2 • facultatives`} />
     <Card.Content style={styles.content}>
-      {urls.map((url, index) => <View key={url} style={styles.imageRow}>
+      {urls.map((url, index) => { const imageLabel = index === 0 ? 'Image principale' : 'Deuxième image'; return <View key={url} style={styles.imageRow}>
         <ProductThumbnail url={url} size={92} />
-        <View style={styles.actions}><Text variant="labelLarge">{index === 0 ? 'Image principale' : 'Deuxième image'}</Text><View style={styles.buttons}><IconButton icon="camera" onPress={() => save.mutate({ source: 'camera', replace: url })} /><IconButton icon="image-edit" onPress={() => save.mutate({ source: 'library', replace: url })} /><IconButton icon="delete-outline" iconColor="#C92A2A" onPress={() => remove.mutate(url)} /></View></View>
-      </View>)}
+        <View style={styles.actions}><Text variant="labelLarge">{imageLabel}</Text><View style={styles.buttons}><IconButton icon="camera" accessibilityLabel={`Remplacer ${imageLabel.toLowerCase()} par une photo`} onPress={() => save.mutate({ source: 'camera', replace: url })} /><IconButton icon="image-edit" accessibilityLabel={`Remplacer ${imageLabel.toLowerCase()} depuis la galerie`} onPress={() => save.mutate({ source: 'library', replace: url })} /><IconButton icon="delete-outline" iconColor="#C92A2A" accessibilityLabel={`Supprimer ${imageLabel.toLowerCase()}`} onPress={() => remove.mutate(url)} /></View></View>
+      </View>; })}
       {!urls.length && <Text>Aucune image. Un visuel par défaut sera affiché.</Text>}
       {urls.length < 2 && <View style={styles.add}><AppButton mode="outlined" icon="camera" loading={save.isPending} onPress={() => save.mutate({ source: 'camera' })}>Photo</AppButton><AppButton mode="outlined" icon="image-plus" loading={save.isPending} onPress={() => save.mutate({ source: 'library' })}>Galerie</AppButton></View>}
       {(save.error || remove.error) && <HelperText type="error" visible>{(save.error ?? remove.error)?.message}</HelperText>}
