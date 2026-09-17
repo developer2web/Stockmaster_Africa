@@ -14,6 +14,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { supportedCountries } from '@/constants/countries';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useSignOutAction } from '@/features/auth/useSignOutAction';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import { createBusiness } from '@/features/workspace/api';
 import { openAccountPortal } from '@/features/subscriptions/accountPortal';
@@ -32,7 +33,8 @@ const statusLabels: Record<string, string> = {
 
 export default function ChooseBusinessScreen() {
   const theme = useTheme();
-  const { businesses, selectBusiness, refreshMembership, signOut } = useAuth();
+  const { businesses, selectBusiness, refreshMembership } = useAuth();
+  const { signOut, signingOut } = useSignOutAction();
   const { canUseFeature } = useSubscription();
   const [open, setOpen] = useState(false);
   const [openingPlans, setOpeningPlans] = useState(false);
@@ -149,7 +151,7 @@ export default function ChooseBusinessScreen() {
       )}
 
       {!!navigationError && <HelperText type="error" visible>{navigationError}</HelperText>}
-      <AppButton mode="text" icon="logout" onPress={() => void signOut()}>Se déconnecter</AppButton>
+      <AppButton mode="text" icon="logout" loading={signingOut} disabled={signingOut} onPress={signOut}>Se déconnecter</AppButton>
 
       <Portal>
         <Dialog visible={open} onDismiss={() => setOpen(false)}>

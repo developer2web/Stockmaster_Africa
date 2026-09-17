@@ -11,6 +11,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { AuthScreen } from '@/features/auth/AuthScreen';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useSignOutAction } from '@/features/auth/useSignOutAction';
 import { hasAnyPermission, hasPermission } from '@/features/auth/permissions';
 import { signInForPortal } from '@/features/auth/portalLogin';
 import { resolveNotice } from '@/constants/notices';
@@ -18,7 +19,8 @@ import { usePortalLoginState } from '@/features/auth/portalLoginState';
 
 export default function EmployeeEntry() {
   const portalLoginPending = usePortalLoginState(state => state.pending);
-  const { session, membership, businesses, stores, isWorkspaceLoading, signOut } = useAuth();
+  const { session, membership, businesses, stores, isWorkspaceLoading } = useAuth();
+  const { signOut, signingOut } = useSignOutAction();
   const { width } = useWindowDimensions();
   const theme = useTheme();
   const compact = width < 600;
@@ -68,7 +70,7 @@ export default function EmployeeEntry() {
         <Appbar.Content title={membership.companyName} titleStyle={{color:'#FFFFFF',fontWeight:'800'}} subtitle={membership.storeName ?? 'Boutique'} subtitleStyle={{color:'#D7EFF0'}} />
         {stores.length > 1 && <Appbar.Action color="#FFFFFF" icon="swap-horizontal" accessibilityLabel="Changer de boutique" onPress={() => router.push('/choose-store')} />}
         <NotificationBell color="#FFFFFF" />
-        <Appbar.Action color="#FFFFFF" icon="logout" accessibilityLabel="Se déconnecter" onPress={signOut} />
+        <Appbar.Action color="#FFFFFF" icon="logout" accessibilityLabel="Se déconnecter" disabled={signingOut} onPress={signOut} />
       </Appbar.Header>
       <ScrollView
         contentContainerStyle={[styles.page, compact && styles.pageCompact]}
@@ -137,7 +139,7 @@ export default function EmployeeEntry() {
           </Card>
         )}
 
-        <AppButton mode="outlined" icon="logout" onPress={signOut}>Se déconnecter</AppButton>
+        <AppButton mode="outlined" icon="logout" loading={signingOut} disabled={signingOut} onPress={signOut}>Se déconnecter</AppButton>
       </ScrollView>
     </View>
   );

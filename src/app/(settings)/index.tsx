@@ -9,13 +9,15 @@ import { AccountDeletionCard } from '@/components/legal/AccountDeletionCard';
 import { OfflineAccessCard } from '@/components/security/OfflineAccessCard';
 import { changePasswordWithVerification } from '@/features/account/api';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useSignOutAction } from '@/features/auth/useSignOutAction';
 import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 
 export default function SettingsScreen() {
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const compact = width < 600;
-  const { session, membership, signOut } = useAuth();
+  const { session, membership } = useAuth();
+  const { signOut, signingOut } = useSignOutAction();
   const admin = membership?.role === 'company_admin';
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -73,7 +75,7 @@ export default function SettingsScreen() {
     {passwordSuccess && <HelperText type="info" visible>Votre mot de passe a été modifié.</HelperText>}
     <SettingsLink title="Politique de confidentialité" subtitle="Utilisation et protection de vos données" icon="shield-account-outline" onPress={() => router.push('/legal/privacy' as never)}/>
     <SettingsLink title="Conditions d’utilisation" subtitle="Règles du service et abonnements" icon="file-document-outline" onPress={() => router.push('/legal/terms' as never)}/>
-    <AppButton style={compact&&styles.mobileButton} mode="outlined" icon="logout" onPress={signOut}>Se déconnecter</AppButton>
+    <AppButton style={compact&&styles.mobileButton} mode="outlined" icon="logout" loading={signingOut} disabled={signingOut} onPress={signOut}>Se déconnecter</AppButton>
 
     {admin && <>
       <Text variant="titleMedium" style={{ color: '#C92A2A' }}>Zone sensible</Text>

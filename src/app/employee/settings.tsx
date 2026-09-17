@@ -6,9 +6,11 @@ import { AccountDeletionCard } from '@/components/legal/AccountDeletionCard';
 import { OfflineAccessCard } from '@/components/security/OfflineAccessCard';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { RoleGuard } from '@/features/auth/RoleGuard';
+import { useSignOutAction } from '@/features/auth/useSignOutAction';
 
 export default function EmployeeSettings() {
-  const { session,membership,signOut }=useAuth();
+  const { session,membership }=useAuth();
+  const { signOut, signingOut } = useSignOutAction();
   return <RoleGuard roles={['employee']}><AdminPage title="Paramètres">
     <Card mode="contained"><Card.Title title={session?.user.email??'Compte employé'} subtitle={`${membership?.companyName??''} • ${membership?.storeName??'Boutique'}`} left={()=><Icon source="account-circle-outline" size={30}/>} /></Card>
     <Text variant="titleMedium">Compte et sécurité</Text>
@@ -18,6 +20,6 @@ export default function EmployeeSettings() {
     <Card mode="outlined" onPress={()=>router.push('/legal/terms' as never)}><Card.Title title="Conditions d’utilisation" subtitle="Règles applicables au compte" left={()=><Icon source="file-document-outline" size={28}/>} right={()=><Icon source="chevron-right" size={24}/>} /></Card>
     <Text variant="titleMedium" style={{color:'#C92A2A'}}>Zone sensible</Text>
     <AccountDeletionCard />
-    <AppButton mode="outlined" icon="logout" onPress={signOut}>Se déconnecter</AppButton>
+    <AppButton mode="outlined" icon="logout" loading={signingOut} disabled={signingOut} onPress={signOut}>Se déconnecter</AppButton>
   </AdminPage></RoleGuard>;
 }

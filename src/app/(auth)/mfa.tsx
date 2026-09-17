@@ -1,5 +1,6 @@
 import { usePortalLoginState } from '@/features/auth/portalLoginState';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useSignOutAction } from '@/features/auth/useSignOutAction';
 import { validateCurrentPortal, type LoginPortal } from '@/features/auth/portalLogin';
 import { useMutation } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -12,7 +13,8 @@ import { supabase } from '@/services/supabase/client';
 
 export default function MfaChallenge() {
   const { portal } = useLocalSearchParams<{ portal?: LoginPortal }>();
-  const { refreshMembership, signOut } = useAuth();
+  const { refreshMembership } = useAuth();
+  const { signOut, signingOut } = useSignOutAction();
   const [code, setCode] = useState('');
   const [factorId, setFactorId] = useState('');
   const [loadError, setLoadError] = useState('');
@@ -69,6 +71,6 @@ export default function MfaChallenge() {
     <TextInput mode="outlined" label="Code à 6 chiffres" accessibilityLabel="Code à 6 chiffres" autoComplete="one-time-code" textContentType="oneTimeCode" value={code} onChangeText={value => setCode(value.replace(/\D/g, ''))} keyboardType="number-pad" maxLength={6} />
     {!!(loadError || verify.error) && <HelperText type="error" visible>{loadError || verify.error?.message}</HelperText>}
     <AppButton icon="shield-check" loading={verify.isPending} disabled={!factorId || code.trim().length !== 6 || verify.isPending} onPress={() => verify.mutate()}>Vérifier</AppButton>
-    <AppButton mode="text" onPress={() => void signOut()}>Se déconnecter</AppButton>
+    <AppButton mode="text" loading={signingOut} disabled={signingOut} onPress={signOut}>Se déconnecter</AppButton>
   </AuthScreen>;
 }

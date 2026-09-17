@@ -8,6 +8,7 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { Appbar, Card, Text, useTheme } from 'react-native-paper';
 import { AppButton } from '@/components/ui/AppButton';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useSignOutAction } from '@/features/auth/useSignOutAction';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 import { getAdminOverview } from '@/features/dashboard/api';
@@ -19,7 +20,8 @@ import { plural } from '@/utils/plural';
 
 export default function AdminDashboard() {
   const { formatMoney: money } = useCurrency();
-  const { membership, businesses, stores, signOut } = useAuth();
+  const { membership, businesses, stores } = useAuth();
+  const { signOut, signingOut } = useSignOutAction();
   const { subscription } = useSubscription();
   const [openingAccount, setOpeningAccount] = useState(false);
   const remainingDays = subscription?.expiresAt
@@ -55,7 +57,7 @@ export default function AdminDashboard() {
         <Appbar.Content title={membership?.companyName ?? 'StockMaster'} />
         {(businesses.length > 1 || stores.length > 1) && <Appbar.Action icon="swap-horizontal" accessibilityLabel="Changer de boutique" onPress={() => router.push(businesses.length > 1 ? '/choose-business' : '/choose-store')} />}
         <NotificationBell />
-        <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" onPress={() => void signOut()} />
+        <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" disabled={signingOut} onPress={signOut} />
       </Appbar.Header>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.page}>
         <View style={styles.intro}>

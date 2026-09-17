@@ -4,6 +4,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { Appbar, Card, Icon, Text, useTheme } from 'react-native-paper';
 import { router, useLocalSearchParams, usePathname } from 'expo-router';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useSignOutAction } from '@/features/auth/useSignOutAction';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import { AppButton } from './AppButton';
 import { AppBackButton } from './AppBackButton';
@@ -24,7 +25,8 @@ const descriptions:Record<string,string>={
 
 export function AdminPage({ title, description, action, floatingAction, backToHome = false, scrollResetKey, onContentWidthChange, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; scrollResetKey?: string; onContentWidthChange?: (width: number) => void }>) {
   const theme = useTheme();
-  const { session, membership, offlineAuthenticated, lockOfflineSession, signOut } = useAuth();
+  const { session, membership, offlineAuthenticated, lockOfflineSession } = useAuth();
+  const { signOut, signingOut } = useSignOutAction();
   const employeeName = String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
   const { subscription } = useSubscription();
   const { width } = useWindowDimensions();
@@ -91,7 +93,7 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
         />
         {!offlineAuthenticated && <NotificationBell color={employee ? '#FFFFFF' : undefined} />}
         {offlineAuthenticated && <Appbar.Action icon="lock-outline" color={employee ? '#FFFFFF' : undefined} accessibilityLabel="Verrouiller l’accès hors ligne" onPress={lockOfflineSession} />}
-        {!employee && !offlineAuthenticated && <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" onPress={() => void signOut()} />}
+        {!employee && !offlineAuthenticated && <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" disabled={signingOut} onPress={signOut} />}
       </Appbar.Header>
       <ScrollView
         ref={scrollRef}

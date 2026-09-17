@@ -9,6 +9,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import type { FeatureKey } from '@/features/subscriptions/types';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useSignOutAction } from '@/features/auth/useSignOutAction';
 import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 import { moduleFeatures } from '@/features/subscriptions/featureAccess';
 import { supabase } from '@/services/supabase/client';
@@ -44,7 +45,8 @@ const operationsSection = { title: 'Opérations', subtitle: 'À utiliser selon l
 export default function MoreScreen() {
   const theme = useTheme();
   const { canViewFeature: canUseFeature, isLoading, error: subscriptionError, refreshSubscription } = useSubscription();
-  const { signOut, membership } = useAuth();
+  const { membership } = useAuth();
+  const { signOut, signingOut } = useSignOutAction();
   const [showAdvanced, setShowAdvanced] = useState(false);
   useFocusEffect(useCallback(() => { setShowAdvanced(false); }, []));
   const [openingAccount, setOpeningAccount] = useState(false);
@@ -87,7 +89,7 @@ export default function MoreScreen() {
     <View style={styles.footer}>
       <AppButton mode="text" icon="cog-outline" onPress={() => router.push('/(settings)')}>Paramètres</AppButton>
       <AppButton mode="text" icon="lifebuoy" onPress={() => router.push('/support')}>Assistance</AppButton>
-      <AppButton mode="text" icon="logout" onPress={() => void signOut()}>Se déconnecter</AppButton>
+      <AppButton mode="text" icon="logout" loading={signingOut} disabled={signingOut} onPress={signOut}>Se déconnecter</AppButton>
     </View>
   </AdminPage>;
 }

@@ -8,6 +8,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useSignOutAction } from '@/features/auth/useSignOutAction';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import type { BillingCycle } from '@/features/subscriptions/types';
 import { AppBackButton } from '@/components/ui/AppBackButton';
@@ -18,7 +19,8 @@ import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 
 export default function SubscriptionScreen() {
   const theme = useTheme();
-  const { membership, businesses, signOut } = useAuth();
+  const { membership, businesses } = useAuth();
+  const { signOut, signingOut } = useSignOutAction();
   const trapped = isSubscriptionBlocked(membership?.subscriptionStatus);
   const { subscription, plans, isLoading, error, refreshSubscription } = useSubscription();
   const [cycle, setCycle] = useState<BillingCycle>('monthly');
@@ -56,7 +58,7 @@ export default function SubscriptionScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header>
-        {trapped ? <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" onPress={() => void signOut()} /> : <AppBackButton fallback="/" />}
+        {trapped ? <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" disabled={signingOut} onPress={signOut} /> : <AppBackButton fallback="/" />}
         <Appbar.Content title="Forfaits StockMaster" />
         {membership?.role === 'company_admin' && (
           <Appbar.Action icon="history" onPress={() => router.push('/(subscription)/history' as never)} />
