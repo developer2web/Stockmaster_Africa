@@ -177,6 +177,14 @@ function EmployeeLogin() {
       <Text style={{ color: theme.colors.onSurfaceVariant }}>
         Utilisez l’email et le mot de passe fournis par votre administrateur.
       </Text>
+      {/* Audit externe (SM-06) : avec autoComplete="username" ici, un
+          gestionnaire de mots de passe ne distingue pas ce formulaire de
+          celui de l'administrateur (même origine) — sur une tablette de
+          caisse partagée, les identifiants admin se proposaient tout seuls
+          à l'employé. Volontairement désactivé plutôt que mal distingué :
+          un appareil partagé entre plusieurs employés (et potentiellement
+          l'administrateur) ne devrait de toute façon mémoriser le mot de
+          passe de personne ici. */}
       <TextInput
         mode="outlined"
         label="Email professionnel"
@@ -186,8 +194,8 @@ function EmployeeLogin() {
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
-        textContentType="username"
-        autoComplete="username"
+        textContentType="none"
+        autoComplete="off"
       />
       <TextInput
         mode="outlined"
@@ -196,8 +204,8 @@ function EmployeeLogin() {
         value={password}
         onChangeText={setPassword}
         secureTextEntry={passwordHidden}
-        textContentType="password"
-        autoComplete="current-password"
+        textContentType="none"
+        autoComplete="off"
         right={<TextInput.Icon icon={passwordHidden ? 'eye' : 'eye-off'} onPress={() => setPasswordHidden((value) => !value)} />}
         onSubmitEditing={login}
       />
