@@ -51,6 +51,13 @@ export default function ExpensesScreen() {
   // maintenant de toute façon, mais avertir avant l'envoi évite une erreur
   // surprise après la saisie.
   const wouldGoNegative = parseDecimal(amountValue ?? '0') > 0 && cashBalance - parseDecimal(amountValue ?? '0') < 0;
+  // Assoupli sur demande explicite du 17/09 : le propriétaire ou un
+  // "Manager" (cash_transactions.override_negative_balance) peut passer
+  // outre après confirmation explicite — un employé simple reste bloqué
+  // sans recours, le serveur refuse de toute façon si cette condition
+  // n'est pas remplie.
+  const canOverrideNegative = membership?.role === 'company_admin' || !!membership?.permissions.includes('cash_transactions.override_negative_balance');
+  const [pendingNegative, setPendingNegative] = useState<ExpenseInput | null>(null);
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['expenses', company, store] }),
@@ -60,10 +67,11 @@ export default function ExpensesScreen() {
     ]);
   };
   const add = useMutation({
-    mutationFn: (value: ExpenseInput) => createExpense(company, { ...value, storeId: store }),
+    mutationFn: ({ value, confirmNegative }: { value: ExpenseInput; confirmNegative?: boolean }) => createExpense(company, { ...value, storeId: store }, undefined, confirmNegative),
     onSuccess: async (result) => {
       if (result.queued) await refreshQueue(); else await refresh();
       setOpen(false);
+      setPendingNegative(null);
       reset({ label: '', amount: '', expenseDate: today(), storeId: store });
       setSuccessMessage(result.queued ? 'Dépense enregistrée hors ligne. Elle sera synchronisée automatiquement.' : result.pending?'Dépense envoyée à l’administrateur pour validation.':'Dépense enregistrée avec succès.');
     },
@@ -83,12 +91,13 @@ export default function ExpensesScreen() {
         <Portal>
           <Dialog visible={open} onDismiss={() => setOpen(false)}>
             <Dialog.Title>Nouvelle dépense</Dialog.Title>
-            <Dialog.Content><FormField control={control} name="label" label="Motif" /><FormField control={control} name="amount" label="Montant" keyboardType="decimal-pad" selectTextOnFocus /><Controller control={control} name="expenseDate" render={({ field, fieldState }) => <DateField label="Date de la dépense" value={field.value} onChange={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} />} />{wouldGoNegative && <HelperText type="error" visible>Ce montant dépasse la caisse actuelle ({formatMoney(cashBalance)}) : la dépense sera refusée.</HelperText>}{!!add.error && <HelperText type="error" visible>{add.error.message}</HelperText>}</Dialog.Content>
-            <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={add.isPending} disabled={add.isPending || wouldGoNegative} onPress={handleSubmit((value) => add.mutate(value))}>Enregistrer</AppButton></Dialog.Actions>
+            <Dialog.Content><FormField control={control} name="label" label="Motif" /><FormField control={control} name="amount" label="Montant" keyboardType="decimal-pad" selectTextOnFocus /><Controller control={control} name="expenseDate" render={({ field, fieldState }) => <DateField label="Date de la dépense" value={field.value} onChange={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} />} />{wouldGoNegative && <HelperText type="error" visible>{canOverrideNegative ? `Ce montant dépasse la caisse actuelle (${formatMoney(cashBalance)}) : elle passera en négatif.` : `Ce montant dépasse la caisse actuelle (${formatMoney(cashBalance)}) : la dépense sera refusée.`}</HelperText>}{!!add.error && <HelperText type="error" visible>{add.error.message}</HelperText>}</Dialog.Content>
+            <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setOpen(false)}>Annuler</AppButton><AppButton loading={add.isPending} disabled={add.isPending || (wouldGoNegative && !canOverrideNegative)} onPress={handleSubmit((value) => { if (wouldGoNegative && canOverrideNegative) { setPendingNegative(value); return; } add.mutate({ value }); })}>Enregistrer</AppButton></Dialog.Actions>
           </Dialog>
         </Portal>
         <AppFeedback message={successMessage} onDismiss={() => setSuccessMessage('')} />
         <ConfirmDialog visible={!!reviewing} title={reviewing?.approve?'Approuver cette dépense ?':'Refuser cette dépense ?'} message={`${reviewing?.request.label??''} • ${reviewing?formatMoney(Number(reviewing.request.amount)):''}`} destructive={!reviewing?.approve} loading={review.isPending} onCancel={()=>setReviewing(null)} onConfirm={()=>review.mutate()}/>
+        <ConfirmDialog visible={!!pendingNegative} title="Caisse insuffisante" message={`Cette dépense dépasse la caisse actuelle (${formatMoney(cashBalance)}) : elle passera en négatif. Continuer quand même ?`} loading={add.isPending} onCancel={() => setPendingNegative(null)} onConfirm={() => { if (pendingNegative) add.mutate({ value: pendingNegative, confirmNegative: true }); }}/>
       </AdminPage>
     </PermissionGuard>
   );

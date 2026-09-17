@@ -61,6 +61,10 @@ export async function createCashTransaction(input: {
   type: 'deposit' | 'withdrawal';
   designation: string;
   amount: number;
+  // Propriétaire/Manager uniquement (vérifié côté serveur, ceci n'est qu'une
+  // intention) : passer outre le refus d'une sortie qui ferait passer la
+  // caisse en négatif, après confirmation explicite côté écran.
+  confirmNegative?: boolean;
 }, operationId = createOperationId()): Promise<{ queued: boolean }> {
   if (!input.companyId || !input.storeId) throw new Error('Sélectionnez une boutique avant cette opération.');
   if (input.designation.trim().length < 2) throw new Error('Indiquez une désignation.');
@@ -71,6 +75,7 @@ export async function createCashTransaction(input: {
     p_designation: input.designation.trim(),
     p_amount: input.amount,
     p_operation_id: operationId,
+    p_confirm_negative: !!input.confirmNegative,
   };
   if (await isDeviceOffline()) {
     const metadata = await createOfflineMetadata();

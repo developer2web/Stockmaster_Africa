@@ -5,6 +5,7 @@ import { Card, HelperText, IconButton, Switch, TextInput } from 'react-native-pa
 import { SelectField } from '@/components/forms/SelectField';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { getCashSummary } from '@/features/cash/api';
@@ -33,6 +34,13 @@ export default function PurchasesScreen() {
   const [items, setItems] = useState<PurchaseLine[]>([]);
   const [formError, setFormError] = useState('');
   const canCreateSupplierDebt = canUseFeature('supplier_debt');
+  // Assoupli sur demande explicite du 17/09 : le propriétaire ou un
+  // "Manager" (cash_transactions.override_negative_balance) peut passer
+  // outre après confirmation explicite — un employé simple reste bloqué
+  // sans recours, le serveur refuse de toute façon si cette condition
+  // n'est pas remplie.
+  const canOverrideNegative = membership?.role === 'company_admin' || !!membership?.permissions.includes('cash_transactions.override_negative_balance');
+  const [confirmNegative, setConfirmNegative] = useState(false);
 
   const suppliers = useQuery({ queryKey: ['suppliers', company, store], queryFn: () => getSuppliers(company, store), enabled: !!store });
   const products = useQuery({ queryKey: ['purchase-products', company, store, debouncedSearch, 'cost'], queryFn: () => getProducts(company, store, debouncedSearch, null, true), enabled: !!store });
@@ -64,10 +72,11 @@ export default function PurchasesScreen() {
   };
 
   const mutation = useMutation({
-    mutationFn: () => recordPurchase(store, supplierId!, items, canCreateSupplierDebt ? paid : true),
+    mutationFn: (options?: { confirmNegative?: boolean }) => recordPurchase(store, supplierId!, items, canCreateSupplierDebt ? paid : true, options?.confirmNegative),
     onSuccess: async () => {
       setItems([]);
       setSupplierId(null);
+      setConfirmNegative(false);
       await Promise.all([
         cache.invalidateQueries({ queryKey: ['stock-levels', company] }),
         cache.invalidateQueries({ queryKey: ['sale-stock', company, store] }),
@@ -97,16 +106,25 @@ export default function PurchasesScreen() {
       {items.map((item) => <Card key={item.productId} mode="contained"><Card.Title title={item.name} subtitle={`${formatQuantity(item.quantity)} × ${formatMoney(item.unitCost)}`} right={() => <IconButton icon="delete" accessibilityLabel={`Retirer ${item.name} de la commande`} onPress={() => setItems((rows) => rows.filter((row) => row.productId !== item.productId))} />} /></Card>)}
       <Card mode="contained"><Card.Title title={`Total : ${formatMoney(total)}`} subtitle={!canCreateSupplierDebt ? 'Paiement immédiat · les dettes fournisseurs nécessitent Pro' : paid ? 'Payé maintenant' : 'Dette fournisseur'} right={() => canCreateSupplierDebt ? <Switch value={paid} onValueChange={setPaid} accessibilityLabel="Payé maintenant" style={{ marginRight: 12 }} /> : null} /></Card>
       {/* Audit externe (SM-01) : ce paiement était accepté même en dépassant
-          la caisse actuelle, via un « Continuer quand même ? » — la caisse
-          ne peut plus passer en négatif côté serveur, quel que soit
-          l'écran, donc ce bouton échouerait toujours désormais. Remplacé
-          par un blocage direct qui pointe vers l'alternative déjà
-          disponible sur cet écran. */}
-      {wouldGoNegative && <HelperText type="error" visible>{canCreateSupplierDebt
-        ? `Ce paiement dépasse la caisse actuelle (${formatMoney(cashBalance)}). Basculez sur « Dette fournisseur » ci-dessus, ou réduisez le montant.`
-        : `Ce paiement dépasse la caisse actuelle (${formatMoney(cashBalance)}). Ajoutez des fonds à la caisse avant de continuer, ou réduisez le montant.`}</HelperText>}
+          la caisse actuelle, sans aucun avertissement. La caisse ne peut
+          plus passer en négatif côté serveur par défaut ; un propriétaire
+          ou un Manager peut néanmoins passer outre après confirmation
+          explicite (demande du 17/09), un employé simple reste bloqué. */}
+      {wouldGoNegative && <HelperText type="error" visible>{canOverrideNegative
+        ? `Ce paiement dépasse la caisse actuelle (${formatMoney(cashBalance)}) : elle passera en négatif.${canCreateSupplierDebt ? ' Vous pouvez aussi basculer sur « Dette fournisseur » ci-dessus.' : ''}`
+        : canCreateSupplierDebt
+          ? `Ce paiement dépasse la caisse actuelle (${formatMoney(cashBalance)}). Basculez sur « Dette fournisseur » ci-dessus, ou réduisez le montant.`
+          : `Ce paiement dépasse la caisse actuelle (${formatMoney(cashBalance)}). Ajoutez des fonds à la caisse avant de continuer, ou réduisez le montant.`}</HelperText>}
       {!!mutation.error && <HelperText type="error" visible>{mutation.error.message}</HelperText>}
-      <AppButton icon="truck-check" loading={mutation.isPending} disabled={!store || !supplierId || !items.length || mutation.isPending || wouldGoNegative} onPress={() => mutation.mutate()}>Confirmer la réception</AppButton>
+      <AppButton icon="truck-check" loading={mutation.isPending} disabled={!store || !supplierId || !items.length || mutation.isPending || (wouldGoNegative && !canOverrideNegative)} onPress={() => { if (wouldGoNegative && canOverrideNegative) { setConfirmNegative(true); return; } mutation.mutate({}); }}>Confirmer la réception</AppButton>
+      <ConfirmDialog
+        visible={confirmNegative}
+        title="Caisse insuffisante"
+        message={`Ce paiement dépasse la caisse actuelle (${formatMoney(cashBalance)}) : elle passera en négatif. Continuer quand même ?`}
+        loading={mutation.isPending}
+        onCancel={() => setConfirmNegative(false)}
+        onConfirm={() => mutation.mutate({ confirmNegative: true })}
+      />
     </AdminPage>
   );
 }

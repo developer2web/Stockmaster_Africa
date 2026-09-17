@@ -6,6 +6,7 @@ import { Card, Dialog, HelperText, Icon, Portal, Text, TextInput, useTheme } fro
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppFeedback } from '@/components/ui/AppFeedback';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { readableError } from '@/utils/errors';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -65,7 +66,7 @@ export default function CashScreen() {
   const withdrawals = summary.data?.withdrawals ?? 0;
   const balance = summary.data?.balance ?? 0;
   const mutation = useMutation({
-    mutationFn: () => createCashTransaction({ companyId, storeId, type: type!, designation, amount: parseDecimal(amount) }),
+    mutationFn: (options?: { confirmNegative?: boolean }) => createCashTransaction({ companyId, storeId, type: type!, designation, amount: parseDecimal(amount), confirmNegative: options?.confirmNegative }),
     onSuccess: async (result) => {
       if (result.queued) {
         await refreshQueue();
@@ -77,17 +78,22 @@ export default function CashScreen() {
       setType(null);
       setDesignation('');
       setAmount('');
+      setConfirmNegative(false);
       setSuccessMessage(result.queued
         ? 'Opération conservée hors ligne. Elle sera confirmée après synchronisation.'
         : type === 'deposit' ? 'Fonds ajoutés' : 'Dépense enregistrée');
     },
   });
-  // Audit externe (SM-01) : une dépense qui dépasserait la caisse actuelle
-  // était acceptée sans aucun avertissement — le serveur la refuse
-  // maintenant de toute façon (garde-fou au niveau de cash_transactions),
-  // mais avertir avant l'envoi évite une erreur surprise après la saisie.
+  // Audit externe (SM-01), assoupli sur demande explicite du 17/09 : une
+  // dépense qui dépasserait la caisse actuelle reste refusée par défaut
+  // (garde-fou au niveau de cash_transactions), mais le propriétaire ou un
+  // "Manager" (cash_transactions.override_negative_balance) peut passer
+  // outre après confirmation explicite — un employé simple reste bloqué
+  // sans recours.
+  const canOverrideNegative = membership?.role === 'company_admin' || can('cash_transactions.override_negative_balance');
+  const [confirmNegative, setConfirmNegative] = useState(false);
   const wouldGoNegative = type === 'withdrawal' && parseDecimal(amount) > 0 && balance - parseDecimal(amount) < 0;
-  const valid = !!storeId && designation.trim().length >= 2 && parseDecimal(amount) > 0 && !wouldGoNegative;
+  const valid = !!storeId && designation.trim().length >= 2 && parseDecimal(amount) > 0 && (!wouldGoNegative || canOverrideNegative);
   const closure=useMutation({mutationFn:()=>closeCash(storeId,parseDecimal(countedAmount),closureNote),onSuccess:async()=>{await Promise.all([cache.invalidateQueries({queryKey:['cash-closures',companyId,storeId]}),cache.invalidateQueries({queryKey:['cash-session',companyId,storeId]})]);setClosureOpen(false);setCountedAmount('');setClosureNote('');setSuccessMessage('Caisse clôturée');}});
   const opening=useMutation({mutationFn:()=>openCash(storeId,parseDecimal(openingAmount),openingNote),onSuccess:async()=>{await cache.invalidateQueries({queryKey:['cash-session',companyId,storeId]});setOpeningOpen(false);setOpeningAmount('');setOpeningNote('');setSuccessMessage('Caisse ouverte');}});
   const requiresOpening=!!sessionStatus.data?.requiresOpening;
@@ -180,7 +186,7 @@ export default function CashScreen() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-      <Portal><Dialog visible={!!type} onDismiss={() => setType(null)}><Dialog.Title>{type === 'deposit' ? 'Ajouter des fonds' : 'Effectuer une dépense'}</Dialog.Title><Dialog.ScrollArea><ScrollView style={{ maxHeight: Math.max(80, height * 0.45) }} contentContainerStyle={styles.dialogScroll} keyboardShouldPersistTaps="handled"><TextInput mode="outlined" label="Désignation" accessibilityLabel="Désignation" value={designation} onChangeText={setDesignation} /><TextInput mode="outlined" label="Montant" accessibilityLabel="Montant" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" selectTextOnFocus left={<TextInput.Icon icon="cash" />} />{wouldGoNegative && <HelperText type="error" visible>Ce montant dépasse la caisse actuelle ({money(balance)}) : la dépense est refusée.</HelperText>}{!!mutation.error && <HelperText type="error" visible>{readableError(mutation.error)}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setType(null)}>Annuler</AppButton><AppButton loading={mutation.isPending} disabled={!valid || mutation.isPending} onPress={() => mutation.mutate()}>{mutation.isPending?'Enregistrement…':'Confirmer'}</AppButton></Dialog.Actions></Dialog><Dialog visible={closureOpen} onDismiss={()=>!closure.isPending&&setClosureOpen(false)}><Dialog.Title>Clôturer la caisse</Dialog.Title><Dialog.ScrollArea><ScrollView style={{ maxHeight: Math.max(80, height * 0.45) }} contentContainerStyle={styles.dialogScroll} keyboardShouldPersistTaps="handled"><Text>Montant attendu : {money(balance)}</Text><TextInput mode="outlined" label="Montant réellement compté" accessibilityLabel="Montant réellement compté" value={countedAmount} onChangeText={setCountedAmount} keyboardType="decimal-pad" selectTextOnFocus/><TextInput mode="outlined" label="Note (facultatif)" accessibilityLabel="Note (facultatif)" value={closureNote} onChangeText={setClosureNote} multiline/><Text>Écart : {money((parseDecimal(countedAmount)||0)-balance)}</Text>{!!closure.error&&<HelperText type="error" visible>{readableError(closure.error)}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" disabled={closure.isPending} onPress={()=>setClosureOpen(false)}>Annuler</AppButton><AppButton loading={closure.isPending} disabled={closure.isPending||parseDecimal(countedAmount)<0} onPress={()=>closure.mutate()}>{closure.isPending?'Enregistrement…':'Valider la clôture'}</AppButton></Dialog.Actions></Dialog></Portal>
+      <Portal><Dialog visible={!!type} onDismiss={() => setType(null)}><Dialog.Title>{type === 'deposit' ? 'Ajouter des fonds' : 'Effectuer une dépense'}</Dialog.Title><Dialog.ScrollArea><ScrollView style={{ maxHeight: Math.max(80, height * 0.45) }} contentContainerStyle={styles.dialogScroll} keyboardShouldPersistTaps="handled"><TextInput mode="outlined" label="Désignation" accessibilityLabel="Désignation" value={designation} onChangeText={setDesignation} /><TextInput mode="outlined" label="Montant" accessibilityLabel="Montant" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" selectTextOnFocus left={<TextInput.Icon icon="cash" />} />{wouldGoNegative && <HelperText type="error" visible>{canOverrideNegative ? `Ce montant dépasse la caisse actuelle (${money(balance)}) : elle passera à ${money(balance - parseDecimal(amount))}.` : `Ce montant dépasse la caisse actuelle (${money(balance)}) : la dépense est refusée.`}</HelperText>}{!!mutation.error && <HelperText type="error" visible>{readableError(mutation.error)}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setType(null)}>Annuler</AppButton><AppButton loading={mutation.isPending} disabled={!valid || mutation.isPending} onPress={() => { if (wouldGoNegative && canOverrideNegative) { setConfirmNegative(true); return; } mutation.mutate({}); }}>{mutation.isPending?'Enregistrement…':'Confirmer'}</AppButton></Dialog.Actions></Dialog><ConfirmDialog visible={confirmNegative} title="Caisse insuffisante" message={`Cette dépense de ${money(parseDecimal(amount))} dépasse la caisse actuelle (${money(balance)}) : elle passera à ${money(balance - parseDecimal(amount))}. Continuer quand même ?`} loading={mutation.isPending} onCancel={() => setConfirmNegative(false)} onConfirm={() => mutation.mutate({ confirmNegative: true })} /><Dialog visible={closureOpen} onDismiss={()=>!closure.isPending&&setClosureOpen(false)}><Dialog.Title>Clôturer la caisse</Dialog.Title><Dialog.ScrollArea><ScrollView style={{ maxHeight: Math.max(80, height * 0.45) }} contentContainerStyle={styles.dialogScroll} keyboardShouldPersistTaps="handled"><Text>Montant attendu : {money(balance)}</Text><TextInput mode="outlined" label="Montant réellement compté" accessibilityLabel="Montant réellement compté" value={countedAmount} onChangeText={setCountedAmount} keyboardType="decimal-pad" selectTextOnFocus/><TextInput mode="outlined" label="Note (facultatif)" accessibilityLabel="Note (facultatif)" value={closureNote} onChangeText={setClosureNote} multiline/><Text>Écart : {money((parseDecimal(countedAmount)||0)-balance)}</Text>{!!closure.error&&<HelperText type="error" visible>{readableError(closure.error)}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" disabled={closure.isPending} onPress={()=>setClosureOpen(false)}>Annuler</AppButton><AppButton loading={closure.isPending} disabled={closure.isPending||parseDecimal(countedAmount)<0} onPress={()=>closure.mutate()}>{closure.isPending?'Enregistrement…':'Valider la clôture'}</AppButton></Dialog.Actions></Dialog></Portal>
       <AppFeedback message={successMessage} onDismiss={() => setSuccessMessage('')} />
       <AppFeedback message={receiptAction.error ? readableError(receiptAction.error) : ''} type="error" onDismiss={receiptAction.clearError} />
     </AdminPage>

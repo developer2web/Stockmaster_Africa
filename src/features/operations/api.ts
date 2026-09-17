@@ -85,7 +85,7 @@ export async function recordSupplierPayment(input: {
   return data as string;
 }
 
-export async function recordPurchase(storeId: string, supplierId: string, items: PurchaseLine[], paid: boolean) {
+export async function recordPurchase(storeId: string, supplierId: string, items: PurchaseLine[], paid: boolean, confirmNegative = false) {
   if (!storeId || !supplierId) throw new Error('Sélectionnez une boutique et un fournisseur.');
   if (!items.length || items.some((item) => !item.productId || !(item.quantity > 0) || item.unitCost < 0)) {
     throw new Error('La commande contient une ligne invalide.');
@@ -96,6 +96,9 @@ export async function recordPurchase(storeId: string, supplierId: string, items:
     p_items: items.map((item) => ({ productId: item.productId, quantity: item.quantity, unitCost: item.unitCost })),
     p_paid: paid,
     p_operation_id: createOperationId(),
+    // Propriétaire/Manager uniquement (vérifié côté serveur) : passer outre
+    // le refus d'un paiement qui ferait passer la caisse en négatif.
+    p_confirm_negative: confirmNegative,
   });
   fail(error);
   return data as string;

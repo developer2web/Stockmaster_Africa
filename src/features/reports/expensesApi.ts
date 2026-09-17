@@ -26,7 +26,7 @@ export async function getExpenses(companyId: string, storeId: string, page = 0):
   return (data ?? []) as unknown as Expense[];
   }, Array.isArray);
 }
-export async function createExpense(_companyId: string, input: ExpenseInput, operationId = createOperationId()) {
+export async function createExpense(_companyId: string, input: ExpenseInput, operationId = createOperationId(), confirmNegative = false) {
   if (!input.storeId) throw new Error('Sélectionnez une boutique avant cette dépense.');
   if (!Number.isFinite(parseDecimal(input.amount)) || parseDecimal(input.amount) <= 0) {
     throw new Error('Le montant doit être supérieur à zéro.');
@@ -37,6 +37,9 @@ export async function createExpense(_companyId: string, input: ExpenseInput, ope
     p_amount: parseDecimal(input.amount),
     p_expense_date: input.expenseDate,
     p_operation_id: operationId,
+    // Propriétaire/Manager uniquement (vérifié côté serveur) : passer outre
+    // le refus d'une dépense qui ferait passer la caisse en négatif.
+    p_confirm_negative: confirmNegative,
   };
   if (await isDeviceOffline()) {
     const metadata=await createOfflineMetadata();
