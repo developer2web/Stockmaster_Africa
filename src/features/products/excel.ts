@@ -1,6 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
-import * as XLSX from '@e965/xlsx';
 import { supabase } from '@/services/supabase/client';
 import { saveProduct } from './api';
 
@@ -12,6 +11,12 @@ export async function selectProductWorkbook(companyId:string,storeId:string):Pro
   const result=await DocumentPicker.getDocumentAsync({type:['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel'],copyToCacheDirectory:true});
   if(result.canceled)return null;const asset=result.assets[0];
   if((asset.size??0)>5*1024*1024)throw new Error('Le fichier dépasse la limite de 5 Mo.');
+  // SM-17 (audit externe) : import dynamique plutôt qu'en tête de fichier —
+  // XLSX (SheetJS) est une bibliothèque volumineuse qui ne sert qu'ici, sur
+  // un écran que la plupart des utilisateurs n'ouvrent jamais. En import
+  // statique, tout le monde la télécharge dès le premier chargement de
+  // l'app ; en import dynamique, seul un vrai import de fichier la charge.
+  const XLSX = await import('@e965/xlsx');
   const bytes=await new File(asset.uri).bytes();const book=XLSX.read(bytes,{type:'array'});const firstSheet=book.SheetNames[0];
   if(!firstSheet||!book.Sheets[firstSheet])throw new Error('Le fichier Excel ne contient aucune feuille.');
   const rows=XLSX.utils.sheet_to_json<ProductRow>(book.Sheets[firstSheet],{defval:''});if(rows.length>1000)throw new Error('Un import est limité à 1 000 produits.');

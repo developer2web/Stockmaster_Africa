@@ -26,15 +26,25 @@ export async function printHtmlDocument(html: string, title = 'Document StockMas
     return;
   }
 
+  const popupBlockedMessage = 'Autorisez les fenêtres contextuelles pour imprimer ce document, puis réessayez.';
+  // SM-12 (audit externe) : selon le navigateur, une pop-up bloquée ne
+  // renvoie pas toujours null — parfois un objet Window déjà fermé ou
+  // inaccessible, dont chaque accès ci-dessous lève une erreur technique
+  // différente. Les deux cas doivent aboutir au même message clair côté
+  // utilisateur plutôt qu'à un échec silencieux ou un message incompréhensible.
   const popup = window.open('', '_blank', 'popup=yes,width=860,height=920');
-  if (!popup) throw new Error('Autorisez les fenêtres contextuelles pour imprimer ce reçu.');
+  if (!popup || popup.closed) throw new Error(popupBlockedMessage);
 
-  popup.document.open();
-  popup.document.write(html.replace('<head>', `<head><title>${title}</title>`));
-  popup.document.close();
-  await waitForReceiptAssets(popup);
-  popup.focus();
-  popup.print();
+  try {
+    popup.document.open();
+    popup.document.write(html.replace('<head>', `<head><title>${title}</title>`));
+    popup.document.close();
+    await waitForReceiptAssets(popup);
+    popup.focus();
+    popup.print();
+  } catch {
+    throw new Error(popupBlockedMessage);
+  }
 }
 
 /** Produit un PDF natif puis ouvre le partage. Sur le web, ouvre l'impression avec « Enregistrer au format PDF ». */

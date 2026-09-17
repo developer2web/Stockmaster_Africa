@@ -41,6 +41,25 @@ const DYNAMIC_ROUTES = [
 function vercelConfig() {
   return {
     cleanUrls: true,
+    // SM-17 (audit externe) : le bundle JS et les polices/images sous
+    // _expo/static et assets/ sont nommés avec un hash de leur contenu
+    // (ex. index-759760ce....js, stockmaster-icon.223b548....png) — un
+    // changement de contenu change forcément le nom de fichier. Sans
+    // cache long, Vercel les sert par défaut en max-age=0 : chaque
+    // ouverture de l'app (pas seulement la première) revalide ~1 Mo
+    // compressé auprès du serveur, coûteux sur la 3G visée par le
+    // produit. Les pages .html elles-mêmes ne sont pas concernées
+    // (restent en max-age=0, elles doivent toujours pouvoir changer).
+    headers: [
+      {
+        source: '/_expo/static/(.*)',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+      {
+        source: '/assets/(.*)',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+    ],
     rewrites: [
       ...DYNAMIC_ROUTES.map(({ prefix, siblings }) => ({
         source: `${prefix}/:id((?!${siblings.map((s) => `${s}$`).join('|')}).*)`,
