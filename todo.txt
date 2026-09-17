@@ -1021,4 +1021,23 @@
   position du Menu (risqué sans certitude du correctif exact) ou
   remplacer SelectField par un composant de liste déroulante différent
   (changement plus large qu'un correctif ponctuel). Laissé tel quel.
+- [x] SM-15 MOYEN — /_sitemap (route de debug intégrée d'expo-router,
+  liste toutes les routes de l'app) accessible publiquement sur la
+  prod. Corrigé via l'option documentée du plugin expo-router
+  ("sitemap": false, app.json) : la route n'est plus générée du tout à
+  l'export, plutôt que neutralisée après coup. Vérifié : le fichier
+  n'existe plus dans l'export, les 39 autres pages inchangées.
+- [x] SM-13 MOYEN — "Supprimer" et "Supprimer le compte" (fiche
+  employé) visuellement identiques à "Annuler", sans couleur d'alerte
+  — les dialogues de confirmation expliquaient déjà bien la différence
+  entre les deux, mais rien ne le laissait deviner avant de cliquer.
+  Boutons passés en rouge (destructive), "Supprimer" renommé "Retirer
+  l'accès" pour se distinguer de "Supprimer le compte" au premier
+  coup d'œil.
+- [x] SM-14 MOYEN — téléphone client acceptait "abc" alors qu'il sert
+  de clé de recherche en caisse et de contact Orange Money. Même
+  format que le numéro Mobile Money déjà validé ailleurs (+
+  facultatif, 8-15 chiffres), toujours facultatif.
+  249/249 tests (3 nouveaux), tsc propre à chaque étape. Déployé.
+  Suite (SM-12, SM-16 et plus) en cours.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
