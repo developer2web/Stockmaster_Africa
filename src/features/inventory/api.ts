@@ -72,7 +72,7 @@ export async function getStockLevels(
 ): Promise<StockLevel[]> {
   // Keep read-only quantities separate from previously cached purchase prices.
   return withOfflineCache(`stock-levels:${companyId}:${productId??'all'}:${storeId??'all'}:cost:${includeCost}`, async () => {
-  const productColumns = 'name,sku,sale_price';
+  const productColumns = 'name,sku,sale_price,is_active';
   let query = supabase
     .from('stock_levels')
     .select(`id,company_id,store_id,product_id,product_variant_id,quantity,updated_at,store:stores(name),product:products(${productColumns}),variant:product_variants(name,sku)`)
@@ -138,3 +138,8 @@ export type InventoryCount={id:string;status:string;note:string|null;created_at:
 export async function startInventory(storeId:string,note=''){const{data,error}=await supabase.rpc('start_store_inventory',{p_store_id:storeId,p_note:note.trim()||null});fail(error);return data as string;}
 export async function getInventory(id:string):Promise<InventoryCount>{const{data,error}=await supabase.from('inventories').select('id,status,note,created_at,inventory_items(id,product_id,product_variant_id,expected_quantity,counted_quantity,difference,product:products(name,sku),variant:product_variants(name,sku))').eq('id',id).single();fail(error);return data as unknown as InventoryCount;}
 export async function finalizeInventory(id:string,counts:{itemId:string;countedQuantity:number}[]){const{error}=await supabase.rpc('finalize_store_inventory',{p_inventory_id:id,p_counts:counts});fail(error);}
+// Le stock théorique est figé au démarrage de l'inventaire ; des ventes ou
+// réceptions légitimes pendant un comptage encore en brouillon le rendent
+// obsolète (l'écart affiché mélangerait alors une activité normale avec un
+// vrai écart physique). Resynchronise explicitement sur le stock actuel.
+export async function refreshInventoryExpectedQuantities(id:string){const{error}=await supabase.rpc('refresh_inventory_expected_quantities',{p_inventory_id:id});fail(error);}

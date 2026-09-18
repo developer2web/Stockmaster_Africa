@@ -32,7 +32,14 @@ export default function CashScreen() {
   const { refreshQueue } = useOffline();
   const companyId = membership?.companyId ?? '';
   const storeId = membership?.storeId ?? '';
-  const canWrite = can('cash_transactions.write') || can('expenses.write');
+  // Demande explicite du propriétaire (17/09) : le serveur refuse déjà une
+  // dépense sans la permission "Gérer les dépenses" (SM-02), mais le bouton
+  // et le formulaire restaient visibles — l'employé ne le découvrait qu'en
+  // essayant. "Ajouter des fonds"/"Clôturer" ne l'exigent pas côté serveur,
+  // seule "Effectuer une dépense" (une sortie) demande les deux permissions.
+  const canDeposit = can('cash_transactions.write');
+  const canWithdraw = can('cash_transactions.write') && can('expenses.write');
+  const canWrite = canDeposit || canWithdraw;
   const canOpen = can('cash.open') || can('cash_transactions.write');
   const query = useInfiniteQuery({
     queryKey: ['cash-transactions', companyId, storeId],
@@ -127,8 +134,8 @@ export default function CashScreen() {
         </Card.Content>
       </Card>}
       {canWrite && <View style={styles.actions}>
-        <AppButton disabled={requiresOpening} style={styles.action} icon="cash-plus" onPress={() => setType('deposit')}>Ajouter des fonds</AppButton>
-        <AppButton disabled={requiresOpening} style={styles.action} buttonColor={theme.colors.error} icon="cash-minus" onPress={() => setType('withdrawal')}>Effectuer une dépense</AppButton>
+        {canDeposit && <AppButton disabled={requiresOpening} style={styles.action} icon="cash-plus" onPress={() => setType('deposit')}>Ajouter des fonds</AppButton>}
+        {canWithdraw && <AppButton disabled={requiresOpening} style={styles.action} buttonColor={theme.colors.error} icon="cash-minus" onPress={() => setType('withdrawal')}>Effectuer une dépense</AppButton>}
         <AppButton mode="outlined" disabled={requiresOpening} style={styles.action} icon="lock-check-outline" onPress={() => { setCountedAmount(String(balance)); setClosureOpen(true); }}>Clôturer la caisse</AppButton>
       </View>}
       <View style={styles.summary}>
