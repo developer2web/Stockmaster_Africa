@@ -39,11 +39,18 @@ export function numericFieldValue(value: unknown): string {
 }
 
 /**
- * Ne garde que les chiffres d'une saisie clavier : les quantités et seuils de
- * stock sont toujours des nombres entiers dans StockMaster (pas de fraction
- * d'unité), donc le séparateur décimal est retiré dès la frappe plutôt que
- * rejeté après coup.
+ * Ne garde que les chiffres d'une saisie clavier : les quantités, prix et
+ * seuils de stock sont toujours des nombres entiers dans StockMaster (pas de
+ * fraction d'unité, GNF n'a pas de centimes), donc le séparateur décimal est
+ * retiré dès la frappe plutôt que rejeté après coup.
+ *
+ * Tronque à la partie entière plutôt que de supprimer le séparateur en
+ * recollant les chiffres autour : "12,50" tapé par réflexe décimal devenait
+ * "1250" (×100 silencieux, sans aucun avertissement) au lieu d'être limité à
+ * "12". Un espace (séparateur de milliers, ex. "1 250" collé depuis un
+ * rapport) n'est pas un point de troncature : lui reste correctement
+ * supprimé pour redonner "1250".
  */
 export function digitsOnly(value: string): string {
-  return value.replace(/[^0-9]/g, '');
+  return value.split(/[.,]/)[0].replace(/[^0-9]/g, '');
 }

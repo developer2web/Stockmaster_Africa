@@ -97,7 +97,13 @@ export default function CustomerDetails() {
   const scheduleTotal = scheduleRows.reduce((sum, row) => sum + (parseDecimal(row.amount) || 0), 0);
   const scheduleValid = scheduleRows.every(row => !!row.dueDate && Number.isFinite(parseDecimal(row.amount)) && parseDecimal(row.amount) > 0) && Math.abs(scheduleTotal - balance) <= 0.01;
   const owes = balance > 0;
-  const amountValid = amount.trim().length > 0;
+  // Un paiement ou une remise ne peut jamais dépasser la dette restante — le
+  // serveur le refuse déjà (record_customer_entry_v2), mais rien ne le
+  // prévenait avant l'envoi : l'utilisateur ne découvrait le plafond qu'après
+  // avoir cliqué. Sans limite pour "credit" : ajouter une dette n'en a pas.
+  const parsedEntryAmount = parseDecimal(amount);
+  const exceedsDebt = entryType !== 'credit' && parsedEntryAmount > balance;
+  const amountValid = amount.trim().length > 0 && Number.isFinite(parsedEntryAmount) && parsedEntryAmount > 0 && !exceedsDebt;
 
   return (
     <AdminPage title={customer.data?.name ?? 'Fiche client'}>
@@ -197,6 +203,7 @@ export default function CustomerDetails() {
               options={[{label:'Espèces',value:'cash'},{label:'Mobile Money',value:'mobile_money'}]}
             />}
             <TextInput mode="outlined" label={entryType==='discount'?'Motif obligatoire':'Note (facultatif)'} accessibilityLabel={entryType==='discount'?'Motif obligatoire':'Note (facultatif)'} value={note} onChangeText={setNote} />
+            {exceedsDebt && <HelperText type="error" visible>{entryType==='discount' ? `La remise dépasse la dette restante (${formatMoney(balance)}).` : `Le paiement dépasse la dette restante (${formatMoney(balance)}).`}</HelperText>}
             {!!entry.error && <HelperText type="error" visible>{readableError(entry.error)}</HelperText>}
           </ScrollView></Dialog.ScrollArea>
           <Dialog.Actions style={{ flexWrap: 'wrap' }}>

@@ -57,7 +57,7 @@ export default function PurchasesScreen() {
     const parsedCost = parseDecimal(unitCost);
     if (!product) return setFormError('Sélectionnez un produit.');
     if (!(parsedQuantity > 0)) return setFormError('La quantité doit être supérieure à zéro.');
-    if (!Number.isFinite(parsedCost) || parsedCost < 0) return setFormError('Le prix d’achat est invalide.');
+    if (!Number.isFinite(parsedCost) || parsedCost <= 0) return setFormError('Le prix d’achat doit être supérieur à zéro.');
     setFormError('');
     setItems((current) => {
       const existing = current.find((item) => item.productId === product.id);

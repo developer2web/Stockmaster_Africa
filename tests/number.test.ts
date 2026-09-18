@@ -42,10 +42,23 @@ describe('numericFieldValue', () => {
 });
 
 describe('digitsOnly', () => {
-  it('retire le séparateur décimal et tout caractère non numérique', () => {
-    expect(digitsOnly('5.5')).toBe('55');
-    expect(digitsOnly('5,5')).toBe('55');
+  // Bug réel trouvé en testant en direct : "12,50" tapé par réflexe décimal
+  // (l'utilisateur pense au prix réel, GNF n'a pourtant pas de centimes)
+  // devenait "1250" — le séparateur était supprimé et les chiffres recollés
+  // plutôt que la saisie tronquée à la partie entière, un ×100 silencieux
+  // sans aucun avertissement. Cet ancien comportement était même vérifié
+  // comme correct par ce test (digitsOnly('5.5') attendait '55').
+  it('tronque à la partie entière au lieu de recoller les chiffres autour du séparateur décimal', () => {
+    expect(digitsOnly('5.5')).toBe('5');
+    expect(digitsOnly('5,5')).toBe('5');
+    expect(digitsOnly('12,50')).toBe('12');
+    expect(digitsOnly('12,')).toBe('12');
+    expect(digitsOnly(',50')).toBe('');
+  });
+  it('retire un espace séparateur de milliers (n’est pas un point de troncature)', () => {
     expect(digitsOnly('1 250')).toBe('1250');
+  });
+  it('retire tout autre caractère non numérique (ex. signe négatif)', () => {
     expect(digitsOnly('-3')).toBe('3');
   });
   it('laisse un entier déjà propre inchangé', () => {
