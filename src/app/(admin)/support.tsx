@@ -95,7 +95,7 @@ export default function SupportScreen() {
       <Text style={{ color: '#526B68' }}>Choisissez un thème pour afficher immédiatement les réponses.</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {(Object.keys(faq) as FaqCategory[]).map((label) => (
-          <Chip key={label} selected={faqCategory === label} onPress={() => { setFaqCategory(label); setExpandedQuestion(0); }}>{label}</Chip>
+          <Chip key={label} selected={faqCategory === label} accessibilityLabel={`${label}${faqCategory===label?', sélectionné':''}`} onPress={() => { setFaqCategory(label); setExpandedQuestion(0); }}>{label}</Chip>
         ))}
       </View>
       <View>

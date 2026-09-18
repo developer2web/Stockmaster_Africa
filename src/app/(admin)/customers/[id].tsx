@@ -54,6 +54,7 @@ export default function CustomerDetails() {
   const [entryPaymentMethod,setEntryPaymentMethod]=useState<'cash'|'mobile_money'>('cash');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [entryReference, setEntryReference] = useState('');
   const [editing, setEditing] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [message, setMessage] = useState(resolveNotice(notice));
@@ -73,12 +74,13 @@ export default function CustomerDetails() {
   };
 
   const entry = useMutation({
-    mutationFn: () => recordCustomerEntry({ customerId: id!, storeId: store, type: entryType!, amount, paymentMethod:entryPaymentMethod,note }),
+    mutationFn: () => recordCustomerEntry({ customerId: id!, storeId: store, type: entryType!, amount, paymentMethod:entryPaymentMethod,note,reference:entryReference }),
     onSuccess: async () => {
       await refresh();
       setEntryType(null);
       setAmount('');
       setNote('');
+      setEntryReference('');
       setMessage(entryType === 'credit' ? 'Dette enregistrée' : entryType==='discount'?'Remise enregistrée':'Paiement enregistré');
     },
   });
@@ -179,11 +181,11 @@ export default function CustomerDetails() {
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={{ fontWeight: '700' }}>{credit ? 'Dette' : discount?'Remise de dette':`Paiement${row.payment_method==='mobile_money'?' Mobile Money':' espèces'}`}</Text>
-                    <Text style={{ color: theme.colors.onSurfaceVariant }}>{row.note ?? formatDateTime(row.created_at)}</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant }}>{[row.reference&&`Réf. ${row.reference}`,row.note].filter(Boolean).join(' — ') || formatDateTime(row.created_at)}</Text>
                   </View>
                   <Text variant="titleMedium" style={{ fontWeight: '800', color: credit ? theme.colors.error : theme.colors.primary }}>{credit ? '+' : '−'}{formatMoney(Number(row.amount))}</Text>
                 </Card.Content>
-                {row.entry_type==='payment'&&<Card.Actions>{(()=>{const data={...receiptBranding,title:'Reçu de paiement client',party:customer.data!.name,amount:Number(row.amount),balanceBefore:Number(row.balance_before??0),balanceAfter:Number(row.balance_after??0),date:row.created_at,reference:`CLIENT-${row.id.slice(0,8).toUpperCase()}`,note:row.note,issuedBy:row.creator?.full_name||receiptBranding.issuedBy};const printKey=`print-${row.id}`,shareKey=`share-${row.id}`;return [<AppButton key={printKey} mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(data,formatMoney))}>Imprimer</AppButton>,<AppButton key={shareKey} mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(data,formatMoney))}>Partager</AppButton>]})()}</Card.Actions>}
+                {row.entry_type==='payment'&&<Card.Actions>{(()=>{const data={...receiptBranding,title:'Reçu de paiement client',party:customer.data!.name,amount:Number(row.amount),balanceBefore:Number(row.balance_before??0),balanceAfter:Number(row.balance_after??0),date:row.created_at,reference:`CLIENT-${row.id.slice(0,8).toUpperCase()}`,note:[row.reference&&`Référence : ${row.reference}`,row.note].filter(Boolean).join(' — ')||null,issuedBy:row.creator?.full_name||receiptBranding.issuedBy};const printKey=`print-${row.id}`,shareKey=`share-${row.id}`;return [<AppButton key={printKey} mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(data,formatMoney))}>Imprimer</AppButton>,<AppButton key={shareKey} mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(data,formatMoney))}>Partager</AppButton>]})()}</Card.Actions>}
               </Card>
             );
           })}
@@ -202,12 +204,13 @@ export default function CustomerDetails() {
               onChange={value=>setEntryPaymentMethod((value??'cash') as 'cash'|'mobile_money')}
               options={[{label:'Espèces',value:'cash'},{label:'Mobile Money',value:'mobile_money'}]}
             />}
+            {entryType==='payment'&&<TextInput mode="outlined" label="Référence (n° Mobile Money, facultatif)" accessibilityLabel="Référence (n° Mobile Money, facultatif)" value={entryReference} onChangeText={setEntryReference} />}
             <TextInput mode="outlined" label={entryType==='discount'?'Motif obligatoire':'Note (facultatif)'} accessibilityLabel={entryType==='discount'?'Motif obligatoire':'Note (facultatif)'} value={note} onChangeText={setNote} />
             {exceedsDebt && <HelperText type="error" visible>{entryType==='discount' ? `La remise dépasse la dette restante (${formatMoney(balance)}).` : `Le paiement dépasse la dette restante (${formatMoney(balance)}).`}</HelperText>}
             {!!entry.error && <HelperText type="error" visible>{readableError(entry.error)}</HelperText>}
           </ScrollView></Dialog.ScrollArea>
           <Dialog.Actions style={{ flexWrap: 'wrap' }}>
-            <AppButton mode="outlined" disabled={entry.isPending} onPress={() => {setEntryType(null);setAmount('');setNote('')}}>Annuler</AppButton>
+            <AppButton mode="outlined" disabled={entry.isPending} onPress={() => {setEntryType(null);setAmount('');setNote('');setEntryReference('')}}>Annuler</AppButton>
             <AppButton testID="customer-entry-confirm" loading={entry.isPending} disabled={!amountValid || (entryType==='discount'&&note.trim().length<3)} destructive={entryType==='credit'} onPress={() => entry.mutate()}>Enregistrer</AppButton>
           </Dialog.Actions>
         </Dialog>

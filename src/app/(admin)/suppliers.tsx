@@ -51,10 +51,12 @@ export default function Suppliers() {
   const [search, setSearch] = useState('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [reference, setReference] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<SupplierPayment['payment_method']>('cash');
   const [paymentMode,setPaymentMode]=useState<'total'|'custom'>('total');
-  const [purchaseToCancel,setPurchaseToCancel]=useState<string|null>(null);
+  const [purchaseToCancel,setPurchaseToCancel]=useState<{id:string;paymentMethod:'cash'|'mobile_money'|'card'|'bank_transfer'|null}|null>(null);
   const [cancellationReason,setCancellationReason]=useState('');
+  const [cancellationReference,setCancellationReference]=useState('');
   const [cancellationMethod,setCancellationMethod]=useState<'cash'|'mobile_money'>('cash');
   const receiptAction=useReceiptAction();
   const receiptBranding=useReceiptBranding();
@@ -93,7 +95,7 @@ export default function Suppliers() {
     },
   });
   const paymentMutation = useMutation({
-    mutationFn: () => recordSupplierPayment({ storeId: store, supplierId: selected!.id, amount: paymentMode==='total'?Number(account.data?.due??0):parseDecimal(amount), paymentMethod, note }),
+    mutationFn: () => recordSupplierPayment({ storeId: store, supplierId: selected!.id, amount: paymentMode==='total'?Number(account.data?.due??0):parseDecimal(amount), paymentMethod, note, reference }),
     onSuccess: async () => {
       await Promise.all([
         cache.invalidateQueries({ queryKey: ['supplier-account', company, store, selected?.id] }),
@@ -104,10 +106,11 @@ export default function Suppliers() {
       ]);
       setAmount('');
       setNote('');
+      setReference('');
       setSelected(null);
     },
   });
-  const cancellationMutation=useMutation({mutationFn:()=>cancelPurchase(purchaseToCancel!,cancellationReason,cancellationMethod),onSuccess:async()=>{await Promise.all([cache.invalidateQueries({queryKey:['supplier-account',company,store,selected?.id]}),cache.invalidateQueries({queryKey:['supplier-stats',company,store]}),cache.invalidateQueries({queryKey:['stock-levels',company]}),cache.invalidateQueries({queryKey:['cash-summary',company,store]})]);setPurchaseToCancel(null);setCancellationReason('')}});
+  const cancellationMutation=useMutation({mutationFn:()=>cancelPurchase(purchaseToCancel!.id,cancellationReason,cancellationMethod,cancellationReference),onSuccess:async()=>{await Promise.all([cache.invalidateQueries({queryKey:['supplier-account',company,store,selected?.id]}),cache.invalidateQueries({queryKey:['supplier-stats',company,store]}),cache.invalidateQueries({queryKey:['stock-levels',company]}),cache.invalidateQueries({queryKey:['cash-summary',company,store]})]);setPurchaseToCancel(null);setCancellationReason('');setCancellationReference('')}});
 
   const show = (item?: Supplier) => {
     mutation.reset();
@@ -118,6 +121,7 @@ export default function Suppliers() {
     paymentMutation.reset();
     setAmount('');
     setNote('');
+    setReference('');
     setPaymentMethod('cash');
     setPaymentMode('total');
     setSelected(item);
@@ -195,19 +199,27 @@ export default function Suppliers() {
           {!!account.error && <HelperText type="error" visible>{account.error.message}</HelperText>}
           <Card mode="contained"><Card.Title title={`Dette restante : ${formatMoney(account.data?.due ?? 0)}`} subtitle={`Déjà payé : ${formatMoney(account.data?.paid ?? 0)} • Achats : ${formatMoney(account.data?.total ?? 0)}`} /></Card>
           <Text variant="titleSmall">Type de règlement</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}><Chip icon="check-all" selected={paymentMode==='total'} onPress={()=>{setPaymentMode('total');setAmount(String(account.data?.due??''));}}>Paiement total</Chip><Chip icon="pencil-outline" selected={paymentMode==='custom'} onPress={()=>{setPaymentMode('custom');setAmount('');}}>Montant personnalisé</Chip></ScrollView>
+          {/* Accessibilité (demande du 17/09) : le Chip de react-native-paper
+              calcule bien un accessibilityState={{selected}} en interne, mais
+              ça ne se traduit par aucun attribut ARIA perceptible sur le
+              bouton rendu dans cette configuration (vérifié en direct) — un
+              lecteur d'écran n'annonçait donc jamais le changement d'état.
+              accessibilityLabel explicite en repli, fiable quel que soit ce
+              détail de la bibliothèque. */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}><Chip icon="check-all" selected={paymentMode==='total'} accessibilityLabel={`Paiement total${paymentMode==='total'?', sélectionné':''}`} onPress={()=>{setPaymentMode('total');setAmount(String(account.data?.due??''));}}>Paiement total</Chip><Chip icon="pencil-outline" selected={paymentMode==='custom'} accessibilityLabel={`Montant personnalisé${paymentMode==='custom'?', sélectionné':''}`} onPress={()=>{setPaymentMode('custom');setAmount('');}}>Montant personnalisé</Chip></ScrollView>
           {paymentMode==='total'?<Card mode="outlined"><Card.Title title={formatMoney(account.data?.due??0)} subtitle="La totalité de la dette sera réglée"/></Card>:<TextInput mode="outlined" label="Montant personnalisé" accessibilityLabel="Montant personnalisé" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" selectTextOnFocus />}
           <Text variant="titleSmall">Moyen de paiement</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {(Object.keys(paymentLabels) as SupplierPayment['payment_method'][]).map((method) => <Chip key={method} selected={paymentMethod === method} onPress={() => setPaymentMethod(method)}>{paymentLabels[method]}</Chip>)}
+            {(Object.keys(paymentLabels) as SupplierPayment['payment_method'][]).map((method) => <Chip key={method} selected={paymentMethod === method} accessibilityLabel={`${paymentLabels[method]}${paymentMethod===method?', sélectionné':''}`} onPress={() => setPaymentMethod(method)}>{paymentLabels[method]}</Chip>)}
           </ScrollView>
+          <TextInput mode="outlined" label="Référence (n° Mobile Money, chèque, virement…, facultatif)" accessibilityLabel="Référence (n° Mobile Money, chèque, virement…, facultatif)" value={reference} onChangeText={setReference} />
           <TextInput mode="outlined" label="Note (facultative)" accessibilityLabel="Note (facultative)" value={note} onChangeText={setNote} multiline />
           {!!paymentMutation.error && <HelperText type="error" visible>{paymentMutation.error.message}</HelperText>}
           <Text variant="titleMedium">Achats non soldés</Text>
-          {(account.data?.purchases ?? []).map((row) => <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.total))} subtitle={`${row.payment_status==='cancelled'?'Annulé':row.payment_status === 'partial' ? 'Paiement partiel' : row.payment_status==='paid'?'Payé':'À payer'} • ${formatDate(row.created_at)}`} />{row.cancellation_reason&&<Card.Content><Text>Motif : {row.cancellation_reason}</Text></Card.Content>}{row.payment_status!=='cancelled'&&membership?.role==='company_admin'&&<Card.Actions><AppButton mode="text" icon="cancel" onPress={()=>setPurchaseToCancel(row.id)}>Annuler l’achat</AppButton></Card.Actions>}</Card>)}
+          {(account.data?.purchases ?? []).map((row) => <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.total))} subtitle={`${row.payment_status==='cancelled'?'Annulé':row.payment_status === 'partial' ? 'Paiement partiel' : row.payment_status==='paid'?'Payé':'À payer'}${row.payment_method?` (${paymentLabels[row.payment_method]})`:''} • ${formatDate(row.created_at)}`} />{row.cancellation_reason&&<Card.Content><Text>Motif : {row.cancellation_reason}</Text></Card.Content>}{row.payment_status!=='cancelled'&&membership?.role==='company_admin'&&<Card.Actions><AppButton mode="text" icon="cancel" onPress={()=>{setPurchaseToCancel({id:row.id,paymentMethod:row.payment_method});setCancellationMethod(row.payment_method==='mobile_money'?'mobile_money':'cash');}}>Annuler l’achat</AppButton></Card.Actions>}</Card>)}
           {!(account.data?.purchases ?? []).some((row) => Number(row.amount_due) > 0) && !account.isLoading && <Text>Aucune dette fournisseur.</Text>}
           <Text variant="titleMedium">Historique des règlements</Text>
-          {(account.data?.payments ?? []).map((row) => {const receipt={...receiptBranding,title:'Reçu de paiement fournisseur',party:selected?.name??'Fournisseur',amount:Number(row.amount),balanceBefore:Number(row.balance_before??0),balanceAfter:Number(row.balance_after??0),date:row.created_at,reference:`FOURN-${row.id.slice(0,8).toUpperCase()}`,note:row.note,issuedBy:row.creator?.full_name||receiptBranding.issuedBy};const printKey=`print-${row.id}`,shareKey=`share-${row.id}`;return <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.amount))} subtitle={`${paymentLabels[row.payment_method]} • ${formatDateTime(row.created_at)}`} />{!!row.note && <Card.Content><Text>{row.note}</Text></Card.Content>}<Card.Actions><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(receipt,formatMoney))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(receipt,formatMoney))}>Partager</AppButton></Card.Actions></Card>})}
+          {(account.data?.payments ?? []).map((row) => {const receipt={...receiptBranding,title:'Reçu de paiement fournisseur',party:selected?.name??'Fournisseur',amount:Number(row.amount),balanceBefore:Number(row.balance_before??0),balanceAfter:Number(row.balance_after??0),date:row.created_at,reference:`FOURN-${row.id.slice(0,8).toUpperCase()}`,note:[row.reference&&`Référence : ${row.reference}`,row.note].filter(Boolean).join(' — ')||null,issuedBy:row.creator?.full_name||receiptBranding.issuedBy};const printKey=`print-${row.id}`,shareKey=`share-${row.id}`;return <Card key={row.id} mode="outlined"><Card.Title title={formatMoney(Number(row.amount))} subtitle={`${paymentLabels[row.payment_method]} • ${formatDateTime(row.created_at)}`} />{(!!row.note||!!row.reference)&&<Card.Content>{!!row.reference&&<Text>Référence : {row.reference}</Text>}{!!row.note&&<Text>{row.note}</Text>}</Card.Content>}<Card.Actions><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(receipt,formatMoney))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(receipt,formatMoney))}>Partager</AppButton></Card.Actions></Card>})}
           {!account.data?.payments.length && !account.isLoading && <Text>Aucun règlement enregistré.</Text>}
         </ScrollView></Dialog.ScrollArea>
         <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={() => setSelected(null)}>Fermer</AppButton><AppButton icon="cash-check" loading={paymentMutation.isPending} disabled={paymentMutation.isPending || account.isLoading || !((paymentMode==='total'?(account.data?.due??0):parsedAmount)>0) || (paymentMode==='custom'&&parsedAmount > (account.data?.due ?? 0))} onPress={() => paymentMutation.mutate()}>Enregistrer</AppButton></Dialog.Actions>
@@ -215,7 +227,7 @@ export default function Suppliers() {
 
       <Dialog visible={!!purchaseToCancel} onDismiss={()=>!cancellationMutation.isPending&&setPurchaseToCancel(null)}>
         <Dialog.Title>Annuler cet achat fournisseur ?</Dialog.Title>
-        <Dialog.Content style={{gap:12}}><Text>Le stock reçu sera retiré. Si des unités ont déjà été vendues ou transférées, l’annulation sera refusée.</Text><TextInput mode="outlined" label="Motif obligatoire" accessibilityLabel="Motif obligatoire" value={cancellationReason} onChangeText={setCancellationReason} multiline/><SelectField label="Remboursement du montant payé" value={cancellationMethod} onChange={value=>setCancellationMethod((value??'cash') as 'cash'|'mobile_money')} options={[{label:'Espèces',value:'cash'},{label:'Mobile Money',value:'mobile_money'}]}/>{!!cancellationMutation.error&&<HelperText type="error" visible>{cancellationMutation.error.message}</HelperText>}</Dialog.Content>
+        <Dialog.Content style={{gap:12}}><Text>Le stock reçu sera retiré. Si des unités ont déjà été vendues ou transférées, l’annulation sera refusée.</Text><TextInput mode="outlined" label="Motif obligatoire" accessibilityLabel="Motif obligatoire" value={cancellationReason} onChangeText={setCancellationReason} multiline/>{!!purchaseToCancel?.paymentMethod&&<HelperText type="info" visible>Payé à l’origine par {paymentLabels[purchaseToCancel.paymentMethod]} — présélectionné ci-dessous, modifiable si le remboursement se fait autrement.</HelperText>}<SelectField label="Remboursement du montant payé" value={cancellationMethod} onChange={value=>setCancellationMethod((value??'cash') as 'cash'|'mobile_money')} options={[{label:'Espèces',value:'cash'},{label:'Mobile Money',value:'mobile_money'}]}/><TextInput mode="outlined" label="Référence du remboursement (facultatif)" accessibilityLabel="Référence du remboursement (facultatif)" value={cancellationReference} onChangeText={setCancellationReference} />{!!cancellationMutation.error&&<HelperText type="error" visible>{cancellationMutation.error.message}</HelperText>}</Dialog.Content>
         <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setPurchaseToCancel(null)}>Fermer</AppButton><AppButton buttonColor="#C92A2A" loading={cancellationMutation.isPending} disabled={cancellationReason.trim().length<3||cancellationMutation.isPending} onPress={()=>cancellationMutation.mutate()}>Confirmer l’annulation</AppButton></Dialog.Actions>
       </Dialog>
     </Portal>

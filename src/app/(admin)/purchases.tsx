@@ -31,6 +31,9 @@ export default function PurchasesScreen() {
   const [quantity, setQuantity] = useState('1');
   const [unitCost, setUnitCost] = useState('0');
   const [paid, setPaid] = useState(true);
+  // Traçabilité (demande du 17/09) : l'app supposait implicitement un
+  // paiement en espèces sans jamais le demander.
+  const [paymentMethod, setPaymentMethod] = useState<'cash'|'mobile_money'|'card'|'bank_transfer'>('cash');
   const [items, setItems] = useState<PurchaseLine[]>([]);
   const [formError, setFormError] = useState('');
   const canCreateSupplierDebt = canUseFeature('supplier_debt');
@@ -72,7 +75,7 @@ export default function PurchasesScreen() {
   };
 
   const mutation = useMutation({
-    mutationFn: (options?: { confirmNegative?: boolean }) => recordPurchase(store, supplierId!, items, canCreateSupplierDebt ? paid : true, options?.confirmNegative),
+    mutationFn: (options?: { confirmNegative?: boolean }) => recordPurchase(store, supplierId!, items, canCreateSupplierDebt ? paid : true, options?.confirmNegative, (canCreateSupplierDebt ? paid : true) ? paymentMethod : undefined),
     onSuccess: async () => {
       setItems([]);
       setSupplierId(null);
@@ -105,6 +108,7 @@ export default function PurchasesScreen() {
       </Card>
       {items.map((item) => <Card key={item.productId} mode="contained"><Card.Title title={item.name} subtitle={`${formatQuantity(item.quantity)} × ${formatMoney(item.unitCost)}`} right={() => <IconButton icon="delete" accessibilityLabel={`Retirer ${item.name} de la commande`} onPress={() => setItems((rows) => rows.filter((row) => row.productId !== item.productId))} />} /></Card>)}
       <Card mode="contained"><Card.Title title={`Total : ${formatMoney(total)}`} subtitle={!canCreateSupplierDebt ? 'Paiement immédiat · les dettes fournisseurs nécessitent Pro' : paid ? 'Payé maintenant' : 'Dette fournisseur'} right={() => canCreateSupplierDebt ? <Switch value={paid} onValueChange={setPaid} accessibilityLabel="Payé maintenant" style={{ marginRight: 12 }} /> : null} /></Card>
+      {(canCreateSupplierDebt ? paid : true) && <SelectField label="Moyen de paiement" value={paymentMethod} onChange={value=>setPaymentMethod((value??'cash') as typeof paymentMethod)} options={[{label:'Espèces',value:'cash'},{label:'Mobile Money',value:'mobile_money'},{label:'Carte',value:'card'},{label:'Virement',value:'bank_transfer'}]} />}
       {/* Audit externe (SM-01) : ce paiement était accepté même en dépassant
           la caisse actuelle, sans aucun avertissement. La caisse ne peut
           plus passer en négatif côté serveur par défaut ; un propriétaire

@@ -308,7 +308,7 @@ export default function NewSale() {
       <Text variant="titleMedium">Paiement</Text>
       {<View style={styles.paymentGrid}>{[
         ['cash','Espèces'],['mobile_money','Mobile Money'],['credit','Crédit'],['partial','Acompte'],
-      ].map(([value,label])=><Chip key={value} selected={payment===value} disabled={(value==='credit'||value==='partial')&&companySettings.data?.allow_credit_sales===false} onPress={()=>setPayment(value)}>{label}</Chip>)}</View>}
+      ].map(([value,label])=><Chip key={value} selected={payment===value} accessibilityLabel={`${label}${payment===value?', sélectionné':''}`} disabled={(value==='credit'||value==='partial')&&companySettings.data?.allow_credit_sales===false} onPress={()=>setPayment(value)}>{label}</Chip>)}</View>}
       {(payment === 'credit' || payment === 'partial' || showCustomer || customerId) ? <View style={styles.list}>
         <SaleCustomerPicker companyId={company} value={customerId} onChange={setCustomerId} required={payment === 'credit' || payment === 'partial'} />
         {/* Une fois un client choisi, SaleCustomerPicker propose déjà "Retirer

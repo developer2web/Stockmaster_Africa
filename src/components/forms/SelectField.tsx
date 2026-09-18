@@ -26,6 +26,11 @@ export function SelectField({ label, value, options, error, required = false, di
         theme={{ animation: { scale: 0 } }}
         contentStyle={[styles.menu, { width: Math.min(360, width - 32), minWidth: Math.min(240, width - 32), maxHeight: Math.min(360, height * 0.6) }]}
         anchor={
+          // Améliore l'accessibilité (demande explicite du 17/09) : le
+          // bouton n'avait aucun accessibilityLabel, seul un <Text> visuel
+          // séparé portait le nom du champ ("Fournisseur") — un lecteur
+          // d'écran n'annonçait donc que "Sélectionner" ou la valeur
+          // choisie, sans jamais dire de quel champ il s'agit.
           <Button
             disabled={disabled}
             style={styles.anchor}
@@ -33,6 +38,7 @@ export function SelectField({ label, value, options, error, required = false, di
             icon="chevron-down"
             contentStyle={styles.buttonContent}
             labelStyle={styles.buttonLabel}
+            accessibilityLabel={`${label}${required ? ' (obligatoire)' : ''} : ${selected?.label ?? 'aucune sélection'}`}
             onPress={() => setOpen(true)}
           >
             {selected?.label ?? 'Sélectionner'}

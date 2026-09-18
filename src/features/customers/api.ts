@@ -30,6 +30,7 @@ export type CustomerLedgerEntry = {
   amount: number;
   sale_id: string | null;
   note: string | null;
+  reference: string | null;
   balance_before: number | null;
   balance_after: number | null;
   created_at: string;
@@ -120,7 +121,7 @@ export async function saveCustomer(companyId: string, storeId: string | null, va
 export async function getCustomerLedger(customerId: string): Promise<CustomerLedgerEntry[]> {
   const { data, error } = await supabase
     .from('customer_ledger')
-    .select('id,customer_id,store_id,entry_type,amount,sale_id,note,payment_method,balance_before,balance_after,created_by,created_at')
+    .select('id,customer_id,store_id,entry_type,amount,sale_id,note,reference,payment_method,balance_before,balance_after,created_by,created_at')
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false })
     .limit(200);
@@ -141,7 +142,7 @@ export async function getCustomerSales(companyId: string, customerId: string): P
 }
 
 export async function recordCustomerEntry(
-  input: { customerId: string; storeId: string | null; type: 'credit' | 'payment'|'discount'; amount: string; paymentMethod?:'cash'|'mobile_money';note?: string },
+  input: { customerId: string; storeId: string | null; type: 'credit' | 'payment'|'discount'; amount: string; paymentMethod?:'cash'|'mobile_money';note?: string;reference?:string },
   operationId = createOperationId(),
 ) {
   const amount = parseDecimal(input.amount);
@@ -155,6 +156,9 @@ export async function recordCustomerEntry(
     p_note: input.note ?? null,
     p_sale_id: null,
     p_operation_id: operationId,
+    // Traçabilité (demande du 17/09) : numéro de transaction Mobile Money,
+    // jamais exigé, juste conservé s'il existe.
+    p_reference: input.reference?.trim() || null,
   });
   if (error) throw new Error(userErrorMessage(error));
 }

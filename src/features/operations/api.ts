@@ -14,6 +14,7 @@ export type SupplierPurchase = {
   amount_paid: number;
   amount_due: number;
   payment_status: 'paid' | 'partial' | 'due'|'cancelled';
+  payment_method: 'cash' | 'mobile_money' | 'card' | 'bank_transfer' | null;
   cancelled_at:string|null;
   cancellation_reason:string|null;
   created_at: string;
@@ -24,6 +25,7 @@ export type SupplierPayment = {
   amount: number;
   payment_method: 'cash' | 'mobile_money' | 'card' | 'bank_transfer';
   note: string | null;
+  reference: string | null;
   balance_before: number | null;
   balance_after: number | null;
   created_at: string;
@@ -34,7 +36,7 @@ export async function getSupplierAccount(companyId: string, storeId: string, sup
   const [purchases, payments,summary] = await Promise.all([
     supabase
       .from('purchases')
-      .select('id,total,amount_paid,amount_due,payment_status,cancelled_at,cancellation_reason,created_at')
+      .select('id,total,amount_paid,amount_due,payment_status,payment_method,cancelled_at,cancellation_reason,created_at')
       .eq('company_id', companyId)
       .eq('store_id', storeId)
       .eq('supplier_id', supplierId)
@@ -42,7 +44,7 @@ export async function getSupplierAccount(companyId: string, storeId: string, sup
       .limit(100),
     supabase
       .from('supplier_payments')
-      .select('id,amount,payment_method,note,balance_before,balance_after,created_at,creator:profiles!supplier_payments_created_by_fkey(full_name)')
+      .select('id,amount,payment_method,note,reference,balance_before,balance_after,created_at,creator:profiles!supplier_payments_created_by_fkey(full_name)')
       .eq('company_id', companyId)
       .eq('store_id', storeId)
       .eq('supplier_id', supplierId)
@@ -70,6 +72,7 @@ export async function recordSupplierPayment(input: {
   amount: number;
   paymentMethod: SupplierPayment['payment_method'];
   note?: string;
+  reference?: string;
 }) {
   if (!input.storeId || !input.supplierId) throw new Error('Sélectionnez un fournisseur et une boutique.');
   if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error('Le montant doit être supérieur à zéro.');
@@ -80,12 +83,15 @@ export async function recordSupplierPayment(input: {
     p_payment_method: input.paymentMethod,
     p_note: input.note?.trim() || null,
     p_operation_id: createOperationId(),
+    // Traçabilité (demande du 17/09) : numéro de transaction Mobile Money,
+    // de chèque ou de virement — jamais exigé, juste conservé s'il existe.
+    p_reference: input.reference?.trim() || null,
   });
   fail(error);
   return data as string;
 }
 
-export async function recordPurchase(storeId: string, supplierId: string, items: PurchaseLine[], paid: boolean, confirmNegative = false) {
+export async function recordPurchase(storeId: string, supplierId: string, items: PurchaseLine[], paid: boolean, confirmNegative = false, paymentMethod?: 'cash' | 'mobile_money' | 'card' | 'bank_transfer') {
   if (!storeId || !supplierId) throw new Error('Sélectionnez une boutique et un fournisseur.');
   if (!items.length || items.some((item) => !item.productId || !(item.quantity > 0) || item.unitCost < 0)) {
     throw new Error('La commande contient une ligne invalide.');
@@ -99,14 +105,17 @@ export async function recordPurchase(storeId: string, supplierId: string, items:
     // Propriétaire/Manager uniquement (vérifié côté serveur) : passer outre
     // le refus d'un paiement qui ferait passer la caisse en négatif.
     p_confirm_negative: confirmNegative,
+    // Traçabilité (demande du 17/09) : moyen de paiement réel plutôt que de
+    // supposer implicitement "cash" quand payé maintenant.
+    p_payment_method: paid ? (paymentMethod ?? 'cash') : null,
   });
   fail(error);
   return data as string;
 }
 
-export async function cancelPurchase(purchaseId:string,reason:string,refundMethod:'cash'|'mobile_money'){
+export async function cancelPurchase(purchaseId:string,reason:string,refundMethod:'cash'|'mobile_money',refundReference?:string){
   if(reason.trim().length<3)throw new Error('Le motif d’annulation est obligatoire.');
-  const{data,error}=await supabase.rpc('cancel_purchase',{p_purchase_id:purchaseId,p_reason:reason.trim(),p_refund_method:refundMethod,p_operation_id:createOperationId()});
+  const{data,error}=await supabase.rpc('cancel_purchase',{p_purchase_id:purchaseId,p_reason:reason.trim(),p_refund_method:refundMethod,p_operation_id:createOperationId(),p_refund_reference:refundReference?.trim()||null});
   fail(error);return data as string;
 }
 

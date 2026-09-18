@@ -153,14 +153,17 @@ export default function ReportsScreen() {
           <Card.Content style={styles.filters}>
             <Text variant="titleMedium" style={styles.bold}>Période du rapport</Text>
             <View style={styles.chips}>
-              {periods.map(([value, label]) => <Chip key={value} selected={preset === value} accessibilityState={{ selected: preset === value }} onPress={() => setPreset(value)}>{label}</Chip>)}
+              {/* accessibilityState={{selected}} seul ne suffit pas : vérifié
+                  en direct, ne se traduit par aucun état perceptible sur le
+                  bouton rendu ici. accessibilityLabel explicite en repli. */}
+              {periods.map(([value, label]) => <Chip key={value} selected={preset === value} accessibilityState={{ selected: preset === value }} accessibilityLabel={`${label}${preset===value?', sélectionné':''}`} onPress={() => setPreset(value)}>{label}</Chip>)}
             </View>
             {preset === 'custom' && <View style={styles.grid}><View style={styles.field}><DateField label="Date de début" value={startDate} onChange={setStartDate} maxDate={endDate} /></View><View style={styles.field}><DateField label="Date de fin" value={endDate} onChange={setEndDate} minDate={startDate} /></View></View>}
             {!validDates && <HelperText type="error" visible>La date de fin doit être égale ou postérieure à la date de début.</HelperText>}
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Du {dates.start} au {dates.end}</Text>
             {canConsolidate && consolidatedReports && <View style={styles.chips}>
-              <Chip selected={!allStores} accessibilityState={{ selected: !allStores }} icon="store-outline" onPress={() => setAllStores(false)}>{membership?.storeName ?? 'Ma boutique'}</Chip>
-              <Chip selected={allStores} accessibilityState={{ selected: allStores }} icon="store-search-outline" onPress={() => setAllStores(true)}>Toutes les boutiques ({stores.length})</Chip>
+              <Chip selected={!allStores} accessibilityState={{ selected: !allStores }} accessibilityLabel={`${membership?.storeName ?? 'Ma boutique'}${!allStores?', sélectionné':''}`} icon="store-outline" onPress={() => setAllStores(false)}>{membership?.storeName ?? 'Ma boutique'}</Chip>
+              <Chip selected={allStores} accessibilityState={{ selected: allStores }} accessibilityLabel={`Toutes les boutiques (${stores.length})${allStores?', sélectionné':''}`} icon="store-search-outline" onPress={() => setAllStores(true)}>Toutes les boutiques ({stores.length})</Chip>
             </View>}
             {canConsolidate && !consolidatedReports && <FeatureGate feature="consolidated_reports" label="Rapport consolidé de toutes vos boutiques" />}
             {advancedReports && <>
@@ -176,7 +179,7 @@ export default function ReportsScreen() {
             </>}
           </Card.Content>
         </Card>
-        {advancedReports ? <View style={styles.chips}>{([{ value: 'global', label: 'Global', icon: 'view-dashboard-outline' }, { value: 'sales', label: 'Ventes', icon: 'cart-outline' }, { value: 'expenses', label: 'Dépenses', icon: 'cash-minus' }] as const).map(tab => <Chip key={tab.value} selected={view === tab.value} icon={tab.icon} onPress={() => setView(tab.value)}>{tab.label}</Chip>)}</View> : null}
+        {advancedReports ? <View style={styles.chips}>{([{ value: 'global', label: 'Global', icon: 'view-dashboard-outline' }, { value: 'sales', label: 'Ventes', icon: 'cart-outline' }, { value: 'expenses', label: 'Dépenses', icon: 'cash-minus' }] as const).map(tab => <Chip key={tab.value} selected={view === tab.value} accessibilityLabel={`${tab.label}${view===tab.value?', sélectionné':''}`} icon={tab.icon} onPress={() => setView(tab.value)}>{tab.label}</Chip>)}</View> : null}
         {(report.isLoading || filters.isLoading) && <LoadingScreen label="Calcul du rapport…" />}
         {!!filters.error && <HelperText type="error" visible>{filters.error.message}</HelperText>}
         {!!report.error && <HelperText type="error" visible>{report.error.message}</HelperText>}
