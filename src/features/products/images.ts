@@ -6,21 +6,28 @@ import { supabase } from '@/services/supabase/client';
 
 const bucket = 'product-images';
 const MAX_WIDTH = 1280;
-const UNREADABLE = 'Cette image ne peut pas être lue. Choisissez un fichier PNG, JPEG ou WebP valide.';
+const MAX_BYTES = 3 * 1024 * 1024; // limite du bucket product-images
+const UNSUPPORTED = 'Format non pris en charge. Choisissez une image PNG, JPEG ou WebP.';
+const TOO_HEAVY = 'Cette image est trop lourde (3 Mo maximum) et n’a pas pu être réduite. Choisissez une image plus légère.';
 
-// Sur le web, la sélection renvoie un lien blob:. On redimensionne et compresse avec
-// createImageBitmap + canvas plutôt qu'avec expo-image-manipulator : celui-ci charge l'image
-// via un élément <Image> dont l'échec rejette avec le <canvas> lui-même (« [object
-// HTMLCanvasElement] », sans message exploitable), et il agrandit aussi les petites images.
-// On lit le fichier choisi directement (asset.file) : pas de fetch(blob:), qu'une politique de
-// sécurité (connect-src) peut interdire.
-async function optimizeOnWeb(uri: string, file?: Blob): Promise<ArrayBuffer> {
-  let bitmap: ImageBitmap;
-  try {
-    bitmap = await createImageBitmap(file ?? await (await fetch(uri)).blob());
-  } catch {
-    throw new Error(UNREADABLE);
-  }
+type PreparedImage = { bytes: ArrayBuffer; contentType: 'image/jpeg' | 'image/png' | 'image/webp'; extension: 'jpg' | 'png' | 'webp' };
+const EXTENSIONS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' } as const;
+
+// Type réel du fichier d'après ses premiers octets (jamais d'après son nom ni son type déclaré).
+async function sniffImageType(blob: Blob): Promise<PreparedImage['contentType'] | null> {
+  const head = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
+  const ascii = (from: number, to: number) => String.fromCharCode(...head.slice(from, to));
+  if (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return 'image/jpeg';
+  if (head[0] === 0x89 && ascii(1, 4) === 'PNG') return 'image/png';
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') return 'image/webp';
+  return null;
+}
+
+// Redimensionne (1280 px max, sans agrandir) et compresse en JPEG avec createImageBitmap + canvas
+// plutôt qu'avec expo-image-manipulator : celui-ci charge l'image via un élément <Image> dont
+// l'échec rejette avec le <canvas> lui-même (« [object HTMLCanvasElement] », sans message).
+async function optimizeOnWeb(source: Blob): Promise<ArrayBuffer> {
+  const bitmap = await createImageBitmap(source);
   const scale = Math.min(1, MAX_WIDTH / bitmap.width);
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));
@@ -28,23 +35,45 @@ async function optimizeOnWeb(uri: string, file?: Blob): Promise<ArrayBuffer> {
   canvas.width = width;
   canvas.height = height;
   const context = canvas.getContext('2d');
-  if (!context) throw new Error(UNREADABLE);
+  if (!context) throw new Error('canvas indisponible');
   // Fond blanc : un PNG transparent deviendrait noir en JPEG.
   context.fillStyle = '#FFFFFF';
   context.fillRect(0, 0, width, height);
   context.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.72));
-  if (!blob) throw new Error(UNREADABLE);
+  if (!blob) throw new Error('export du canvas impossible');
   return blob.arrayBuffer();
 }
 
-async function optimizeOnDevice(uri: string, sourceWidth: number): Promise<ArrayBuffer> {
+// L'optimisation est un confort, pas une condition : si le navigateur ne peut pas décoder ou
+// redessiner l'image (canvas bloqué, format qu'il ne décode pas), on envoie le fichier d'origine
+// tel quel — à condition que ses octets soient bien ceux d'un PNG, JPEG ou WebP, et qu'il tienne
+// dans la limite du bucket.
+async function prepareOnWeb(uri: string, file?: Blob): Promise<PreparedImage> {
+  let source: Blob;
+  try {
+    source = file ?? await (await fetch(uri)).blob();
+  } catch {
+    throw new Error('Impossible de lire le fichier choisi. Réessayez.');
+  }
+  try {
+    return { bytes: await optimizeOnWeb(source), contentType: 'image/jpeg', extension: 'jpg' };
+  } catch (optimizeError) {
+    console.warn('Optimisation de l’image impossible, envoi du fichier d’origine :', optimizeError);
+    const contentType = await sniffImageType(source);
+    if (!contentType) throw new Error(UNSUPPORTED);
+    if (source.size > MAX_BYTES) throw new Error(TOO_HEAVY);
+    return { bytes: await source.arrayBuffer(), contentType, extension: EXTENSIONS[contentType] };
+  }
+}
+
+async function prepareOnDevice(uri: string, sourceWidth: number): Promise<PreparedImage> {
   const context = ImageManipulator.manipulate(uri);
   if (sourceWidth > MAX_WIDTH) context.resize({ width: MAX_WIDTH });
   const rendered = await context.renderAsync();
   const optimized = await rendered.saveAsync({ compress: 0.72, format: SaveFormat.JPEG });
-  return (await fetch(optimized.uri)).arrayBuffer();
+  return { bytes: await (await fetch(optimized.uri)).arrayBuffer(), contentType: 'image/jpeg', extension: 'jpg' };
 }
 
 async function pick(source: 'camera' | 'library') {
@@ -67,15 +96,15 @@ function storagePath(url: string) {
 export async function uploadProductImage(source: 'camera' | 'library', companyId: string, storeId: string, productId: string) {
   const picked = await pick(source);
   if (!picked) return null;
-  let bytes: ArrayBuffer;
+  let image: PreparedImage;
   try {
-    bytes = Platform.OS === 'web' ? await optimizeOnWeb(picked.uri, picked.file) : await optimizeOnDevice(picked.uri, picked.width);
+    image = Platform.OS === 'web' ? await prepareOnWeb(picked.uri, picked.file) : await prepareOnDevice(picked.uri, picked.width);
   } catch (error) {
     // Toujours une vraie erreur avec un message : le composant l'affiche à l'utilisateur.
-    throw error instanceof Error ? error : new Error(UNREADABLE);
+    throw error instanceof Error ? error : new Error('Cette image ne peut pas être lue. Choisissez un fichier PNG, JPEG ou WebP valide.');
   }
-  const path = `${companyId}/${storeId}/${productId}/${Crypto.randomUUID()}.jpg`;
-  const { error } = await supabase.storage.from(bucket).upload(path, bytes, { contentType: 'image/jpeg', upsert: false });
+  const path = `${companyId}/${storeId}/${productId}/${Crypto.randomUUID()}.${image.extension}`;
+  const { error } = await supabase.storage.from(bucket).upload(path, image.bytes, { contentType: image.contentType, upsert: false });
   if (error) throw new Error(error.message);
   const base = process.env.EXPO_PUBLIC_SUPABASE_URL;
   return `${base}/storage/v1/object/authenticated/${bucket}/${path}`;

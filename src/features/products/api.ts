@@ -8,6 +8,8 @@ import { createOperationId } from '@/utils/operationId';
 import { withOfflineCache } from '@/features/offline/storage';
 import { type PageCursor } from '@/utils/pagination';
 import { readProductCosts } from './costs';
+import { saveError } from './saveError';
+export { ProductFieldError } from './saveError';
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(userErrorMessage(error));
@@ -145,8 +147,8 @@ export async function saveProduct(companyId:string,storeId:string,v:ProductInput
   const bulkQuantity=v.bulkEnabled&&v.bulkQuantity?parseDecimal(v.bulkQuantity):null;
   const bulkPrice=v.bulkEnabled&&v.bulkPrice?parseDecimal(v.bulkPrice):null;
   const payload={company_id:companyId,store_id:storeId,name:v.name,description:empty(v.description),sku:(v.sku ?? '').trim() || '',barcode:empty(v.barcode),supplier_id:v.supplierId,unit:v.unit,purchase_price:parseDecimal(v.purchasePrice),sale_price:parseDecimal(v.salePrice),low_stock_threshold:parseDecimal(v.lowStockThreshold),is_active:v.isActive,bulk_unit_label:bulkUnitLabel,bulk_quantity:bulkQuantity,bulk_price:bulkPrice};
-  if(id){const{error}=await supabase.from('products').update(payload).eq('id',id);fail(error);return id}
-  const{data,error}=await supabase.rpc('create_product_with_initial_stock',{p_store_id:storeId,p_name:v.name,p_description:v.description,p_sku:(v.sku ?? '').trim() || '',p_barcode:v.barcode,p_category_id:null,p_supplier_id:v.supplierId,p_unit:v.unit,p_purchase_price:parseDecimal(v.purchasePrice),p_sale_price:parseDecimal(v.salePrice),p_low_stock_threshold:parseDecimal(v.lowStockThreshold),p_is_active:v.isActive,p_initial_quantity:parseDecimal(v.initialQuantity),p_operation_id:createOperationId(),p_bulk_unit_label:bulkUnitLabel,p_bulk_quantity:bulkQuantity,p_bulk_price:bulkPrice});fail(error);if(!data)throw new Error('Le produit n’a pas été créé.');return data as string}
+  if(id){const{error}=await supabase.from('products').update(payload).eq('id',id);if(error)throw saveError(error);return id}
+  const{data,error}=await supabase.rpc('create_product_with_initial_stock',{p_store_id:storeId,p_name:v.name,p_description:v.description,p_sku:(v.sku ?? '').trim() || '',p_barcode:v.barcode,p_category_id:null,p_supplier_id:v.supplierId,p_unit:v.unit,p_purchase_price:parseDecimal(v.purchasePrice),p_sale_price:parseDecimal(v.salePrice),p_low_stock_threshold:parseDecimal(v.lowStockThreshold),p_is_active:v.isActive,p_initial_quantity:parseDecimal(v.initialQuantity),p_operation_id:createOperationId(),p_bulk_unit_label:bulkUnitLabel,p_bulk_quantity:bulkQuantity,p_bulk_price:bulkPrice});if(error)throw saveError(error);if(!data)throw new Error('Le produit n’a pas été créé.');return data as string}
 export async function deleteProduct(id:string){const{error}=await supabase.rpc('archive_product',{p_product_id:id});fail(error)}
 export async function saveVariant(companyId:string,productId:string,v:VariantInput,id?:string){const payload={company_id:companyId,product_id:productId,name:v.name,sku:v.sku,barcode:empty(v.barcode),purchase_price:v.purchasePrice===''?null:parseDecimal(v.purchasePrice),sale_price:v.salePrice===''?null:parseDecimal(v.salePrice),is_active:v.isActive};const{error}=await(id?supabase.from('product_variants').update(payload).eq('id',id):supabase.from('product_variants').insert(payload));fail(error)}
 export async function deleteVariant(id:string){const{error}=await supabase.rpc('archive_product_variant',{p_variant_id:id});fail(error)}

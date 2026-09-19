@@ -8,8 +8,9 @@ import { deleteProductImage, updateProductImages, uploadProductImage } from '@/f
 import { readableError } from '@/utils/errors';
 
 // Sur un ordinateur, le navigateur n'a pas de mode « prendre une photo » : sans ce message, le
-// bouton Photo semblait ne rien faire. Un téléphone (écran tactile) garde la vraie capture.
-const cameraUnavailable = () => Platform.OS === 'web' && !(typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0);
+// bouton Photo semblait ne rien faire. Un navigateur de téléphone ou de tablette garde la vraie capture (détecté par son user-agent : un écran tactile
+// ne suffit pas, beaucoup d'ordinateurs et de navigateurs automatisés en déclarent un).
+const cameraUnavailable = () => Platform.OS === 'web' && !(typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
 const CAMERA_NOTICE = 'L’appareil photo n’est pas disponible depuis un ordinateur. Utilisez « Galerie » pour choisir une image.';
 
 export function ProductImagesCard({ productId, companyId, storeId, urls }: { productId: string; companyId: string; storeId: string; urls: string[] }) {

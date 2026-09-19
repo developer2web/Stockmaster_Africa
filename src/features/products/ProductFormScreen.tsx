@@ -21,7 +21,7 @@ import { hasPermission } from '@/features/auth/permissions';
 import { getStockLevels } from '@/features/inventory/api';
 import { useStockRealtime } from '@/hooks/useStockRealtime';
 import { canAutofill, lotMargin, lotPriceFromUnit, unitPriceFromLot } from './bulkPricing';
-import { deleteProduct, deleteVariant, findSimilarProduct, getProduct, getSuppliers, saveProduct, saveVariant } from './api';
+import { ProductFieldError, deleteProduct, deleteVariant, findSimilarProduct, getProduct, getSuppliers, saveProduct, saveVariant } from './api';
 import { lookupOpenFoodFacts, type OpenFoodFactsMatch } from './openFoodFacts';
 import { productSchema, ProductInput, variantSchema, VariantInput } from '@/schemas/catalog';
 import type { ProductVariant } from '@/types/database';
@@ -47,7 +47,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   useStockRealtime(company);
   const product = useQuery({ queryKey:['product',id], queryFn:()=>getProduct(id!), enabled:!!id });
   const suppliers = useQuery({ queryKey:['suppliers',company,store], queryFn:()=>getSuppliers(company,store), enabled:!!company&&!!store });
-  const { control, handleSubmit, reset, setValue, getValues, trigger, formState:{errors,isDirty,isValid,dirtyFields} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
+  const { control, handleSubmit, reset, setValue, getValues, trigger, setError, watch, formState:{errors,isDirty,isValid,dirtyFields} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
   const levels = useQuery({queryKey:['stock-levels',company,store,id],queryFn:()=>getStockLevels(company,id,store),enabled:!!company&&!!store&&!!id});
   // Prix par unité dans le lot, calculé en direct pour que le vendeur voie
   // tout de suite s'il vend vraiment moins cher en gros — sans avoir à
@@ -162,10 +162,50 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [isDirty]);
+  // Brouillon (création, web) : les saisies sont gardées dans sessionStorage — propre à l'onglet,
+  // qui survit à une actualisation mais pas à sa fermeture. Une actualisation ne fait donc plus
+  // perdre le formulaire ; le brouillon est effacé à l'enregistrement, quand on quitte volontairement,
+  // ou via « Repartir de zéro ».
+  const draftKey = `stockmaster.product-draft.${company}.${store}`;
+  const draftEnabled = Platform.OS === 'web' && !id && !initialBarcode && !!company && !!store;
+  const draftReady = useRef(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const clearDraft = () => { try { window.sessionStorage.removeItem(draftKey); } catch { /* stockage indisponible : sans effet */ } };
+  useEffect(() => {
+    if (!draftEnabled || draftReady.current) return;
+    draftReady.current = true;
+    try {
+      const raw = window.sessionStorage.getItem(draftKey);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as Record<string, unknown>;
+      for (const [key, value] of Object.entries(draft)) if (key in defaults) setValue(key as keyof ProductInput, value as never, { shouldDirty: true, shouldValidate: true });
+      setDraftRestored(true);
+    } catch { /* brouillon illisible : on repart d'un formulaire vide */ }
+  }, [draftEnabled, draftKey, setValue]);
+  useEffect(() => {
+    if (!draftEnabled) return;
+    const subscription = watch((values) => {
+      if (!draftReady.current) return;
+      try {
+        // Formulaire revenu à son état initial : rien à garder.
+        if (Object.entries(defaults).every(([key, initial]) => values[key as keyof ProductInput] === initial)) window.sessionStorage.removeItem(draftKey);
+        else window.sessionStorage.setItem(draftKey, JSON.stringify(values));
+      } catch { /* stockage plein ou indisponible */ }
+    });
+    return () => subscription.unsubscribe();
+  }, [draftEnabled, draftKey, watch]);
   const [pendingSave,setPendingSave] = useState<ProductInput|null>(null);
   const [similarProduct,setSimilarProduct] = useState<{id:string;name:string}|null>(null);
   const [checkingDuplicate,setCheckingDuplicate] = useState(false);
-  const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onSuccess:async(saved)=>{ leaveAllowed.current=true; await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['employee-products',company,store]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace({pathname:basePath as never,params:{notice:id?'produit_modifie':'produit_enregistre'}}); } });
+  const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onError:(error)=>{ if(error instanceof ProductFieldError)setError(error.field,{type:'server',message:error.fieldMessage},{shouldFocus:true}) }, onSuccess:async(saved)=>{ clearDraft(); leaveAllowed.current=true; await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['employee-products',company,store]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace({pathname:basePath as never,params:{notice:id?'produit_modifie':'produit_enregistre'}}); } });
+  // Une erreur d'enregistrement (doublon, réseau...) ne doit pas rester affichée une fois le
+  // formulaire modifié : la personne est en train de la corriger.
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  useEffect(() => {
+    const subscription = watch(() => { if (saveRef.current.isError) saveRef.current.reset(); });
+    return () => subscription.unsubscribe();
+  }, [watch]);
   const [confirm,setConfirm] = useState(false);
   const [moreOpen,setMoreOpen] = useState(false);
   const hasAdditionalErrors = additionalFields.some(field => !!errors[field]);
@@ -194,6 +234,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
     {!!product.error && <><HelperText type="error" visible>{readableError(product.error)}</HelperText><AppButton mode="text" onPress={() => void product.refetch()}>Réessayer le chargement</AppButton></>}
     {!!levels.error&&<HelperText type="error" visible>{readableError(levels.error)}</HelperText>}
     {(!id || product.data) && <View style={styles.form}>
+      {draftRestored && <Card mode="outlined"><Card.Content style={styles.draftBanner}><Text style={styles.draftText}>Brouillon restauré : vos dernières saisies non enregistrées ont été rechargées.</Text><AppButton compact mode="text" onPress={() => { clearDraft(); reset({ ...defaults, barcode: initialBarcode ?? '' }); setDraftRestored(false); }}>Repartir de zéro</AppButton></Card.Content></Card>}
       <Card mode="outlined">
         <Card.Content style={[styles.formContent, styles.essentialFields]}>
           <FormField control={control} name="name" label="Nom du produit" required autoFocus />
@@ -302,7 +343,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
       {Object.keys(errors).length > 0 && <HelperText type="error" visible>
         {hasAdditionalErrors ? 'Vérifiez les champs signalés dans les options supplémentaires.' : 'Vérifiez les champs signalés avant d’enregistrer.'}
       </HelperText>}
-      {!!save.error && <HelperText type="error" visible>{readableError(save.error)}</HelperText>}
+      {!!save.error && !(save.error instanceof ProductFieldError) && <HelperText type="error" visible>{readableError(save.error)}</HelperText>}
       <AppButton
         icon="content-save"
         loading={save.isPending || checkingDuplicate}
@@ -332,7 +373,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
       cancelLabel="Rester"
       confirmLabel="Quitter sans enregistrer"
       onCancel={() => setLeaveProceed(null)}
-      onConfirm={() => { const proceed = leaveProceed; setLeaveProceed(null); leaveAllowed.current = true; proceed?.(); }}
+      onConfirm={() => { const proceed = leaveProceed; setLeaveProceed(null); leaveAllowed.current = true; clearDraft(); proceed?.(); }}
     />
     <ConfirmDialog
       visible={!!similarProduct}
@@ -369,6 +410,8 @@ const styles=StyleSheet.create({
   lookupFound:{flexDirection:'row',alignItems:'center',gap:10},
   lookupImage:{width:36,height:36,borderRadius:6,backgroundColor:'#F1F5F4'},
   lookupText:{flex:1},
+  draftBanner:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:8},
+  draftText:{flex:1,minWidth:200},
 });
 
 function Variants({ productId, companyId, variants, refresh }: { productId:string; companyId:string; variants:ProductVariant[]; refresh:()=>Promise<unknown> }) {
