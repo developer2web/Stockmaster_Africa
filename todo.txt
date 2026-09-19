@@ -1292,4 +1292,49 @@
   NON vérifié en direct dans un navigateur connecté : confirmation de
   sortie, bouton Retour et messages d'erreur des écrans de quantités —
   à rejouer avec un vrai compte.
+- [x] Quatrième série de retours du propriétaire (19/09) : nouvelle
+  vérification complète du formulaire produit, avec vrai enregistrement.
+  Traité point par point :
+  - Ajout d'image cassé sur le web (« [object HTMLCanvasElement] », aucun
+    message) : expo-image-manipulator rejetait avec le <canvas> lui-même
+    quand le navigateur ne décodait pas l'image. Sur le web, redimensionnement
+    par createImageBitmap + canvas (lecture directe du fichier choisi, sans
+    fetch(blob:), sans agrandir les petites images), toute erreur affichée.
+    NON reproduit avec des PNG à moi, y compris sur le build de production
+    précédent : à retester avec les fichiers du propriétaire, et les lui
+    demander si l'ajout échoue encore.
+  - Prix d'achat du lot disparu après enregistrement : jamais stocké, il est
+    maintenant reconstitué sur la fiche (prix unitaire × quantité par lot),
+    visible et modifiable.
+  - Recalcul du prix d'achat unitaire après changement de quantité : calculé
+    sur la valeur du champ (canAutofill) et non sur l'état « modifié » du
+    formulaire, pour suivre la quantité (240 000 ÷ 24 → ÷ 12). Fiche
+    existante : le prix unitaire ne change que si le prix du lot est modifié
+    à la main. Logique isolée dans bulkPricing.ts, testée.
+  - Alerte de perte sur la vente en gros (prix de vente du lot < coût du lot).
+  - Retour vers l'Accueil : le « précédent » du web passe par l'historique
+    des onglets d'(admin), donc ramène à l'Accueil ; destination forcée vers
+    la liste des produits (AdminPage backTo).
+  - Confirmation de sortie : la première version (usePreventRemove seul) ne
+    se déclenchait jamais, un changement d'onglet ne retire pas l'écran.
+    Ajout d'un garde sur le bouton Retour et de beforeunload (actualisation,
+    fermeture). Ne couvre pas le menu latéral ni le bouton Précédent du
+    navigateur.
+  - Accessibilité : aria-required, aria-invalid et message relié au champ
+    (aria-describedby) sur FormField et WholeNumberInput.
+  - Bouton Photo sur le web : message d'explication sur ordinateur.
+  - Croix de fermeture : ajoutées sur « Nouvelle variante » et le mouvement de
+    stock (les autres fenêtres n'en ont pas, à généraliser si demandé).
+  - Variante : « Enregistrer » grisé tant que le nom est vide, nom marqué
+    obligatoire. Mouvement de stock : « Ajouter/Retirer » grisés tant que le
+    motif est vide, message clair quand un retrait dépasse le stock.
+  - Trouvé en testant : sur le web, keyboardDismissMode 'on-drag' retirait le
+    focus du champ en cours de saisie dès que la page raccourcissait (un
+    message d'aide qui disparaît) — corrigé dans AdminPage.
+  Vérifié dans un vrai navigateur (Chrome + puppeteer-core, appli locale,
+  Supabase entièrement simulé, aucune requête vers la vraie base) : 58
+  vérifications OK. Harnais dans le dossier temporaire de session, non
+  versionné (puppeteer-core non ajouté aux dépendances). 276 tests, tsc et
+  eslint propres. Poussé sur dev ; déploiement app-web-export à lancer par le
+  propriétaire (commande refusée par le système de permissions).
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
