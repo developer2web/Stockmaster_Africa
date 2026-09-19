@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { digitsOnly, formatQuantity, numericFieldValue } from '../src/utils/number';
+import { digitsOnly, formatQuantity, numericFieldValue, parseWholeNumber, wholeNumberError } from '../src/utils/number';
 
 describe('formatage des quantités', () => {
   it('retire les décimales inutiles', () => {
@@ -64,5 +64,23 @@ describe('digitsOnly', () => {
   it('laisse un entier déjà propre inchangé', () => {
     expect(digitsOnly('42')).toBe('42');
     expect(digitsOnly('')).toBe('');
+  });
+});
+
+describe('wholeNumberError / parseWholeNumber', () => {
+  it('accepte un entier positif ou nul, espaces de milliers tolérés', () => {
+    expect(wholeNumberError('0')).toBeNull();
+    expect(wholeNumberError('1 250')).toBeNull();
+    expect(parseWholeNumber('1 250')).toBe(1250);
+  });
+  it('refuse sans jamais transformer la saisie', () => {
+    expect(wholeNumberError('')).toBe('Valeur requise');
+    expect(wholeNumberError('   ')).toBe('Valeur requise');
+    expect(wholeNumberError('-100')).toMatch(/négative/);
+    expect(wholeNumberError('20.75')).toMatch(/sans décimale/);
+    expect(wholeNumberError('20,75')).toMatch(/sans décimale/);
+    expect(wholeNumberError('1e3')).toMatch(/chiffres/);
+    expect(wholeNumberError('1'.repeat(13))).toMatch(/trop grand/);
+    for (const bad of ['', '-2', '1e3', '20.75', 'abc']) expect(parseWholeNumber(bad)).toBeNull();
   });
 });

@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Dialog, HelperText, Icon, Portal, Switch, Text } from 'react-native-paper';
@@ -23,11 +24,11 @@ import { lookupOpenFoodFacts, type OpenFoodFactsMatch } from './openFoodFacts';
 import { productSchema, ProductInput, variantSchema, VariantInput } from '@/schemas/catalog';
 import type { ProductVariant } from '@/types/database';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
-import { formatQuantity, numericFieldValue, parseDecimal } from '@/utils/number';
+import { formatQuantity, numericFieldValue, parseWholeNumber } from '@/utils/number';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
 import { readableError } from '@/utils/errors';
 
-const defaults: ProductInput = { name:'', description:'', sku:'', barcode:'',  supplierId:null, unit:'piece', purchasePrice:'0', salePrice:'0', initialQuantity:'0', lowStockThreshold:'5', isActive:true, bulkEnabled:false, bulkUnitLabel:'', bulkQuantity:'', bulkPrice:'', bulkPurchasePrice:'' };
+const defaults: ProductInput = { name:'', description:'', sku:'', barcode:'',  supplierId:null, unit:'piece', purchasePrice:'', salePrice:'', initialQuantity:'0', lowStockThreshold:'5', isActive:true, bulkEnabled:false, bulkUnitLabel:'', bulkQuantity:'', bulkPrice:'', bulkPurchasePrice:'' };
 const unitOptions = [
   { label:'Pièce', value:'piece' }, { label:'Carton', value:'carton' },
   { label:'Kilogramme', value:'kg' }, { label:'Litre', value:'litre' },
@@ -44,21 +45,26 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   useStockRealtime(company);
   const product = useQuery({ queryKey:['product',id], queryFn:()=>getProduct(id!), enabled:!!id });
   const suppliers = useQuery({ queryKey:['suppliers',company,store], queryFn:()=>getSuppliers(company,store), enabled:!!company&&!!store });
-  const { control, handleSubmit, reset, setValue, getValues, trigger, formState:{errors,isDirty,dirtyFields} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
+  const { control, handleSubmit, reset, setValue, getValues, trigger, formState:{errors,isDirty,isValid,dirtyFields} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
   const levels = useQuery({queryKey:['stock-levels',company,store,id],queryFn:()=>getStockLevels(company,id,store),enabled:!!company&&!!store&&!!id});
   // Prix par unité dans le lot, calculé en direct pour que le vendeur voie
   // tout de suite s'il vend vraiment moins cher en gros — sans avoir à
   // sortir une calculette.
   const [bulkEnabledValue, bulkUnitLabelValue, bulkQuantityValue, bulkPriceValue, bulkPurchasePriceValue, salePriceValue, purchasePriceValue] = useWatch({ control, name: ['bulkEnabled', 'bulkUnitLabel', 'bulkQuantity', 'bulkPrice', 'bulkPurchasePrice', 'salePrice', 'purchasePrice'] });
-  const perUnitBulkPrice = parseDecimal(bulkQuantityValue) > 0 ? parseDecimal(bulkPriceValue) / parseDecimal(bulkQuantityValue) : 0;
+  // Saisies strictes : une valeur vide, négative, décimale ou mal écrite vaut
+  // null — le calcul est alors masqué au lieu d'afficher « NaN » ou un chiffre
+  // faux calculé sur une valeur que le formulaire refuse de toute façon.
+  const bulkQuantityNumber = parseWholeNumber(bulkQuantityValue);
+  const bulkPriceNumber = parseWholeNumber(bulkPriceValue);
+  const purchaseNumber = parseWholeNumber(purchasePriceValue);
+  const saleNumber = parseWholeNumber(salePriceValue);
+  const perUnitBulkPrice = bulkQuantityNumber !== null && bulkQuantityNumber > 0 && bulkPriceNumber !== null ? bulkPriceNumber / bulkQuantityNumber : 0;
   // Marge en direct sous les prix : on veut que l'erreur de saisie (prix de
   // vente sous le prix d'achat) saute aux yeux tout de suite, pas seulement
   // après enregistrement sur la fiche complète.
-  // parseDecimal, pas Number() : Number("12,50") vaut NaN (JS n'accepte que
-  // le point), donc taper une virgule (habitude française) affichait une
-  // marge à 0 ici pendant la saisie — audit externe, SM-08.
-  const liveMargin = parseDecimal(salePriceValue) - parseDecimal(purchasePriceValue);
-  const liveMarginPercent = parseDecimal(purchasePriceValue) > 0 ? (liveMargin / parseDecimal(purchasePriceValue)) * 100 : null;
+  const marginKnown = purchaseNumber !== null && saleNumber !== null;
+  const liveMargin = marginKnown ? saleNumber - purchaseNumber : 0;
+  const liveMarginPercent = marginKnown && purchaseNumber > 0 ? (liveMargin / purchaseNumber) * 100 : null;
   // Les 3 champs du lot sont liés par une seule règle (tout ou rien) : sans
   // ça, remplir la quantité et le prix après le nom ne fait pas disparaître
   // l'erreur affichée sur le nom tant qu'on n'y retouche pas soi-même.
@@ -71,12 +77,13 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   // enregistré, pour ne pas écraser un prix existant en retouchant le lot.
   useEffect(() => {
     if (id || dirtyFields.purchasePrice) return;
-    if (Number(bulkPurchasePriceValue) > 0 && Number(bulkQuantityValue) > 0) setValue('purchasePrice', String(Math.round(Number(bulkPurchasePriceValue) / Number(bulkQuantityValue))), { shouldDirty: false, shouldValidate: true });
-  }, [id, bulkPurchasePriceValue, bulkQuantityValue, dirtyFields.purchasePrice, setValue]);
+    const lotPurchasePrice = parseWholeNumber(bulkPurchasePriceValue);
+    if (lotPurchasePrice !== null && lotPurchasePrice > 0 && bulkQuantityNumber !== null && bulkQuantityNumber > 0) setValue('purchasePrice', String(Math.round(lotPurchasePrice / bulkQuantityNumber)), { shouldDirty: false, shouldValidate: true });
+  }, [id, bulkPurchasePriceValue, bulkQuantityNumber, dirtyFields.purchasePrice, setValue]);
   useEffect(() => {
     if (id || dirtyFields.salePrice) return;
-    if (Number(bulkPriceValue) > 0 && Number(bulkQuantityValue) > 0) setValue('salePrice', String(Math.round(Number(bulkPriceValue) / Number(bulkQuantityValue))), { shouldDirty: false, shouldValidate: true });
-  }, [id, bulkPriceValue, bulkQuantityValue, dirtyFields.salePrice, setValue]);
+    if (bulkPriceNumber !== null && bulkPriceNumber > 0 && bulkQuantityNumber !== null && bulkQuantityNumber > 0) setValue('salePrice', String(Math.round(bulkPriceNumber / bulkQuantityNumber)), { shouldDirty: false, shouldValidate: true });
+  }, [id, bulkPriceNumber, bulkQuantityNumber, dirtyFields.salePrice, setValue]);
 
   useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? '', barcode:product.data.barcode??'', supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:numericFieldValue(product.data.purchase_price), salePrice:numericFieldValue(product.data.sale_price), initialQuantity:'0', lowStockThreshold:numericFieldValue(product.data.low_stock_threshold), isActive:product.data.is_active, bulkEnabled:!!product.data.bulk_unit_label, bulkUnitLabel:product.data.bulk_unit_label??'', bulkQuantity:product.data.bulk_quantity!=null?String(product.data.bulk_quantity):'', bulkPrice:product.data.bulk_price!=null?numericFieldValue(product.data.bulk_price):'' }); }, [product.data,reset]);
 
@@ -103,10 +110,21 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
     return () => { cancelled = true; };
   }, [id, initialBarcode, getValues, setValue]);
 
+  // Retour (bouton de l'en-tête, geste, bouton système ou navigateur) avec des
+  // modifications non enregistrées : on demande d'abord confirmation. Les
+  // sorties voulues (après enregistrement ou suppression) lèvent le garde via
+  // leaveAllowed avant de naviguer.
+  const navigation = useNavigation();
+  const leaveAllowed = useRef(false);
+  const [leaveAction, setLeaveAction] = useState<{ type: string } | null>(null);
+  usePreventRemove(isDirty, ({ data }) => {
+    if (leaveAllowed.current) navigation.dispatch(data.action);
+    else setLeaveAction(data.action);
+  });
   const [pendingSave,setPendingSave] = useState<ProductInput|null>(null);
   const [similarProduct,setSimilarProduct] = useState<{id:string;name:string}|null>(null);
   const [checkingDuplicate,setCheckingDuplicate] = useState(false);
-  const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onSuccess:async(saved)=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['employee-products',company,store]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace({pathname:basePath as never,params:{notice:id?'produit_modifie':'produit_enregistre'}}); } });
+  const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onSuccess:async(saved)=>{ leaveAllowed.current=true; await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['employee-products',company,store]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace({pathname:basePath as never,params:{notice:id?'produit_modifie':'produit_enregistre'}}); } });
   const [confirm,setConfirm] = useState(false);
   const [moreOpen,setMoreOpen] = useState(false);
   const hasAdditionalErrors = additionalFields.some(field => !!errors[field]);
@@ -114,7 +132,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
     if (hasAdditionalErrors) setMoreOpen(true);
   }, [hasAdditionalErrors]);
   const [adjust,setAdjust] = useState<'in'|'out'|null>(null);
-  const remove = useMutation({ mutationFn:()=>deleteProduct(id!), onSuccess:async()=>{ await Promise.all([qc.invalidateQueries({queryKey:['products',company]}),qc.invalidateQueries({queryKey:['employee-products',company]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company]})]); router.replace(basePath as never); } });
+  const remove = useMutation({ mutationFn:()=>deleteProduct(id!), onSuccess:async()=>{ leaveAllowed.current=true; await Promise.all([qc.invalidateQueries({queryKey:['products',company]}),qc.invalidateQueries({queryKey:['employee-products',company]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company]})]); router.replace(basePath as never); } });
   const stockQuantity=(levels.data??[]).reduce((sum,row)=>sum+Number(row.quantity),0);
   const margin=product.data?Number(product.data.sale_price)-Number(product.data.purchase_price):0;
   const stockValue=product.data?stockQuantity*Number(product.data.purchase_price):0;
@@ -124,7 +142,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
     : product.data?.image_url ? [product.data.image_url] : [];
   const productVariants = Array.isArray(product.data?.product_variants) ? product.data.product_variants : [];
 
-  return <AdminPage title={id?'Fiche produit':'Nouveau produit'}>
+  return <AdminPage title={id?'Fiche produit':'Nouveau produit'} backFallback={returnTo||basePath}>
     {!company||!store?<HelperText type="error" visible>Sélectionnez une entreprise et une boutique avant d’enregistrer un produit.</HelperText>:null}
     {/* Avant ce garde, le formulaire s'affichait tout de suite avec ses valeurs
         par défaut (nom vide, prix à 0) le temps que la fiche charge, puis se
@@ -144,10 +162,10 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
             <Text variant="bodySmall" style={styles.lookupText}>Nom suggéré depuis une base de données publique{lookupMatch.brand ? ` (${lookupMatch.brand})` : ''} — vérifiez qu’il correspond avant d’enregistrer.</Text>
           </View>}
           <ResponsiveFormGrid>
-            <FormField control={control} name="purchasePrice" label={`Prix d’achat (${primaryCode})`} required keyboardType="number-pad" integerOnly selectTextOnFocus />
-            <FormField control={control} name="salePrice" label={`Prix de vente (${primaryCode})`} required keyboardType="number-pad" integerOnly selectTextOnFocus />
+            <FormField control={control} name="purchasePrice" label={`Prix d’achat (${primaryCode})`} required keyboardType="number-pad" selectTextOnFocus />
+            <FormField control={control} name="salePrice" label={`Prix de vente (${primaryCode})`} required keyboardType="number-pad" selectTextOnFocus />
           </ResponsiveFormGrid>
-          {(parseDecimal(purchasePriceValue) > 0 || parseDecimal(salePriceValue) > 0) && <HelperText type={liveMargin <= 0 ? 'error' : 'info'} visible>
+          {marginKnown && (purchaseNumber > 0 || saleNumber > 0) && <HelperText type={liveMargin <= 0 ? 'error' : 'info'} visible>
             {liveMargin < 0
               ? `Attention : le prix de vente est inférieur au prix d’achat (${formatMoney(liveMargin)}).`
               : liveMargin === 0
@@ -159,7 +177,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
                 // du produit (fiche existante) affiche déjà les deux, nommés pareil.
                 : `Marge : ${formatMoney(liveMargin)}${liveMarginPercent !== null ? ` (taux de marge : ${liveMarginPercent.toFixed(1).replace('.', ',')} %)` : ''}`}
           </HelperText>}
-          {!id && <FormField control={control} name="initialQuantity" label="Stock initial" required keyboardType="number-pad" integerOnly selectTextOnFocus />}
+          {!id && <FormField control={control} name="initialQuantity" label="Stock initial" required keyboardType="number-pad" selectTextOnFocus />}
         </Card.Content>
       </Card>
       {id && product.data && <ProductImagesCard productId={id} companyId={company} storeId={store} urls={productImages} />}
@@ -175,17 +193,17 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
           <Text variant="bodySmall">Le vendeur touchera deux boutons à la vente (détail / gros) avec le bon prix déjà calculé — aucun calcul à faire à chaque vente.</Text>
           <ResponsiveFormGrid>
             <FormField control={control} name="bulkUnitLabel" label="Nom de l’unité de gros (ex : Carton, Sac)" required />
-            <FormField control={control} name="bulkQuantity" label="Quantité par lot (ex : 24)" required keyboardType="number-pad" integerOnly selectTextOnFocus />
+            <FormField control={control} name="bulkQuantity" label="Quantité par lot (ex : 24)" required keyboardType="number-pad" selectTextOnFocus />
           </ResponsiveFormGrid>
-          {!id && <Text variant="bodySmall" style={{ fontStyle: 'italic' }}>Remplissez plutôt les prix du lot : les prix à l’unité en haut se calculent tout seuls.</Text>}
+          {!id && <Text variant="bodySmall" style={{ fontStyle: 'italic' }}>Astuce : si vous ne saisissez pas vous-même les prix à l’unité en haut, ils se calculent tout seuls à partir des prix du lot (prix du lot ÷ quantité par lot). Un prix que vous avez saisi n’est jamais remplacé.</Text>}
           <ResponsiveFormGrid>
-            {!id && <FormField control={control} name="bulkPurchasePrice" label={`Prix d’achat du lot (${primaryCode}, facultatif)`} keyboardType="number-pad" integerOnly selectTextOnFocus />}
-            <FormField control={control} name="bulkPrice" label={`Prix de vente du lot (${primaryCode})`} required keyboardType="number-pad" integerOnly selectTextOnFocus />
+            {!id && <FormField control={control} name="bulkPurchasePrice" label={`Prix d’achat du lot (${primaryCode}, facultatif)`} keyboardType="number-pad" selectTextOnFocus />}
+            <FormField control={control} name="bulkPrice" label={`Prix de vente du lot (${primaryCode})`} required keyboardType="number-pad" selectTextOnFocus />
           </ResponsiveFormGrid>
-          {perUnitBulkPrice > 0 && <HelperText type={perUnitBulkPrice > parseDecimal(salePriceValue) && parseDecimal(salePriceValue) > 0 ? 'error' : 'info'} visible>
-            {perUnitBulkPrice > parseDecimal(salePriceValue) && parseDecimal(salePriceValue) > 0
-              ? `Attention : ${formatMoney(perUnitBulkPrice)} par unité dans le lot, c’est plus cher que le prix au détail (${formatMoney(parseDecimal(salePriceValue))}). Vérifiez le prix du lot.`
-              : `Soit ${formatMoney(perUnitBulkPrice)} par unité dans le lot, contre ${formatMoney(parseDecimal(salePriceValue))} au détail.`}
+          {perUnitBulkPrice > 0 && <HelperText type={perUnitBulkPrice > (saleNumber ?? 0) && (saleNumber ?? 0) > 0 ? 'error' : 'info'} visible>
+            {perUnitBulkPrice > (saleNumber ?? 0) && (saleNumber ?? 0) > 0
+              ? `Attention : ${formatMoney(perUnitBulkPrice)} par unité dans le lot, c’est plus cher que le prix au détail (${formatMoney(saleNumber ?? 0)}). Vérifiez le prix du lot.`
+              : `Soit ${formatMoney(perUnitBulkPrice)} par unité dans le lot, contre ${formatMoney(saleNumber ?? 0)} au détail.`}
           </HelperText>}
         </Card.Content>}
       </Card>} />}
@@ -223,7 +241,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
                 onChange={field.onChange}
                 error={fieldState.error?.message}
               />} />
-              <FormField control={control} name="lowStockThreshold" label="Seuil de stock faible" required keyboardType="number-pad" integerOnly selectTextOnFocus />
+              <FormField control={control} name="lowStockThreshold" label="Seuil de stock faible" required keyboardType="number-pad" selectTextOnFocus />
             </ResponsiveFormGrid>
             <Controller control={control} name="isActive" render={({ field }) => <Card mode="outlined">
               <Card.Title title="Produit actif" right={() => <Switch value={field.value} onValueChange={field.onChange} accessibilityLabel="Produit actif" style={{ marginRight: 12 }} />} />
@@ -240,7 +258,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
       <AppButton
         icon="content-save"
         loading={save.isPending || checkingDuplicate}
-        disabled={!company || !store || !isDirty}
+        disabled={!company || !store || !isDirty || !isValid}
         onPress={handleSubmit(async v => {
           // Un nom identique (à la casse près) à un produit déjà actif dans cette
           // boutique n'est jamais bloqué (tailles/variantes différentes possibles) —
@@ -256,7 +274,18 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
           if (additionalFields.some(field => !!invalid[field])) setMoreOpen(true);
         })}
       >Enregistrer</AppButton>
+      {!!company && !!store && !isValid && Object.keys(errors).length === 0 && <HelperText type="info" visible>Renseignez les champs obligatoires (*) pour activer l’enregistrement.</HelperText>}
     </View>}
+    <ConfirmDialog
+      visible={!!leaveAction}
+      title="Quitter sans enregistrer ?"
+      message="Vous avez des modifications non enregistrées. Si vous quittez maintenant, elles seront perdues."
+      destructive
+      cancelLabel="Rester"
+      confirmLabel="Quitter sans enregistrer"
+      onCancel={() => setLeaveAction(null)}
+      onConfirm={() => { const action = leaveAction; setLeaveAction(null); leaveAllowed.current = true; if (action) navigation.dispatch(action as never); }}
+    />
     <ConfirmDialog
       visible={!!similarProduct}
       title="Produit déjà existant ?"
@@ -302,7 +331,7 @@ function Variants({ productId, companyId, variants, refresh }: { productId:strin
   const remove=useMutation({mutationFn:()=>deleteVariant(deleting!.id),onSuccess:async()=>{await refresh();setDeleting(null)}});
   const show=(v?:ProductVariant)=>{setEditing(v??null);setOpen(true)};
   return <><Card><Card.Title title="Variantes" subtitle={`${variants.length} variante${plural(variants.length)}`} right={()=><AppButton compact mode="text" icon="plus" style={{marginRight:8}} onPress={()=>show()}>Ajouter</AppButton>}/><Card.Content>{variants.map(v=><Card key={v.id} mode="outlined" onPress={()=>show(v)} style={{marginBottom:8}}><Card.Title title={v.name} right={()=><AppButton mode="text" destructive onPress={()=>setDeleting(v)}>Retirer</AppButton>}/></Card>)}{!variants.length&&<Text>Aucune variante. Le produit simple reste utilisable.</Text>}</Card.Content></Card>
-    <Portal><Dialog visible={open} onDismiss={()=>setOpen(false)}><Dialog.Title>{editing?'Modifier la variante':'Nouvelle variante'}</Dialog.Title><Dialog.ScrollArea style={{paddingHorizontal:0}}><ScrollView nestedScrollEnabled contentContainerStyle={{gap:12,paddingHorizontal:24,paddingBottom:12}} keyboardShouldPersistTaps="handled"><FormField control={control} name="name" label="Nom"/><FormField control={control} name="barcode" label="Code-barres"/><FormField control={control} name="purchasePrice" label="Prix d’achat spécifique" keyboardType="number-pad" integerOnly selectTextOnFocus/><FormField control={control} name="salePrice" label="Prix de vente spécifique" keyboardType="number-pad" integerOnly selectTextOnFocus/><Controller control={control} name="isActive" render={({field})=><Card mode="outlined"><Card.Title title="Variante active" right={()=><Switch value={field.value} onValueChange={field.onChange} accessibilityLabel="Variante active" style={{marginRight:12}}/>}/></Card>}/>{!!save.error&&<HelperText type="error" visible>{save.error.message}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setOpen(false)}>Annuler</AppButton><AppButton loading={save.isPending} onPress={handleSubmit(v=>save.mutate(v))}>Enregistrer</AppButton></Dialog.Actions></Dialog></Portal>
+    <Portal><Dialog visible={open} onDismiss={()=>setOpen(false)}><Dialog.Title>{editing?'Modifier la variante':'Nouvelle variante'}</Dialog.Title><Dialog.ScrollArea style={{paddingHorizontal:0}}><ScrollView nestedScrollEnabled contentContainerStyle={{gap:12,paddingHorizontal:24,paddingBottom:12}} keyboardShouldPersistTaps="handled"><FormField control={control} name="name" label="Nom"/><FormField control={control} name="barcode" label="Code-barres"/><FormField control={control} name="purchasePrice" label="Prix d’achat spécifique" keyboardType="number-pad" selectTextOnFocus/><FormField control={control} name="salePrice" label="Prix de vente spécifique" keyboardType="number-pad" selectTextOnFocus/><Controller control={control} name="isActive" render={({field})=><Card mode="outlined"><Card.Title title="Variante active" right={()=><Switch value={field.value} onValueChange={field.onChange} accessibilityLabel="Variante active" style={{marginRight:12}}/>}/></Card>}/>{!!save.error&&<HelperText type="error" visible>{save.error.message}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setOpen(false)}>Annuler</AppButton><AppButton loading={save.isPending} onPress={handleSubmit(v=>save.mutate(v))}>Enregistrer</AppButton></Dialog.Actions></Dialog></Portal>
     <ConfirmDialog visible={!!deleting} title="Supprimer la variante ?" message="Cette action est définitive." destructive loading={remove.isPending} onCancel={()=>setDeleting(null)} onConfirm={()=>remove.mutate()}/>
   </>;
 }

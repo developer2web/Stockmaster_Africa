@@ -23,7 +23,7 @@ const descriptions:Record<string,string>={
   'Nouvelle vente':'Ajoutez les produits, choisissez le client puis encaissez.',
 };
 
-export function AdminPage({ title, description, action, floatingAction, backToHome = false, scrollResetKey, onContentWidthChange, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; scrollResetKey?: string; onContentWidthChange?: (width: number) => void }>) {
+export function AdminPage({ title, description, action, floatingAction, backToHome = false, backFallback, scrollResetKey, onContentWidthChange, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; backFallback?: string; scrollResetKey?: string; onContentWidthChange?: (width: number) => void }>) {
   const theme = useTheme();
   const { session, membership, offlineAuthenticated, lockOfflineSession } = useAuth();
   const { signOut, signingOut } = useSignOutAction();
@@ -76,7 +76,7 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
     >
       <Appbar.Header elevated style={{ backgroundColor: employee ? employeeHeader : theme.colors.surface }}>
         {!offlineAuthenticated && <AppBackButton
-          fallback={cameFromTools ? toolsFallback : employee ? '/employee' : '/(admin)'}
+          fallback={cameFromTools ? toolsFallback : backFallback ?? (employee ? '/employee' : '/(admin)')}
           light={employee}
           forceFallback={backToHome || cameFromTools}
         />}

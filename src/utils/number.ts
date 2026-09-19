@@ -54,3 +54,27 @@ export function numericFieldValue(value: unknown): string {
 export function digitsOnly(value: string): string {
   return value.split(/[.,]/)[0].replace(/[^0-9]/g, '');
 }
+
+/**
+ * Vérifie qu'une saisie est un entier positif ou nul écrit en chiffres (les
+ * espaces séparateurs de milliers sont tolérés). Renvoie le message d'erreur
+ * à afficher, ou null si la saisie est valide.
+ *
+ * Contrairement à digitsOnly, ne transforme jamais la valeur : "-100",
+ * "20,75" ou "1e3" sont refusés avec une explication au lieu de devenir
+ * silencieusement "100", "20" ou "13".
+ */
+export function wholeNumberError(raw: unknown): string | null {
+  const value = typeof raw === 'string' ? raw.replace(/\s/g, '') : '';
+  if (value === '') return 'Valeur requise';
+  if (value.startsWith('-')) return 'La valeur ne peut pas être négative.';
+  if (/^\d+[.,]\d*$/.test(value)) return 'Saisissez un nombre entier, sans décimale.';
+  if (!/^\d+$/.test(value)) return 'Saisissez uniquement des chiffres (nombre entier).';
+  if (value.length > 12) return 'Nombre trop grand (12 chiffres maximum).';
+  return null;
+}
+
+/** Entier positif ou nul saisi en chiffres, ou null si la saisie est vide/invalide. */
+export function parseWholeNumber(raw: unknown): number | null {
+  return wholeNumberError(raw) === null ? Number(String(raw).replace(/\s/g, '')) : null;
+}
