@@ -12,7 +12,8 @@ import { getCashSummary } from '@/features/cash/api';
 import { recordPurchase, type PurchaseLine } from '@/features/operations/api';
 import { getProducts, getSuppliers } from '@/features/products/api';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { formatQuantity, parseDecimal, digitsOnly } from '@/utils/number';
+import { formatQuantity, parseDecimal, wholeOrNaN } from '@/utils/number';
+import { WholeNumberInput } from '@/components/forms/WholeNumberInput';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import { AppSearchBar } from '@/components/ui/AppSearchBar';
@@ -55,26 +56,26 @@ export default function PurchasesScreen() {
   const wouldGoNegative = paid && total > 0 && cashBalance - total < 0;
 
   // Demande explicite du propriétaire (17/09) : le bouton restait actif
-  // quelle que soit la saisie (quantité négative silencieusement ramenée à
-  // 1 par digitsOnly, prix négatif refusé seulement après le clic) — cette
+  // quelle que soit la saisie (quantité négative, prix négatif refusé seulement après
+  // le clic) — cette
   // même validation, calculée en direct plutôt qu'uniquement au clic,
   // désactive le bouton et affiche l'erreur avant toute tentative d'ajout.
-  const parsedQuantityLive = parseDecimal(quantity);
+  const parsedQuantityLive = wholeOrNaN(quantity);
   const parsedCostLive = parseDecimal(unitCost);
   const addError = !productId
     ? null
     : !(parsedQuantityLive > 0)
-      ? 'La quantité doit être supérieure à zéro.'
+      ? 'La quantité doit être un nombre entier supérieur à zéro.'
       : !Number.isFinite(parsedCostLive) || parsedCostLive <= 0
         ? 'Le prix d’achat doit être supérieur à zéro.'
         : null;
 
   const add = () => {
     const product = products.data?.find((item) => item.id === productId);
-    const parsedQuantity = parseDecimal(quantity);
+    const parsedQuantity = wholeOrNaN(quantity);
     const parsedCost = parseDecimal(unitCost);
     if (!product) return setFormError('Sélectionnez un produit.');
-    if (!(parsedQuantity > 0)) return setFormError('La quantité doit être supérieure à zéro.');
+    if (!(parsedQuantity > 0)) return setFormError('La quantité doit être un nombre entier supérieur à zéro.');
     if (!Number.isFinite(parsedCost) || parsedCost <= 0) return setFormError('Le prix d’achat doit être supérieur à zéro.');
     setFormError('');
     setItems((current) => {
@@ -115,7 +116,7 @@ export default function PurchasesScreen() {
           <AppSearchBar placeholder="Rechercher dans le catalogue" value={productSearch} onChangeText={setProductSearch} loading={productSearch !== debouncedSearch} />
           <SelectField label="Produit" value={productId} onChange={(value) => { setProductId(value); const product = products.data?.find((item) => item.id === value); if (product) setUnitCost(String(product.purchase_price ?? 0)); }} options={(products.data ?? []).filter((item) => item.is_active).map((item) => ({ label: item.name, value: item.id }))} />
           {!!products.error && <HelperText type="error" visible>{products.error.message}</HelperText>}
-          <TextInput mode="outlined" label="Quantité reçue" accessibilityLabel="Quantité reçue" keyboardType="number-pad" selectTextOnFocus value={quantity} onChangeText={v=>setQuantity(digitsOnly(v))} />
+          <WholeNumberInput label="Quantité reçue" value={quantity} onChangeText={setQuantity} />
           <TextInput mode="outlined" label="Prix d’achat unitaire" accessibilityLabel="Prix d’achat unitaire" keyboardType="decimal-pad" selectTextOnFocus value={unitCost} onChangeText={setUnitCost} />
           {!!(formError||addError) && <HelperText type="error" visible>{formError||addError}</HelperText>}
           <AppButton mode="outlined" icon="plus" disabled={!productId||!!addError} onPress={add}>Ajouter à la commande</AppButton>

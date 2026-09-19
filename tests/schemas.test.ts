@@ -45,6 +45,11 @@ describe('validations critiques',()=>{
     });
   });
   it('refuse une quantité de stock nulle ou négative',()=>{expect(stockMovementSchema.safeParse({storeId:'00000000-0000-4000-8000-000000000001',variantId:null,direction:'out',quantity:'0',note:''}).success).toBe(false)});
+  it('refuse une quantité de mouvement de stock invalide sans la corriger',()=>{
+    const base={storeId:'00000000-0000-4000-8000-000000000001',variantId:null,direction:'in',note:'Correction'};
+    for(const quantity of ['-2','1e3','2.5','','abc'])expect(stockMovementSchema.safeParse({...base,quantity}).success).toBe(false);
+    expect(stockMovementSchema.safeParse({...base,quantity:'12'}).success).toBe(true);
+  });
   // Audit externe (SM-14) : ce numéro sert de clé de recherche du client en
   // caisse et de contact Orange Money — "abc" y était accepté avant.
   it('refuse un téléphone client non numérique, mais accepte un numéro valide ou vide',()=>{

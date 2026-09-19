@@ -13,7 +13,8 @@ import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { getCompany } from '@/features/employees/api';
 import { getSale } from '@/features/sales/api';
 import { getSaleReturns, recordSaleReturn, type ReturnDisposition } from '@/features/sales/returns';
-import { formatQuantity, parseDecimal, digitsOnly } from '@/utils/number';
+import { formatQuantity, wholeOrNaN } from '@/utils/number';
+import { WholeNumberInput } from '@/components/forms/WholeNumberInput';
 
 const methods = [{ label: 'Espèces', value: 'cash' }, { label: 'Mobile Money', value: 'mobile_money' }];
 const dispositions = [{ label: 'Remettre en stock', value: 'restock' }, { label: 'Produit endommagé', value: 'damaged' }, { label: 'Produit perdu', value: 'lost' }];
@@ -38,7 +39,7 @@ export default function SaleRefundScreen() {
     for (const current of returns.data ?? []) for (const item of current.sale_return_items) map[item.sale_item_id] = (map[item.sale_item_id] ?? 0) + Number(item.quantity);
     return map;
   }, [returns.data]);
-  const items = (sale.data?.sale_items ?? []).map((item) => ({ item, remaining: Number(item.quantity) - (returned[item.id] ?? 0), quantity: parseDecimal(quantities[item.id] ?? '0') || 0, disposition: itemDispositions[item.id] ?? 'restock' as ReturnDisposition }));
+  const items = (sale.data?.sale_items ?? []).map((item) => ({ item, remaining: Number(item.quantity) - (returned[item.id] ?? 0), quantity: (quantities[item.id] ?? '').trim() === '' ? 0 : wholeOrNaN(quantities[item.id]), disposition: itemDispositions[item.id] ?? 'restock' as ReturnDisposition }));
   const refund = useMutation({
     mutationFn: () => recordSaleReturn({ saleId: id!, items: items.filter((row) => row.quantity > 0).map((row) => ({ saleItemId: row.item.id, quantity: row.quantity, disposition: row.disposition })), refundMethod: method!, note }, operationId.current),
     onError: () => setConfirming(false),
@@ -57,7 +58,7 @@ export default function SaleRefundScreen() {
     <Text variant="titleLarge" style={{ fontWeight: '800' }}>Articles à retourner</Text>
     {items.map(({ item, remaining }) => <Card key={item.id} mode="outlined">
       <Card.Title title={item.variant ? `${item.product?.name} • ${item.variant.name}` : item.product?.name ?? 'Produit'} subtitle={`Retournable : ${formatQuantity(remaining)} • ${formatMoney(Number(item.line_total) / Number(item.quantity))} par unité`} right={() => remaining <= 0 ? <Chip style={{ marginRight: 12 }}>Déjà retourné</Chip> : null} />
-      {remaining > 0 && <Card.Content style={{ gap: 10 }}><TextInput mode="outlined" label="Quantité retournée" accessibilityLabel="Quantité retournée" value={quantities[item.id] ?? ''} onChangeText={(value) => setQuantities((current) => ({ ...current, [item.id]: digitsOnly(value) }))} keyboardType="number-pad" selectTextOnFocus error={(parseDecimal(quantities[item.id] ?? '0') || 0) > remaining} /><SelectField label="État du produit retourné" value={itemDispositions[item.id] ?? 'restock'} onChange={(value) => setItemDispositions((current) => ({ ...current, [item.id]: (value ?? 'restock') as ReturnDisposition }))} options={dispositions} /></Card.Content>}
+      {remaining > 0 && <Card.Content style={{ gap: 10 }}><WholeNumberInput label="Quantité retournée" value={quantities[item.id] ?? ''} onChangeText={(value) => setQuantities((current) => ({ ...current, [item.id]: value }))} error={(wholeOrNaN(quantities[item.id]) || 0) > remaining} /><SelectField label="État du produit retourné" value={itemDispositions[item.id] ?? 'restock'} onChange={(value) => setItemDispositions((current) => ({ ...current, [item.id]: (value ?? 'restock') as ReturnDisposition }))} options={dispositions} /></Card.Content>}
     </Card>)}
     <SelectField label="Mode de remboursement" value={method} onChange={setMethod} options={methods} />
     <TextInput mode="outlined" label={reasonRequired ? 'Motif obligatoire' : 'Motif ou note'} accessibilityLabel={reasonRequired ? 'Motif obligatoire' : 'Motif ou note'} value={note} onChangeText={setNote} multiline error={reasonRequired && note.length > 0 && note.trim().length < 3} />

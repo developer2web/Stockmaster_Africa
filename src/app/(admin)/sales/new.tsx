@@ -18,7 +18,7 @@ import { createSale, getSaleStock } from '@/features/sales/api';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { cartKey, useSaleCart } from '@/stores/saleCart';
 import { reservedElsewhere } from '@/stores/saleCartLogic';
-import { formatQuantity, parseDecimal, digitsOnly } from '@/utils/number';
+import { formatQuantity, parseDecimal, wholeNumberError, wholeOrNaN } from '@/utils/number';
 import { useOffline } from '@/features/offline/OfflineProvider';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
 import { AppSearchBar } from '@/components/ui/AppSearchBar';
@@ -148,13 +148,13 @@ export default function NewSale() {
   const invalidQuantity = items.some(item => {
     const raw = quantityDrafts[cartKey(item)];
     if (raw === undefined) return false;
-    const quantity = parseDecimal(raw);
+    const quantity = wholeOrNaN(raw);
     return !Number.isFinite(quantity) || quantity <= 0 || (!companySettings.data?.allow_negative_stock && quantity > item.available);
   });
   const changeQuantity = (id: string, rawInput: string, available: number) => {
-    const raw = digitsOnly(rawInput);
+    const raw = rawInput;
     setQuantityDrafts(current => ({ ...current, [id]: raw }));
-    const quantity = parseDecimal(raw);
+    const quantity = wholeOrNaN(raw);
     if (Number.isFinite(quantity) && quantity > 0 && (companySettings.data?.allow_negative_stock || quantity <= available)) setQuantity(id, quantity, !!companySettings.data?.allow_negative_stock);
   };
   const issue = checkoutIssue({
@@ -298,8 +298,9 @@ export default function NewSale() {
                   <IconButton mode="contained" icon="plus" accessibilityLabel={`Ajouter un ${item.bulkUnitLabel}`} disabled={!allowNegative&&item.quantity+bulkStep>item.available-reservedElsewhere(items,item,'bulk')} onPress={()=>setQuantity(id,item.quantity+bulkStep,allowNegative)}/>
                 </View>
               ) : (
-                <View style={styles.quantityRow}><IconButton mode="outlined" icon="minus" accessibilityLabel="Diminuer la quantité" disabled={item.quantity<=1} onPress={()=>changeQuantity(id,String(item.quantity-1),item.available)}/><TextInput style={styles.quantityInput} mode="outlined" label="Quantité" accessibilityLabel="Quantité" keyboardType="number-pad" selectTextOnFocus value={quantityDrafts[id] ?? String(item.quantity)} onChangeText={(value) => changeQuantity(id, value, item.available)} /><IconButton mode="contained" icon="plus" accessibilityLabel="Augmenter la quantité" disabled={!allowNegative&&item.quantity>=item.available-reservedElsewhere(items,item,'unit')} onPress={()=>changeQuantity(id,String(item.quantity+1),item.available)}/></View>
+                <View style={styles.quantityRow}><IconButton mode="outlined" icon="minus" accessibilityLabel="Diminuer la quantité" disabled={item.quantity<=1} onPress={()=>changeQuantity(id,String(item.quantity-1),item.available)}/><TextInput style={styles.quantityInput} mode="outlined" label="Quantité" accessibilityLabel="Quantité" keyboardType="number-pad" selectTextOnFocus value={quantityDrafts[id] ?? String(item.quantity)} onChangeText={(value) => changeQuantity(id, value, item.available)} error={quantityDrafts[id] !== undefined && wholeNumberError(quantityDrafts[id]) !== null && quantityDrafts[id].trim() !== ''} /><IconButton mode="contained" icon="plus" accessibilityLabel="Augmenter la quantité" disabled={!allowNegative&&item.quantity>=item.available-reservedElsewhere(items,item,'unit')} onPress={()=>changeQuantity(id,String(item.quantity+1),item.available)}/></View>
               )}
+              {quantityDrafts[id]!==undefined&&quantityDrafts[id].trim()!==''&&wholeNumberError(quantityDrafts[id])!==null&&<HelperText type="error" visible>{wholeNumberError(quantityDrafts[id])}</HelperText>}
               {companySettings.data?.allow_discounts&&showDiscounts&&<TextInput style={styles.field} mode="outlined" label="Remise sur cette ligne" accessibilityLabel="Remise sur cette ligne" keyboardType="decimal-pad" selectTextOnFocus value={String(item.discount)} onChangeText={value=>setDiscount(id,parseDecimal(value)||0)}/>}<Text>Total ligne : {formatMoney(item.salePrice * item.quantity-item.discount)}</Text>
             </Card.Content>
           </Card>

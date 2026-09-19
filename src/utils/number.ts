@@ -39,28 +39,11 @@ export function numericFieldValue(value: unknown): string {
 }
 
 /**
- * Ne garde que les chiffres d'une saisie clavier : les quantités, prix et
- * seuils de stock sont toujours des nombres entiers dans StockMaster (pas de
- * fraction d'unité, GNF n'a pas de centimes), donc le séparateur décimal est
- * retiré dès la frappe plutôt que rejeté après coup.
- *
- * Tronque à la partie entière plutôt que de supprimer le séparateur en
- * recollant les chiffres autour : "12,50" tapé par réflexe décimal devenait
- * "1250" (×100 silencieux, sans aucun avertissement) au lieu d'être limité à
- * "12". Un espace (séparateur de milliers, ex. "1 250" collé depuis un
- * rapport) n'est pas un point de troncature : lui reste correctement
- * supprimé pour redonner "1250".
- */
-export function digitsOnly(value: string): string {
-  return value.split(/[.,]/)[0].replace(/[^0-9]/g, '');
-}
-
-/**
  * Vérifie qu'une saisie est un entier positif ou nul écrit en chiffres (les
  * espaces séparateurs de milliers sont tolérés). Renvoie le message d'erreur
  * à afficher, ou null si la saisie est valide.
  *
- * Contrairement à digitsOnly, ne transforme jamais la valeur : "-100",
+ * Ne transforme jamais la valeur : "-100",
  * "20,75" ou "1e3" sont refusés avec une explication au lieu de devenir
  * silencieusement "100", "20" ou "13".
  */
@@ -77,4 +60,9 @@ export function wholeNumberError(raw: unknown): string | null {
 /** Entier positif ou nul saisi en chiffres, ou null si la saisie est vide/invalide. */
 export function parseWholeNumber(raw: unknown): number | null {
   return wholeNumberError(raw) === null ? Number(String(raw).replace(/\s/g, '')) : null;
+}
+
+/** Comme parseWholeNumber, mais NaN (et non null) quand la saisie est vide ou invalide : s'intègre aux contrôles existants (`> 0`, `Number.isFinite`). */
+export function wholeOrNaN(raw: unknown): number {
+  return parseWholeNumber(raw) ?? NaN;
 }

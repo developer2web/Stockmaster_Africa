@@ -1,12 +1,13 @@
 import { useMutation,useQuery,useQueryClient } from '@tanstack/react-query';
 import { router,useLocalSearchParams } from 'expo-router';
 import { useEffect,useMemo,useState } from 'react';
-import { Card,Chip,HelperText,TextInput } from 'react-native-paper';
+import { Card,Chip,HelperText } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { finalizeInventory,getInventory,refreshInventoryExpectedQuantities,startInventory } from '@/features/inventory/api';
-import { formatQuantity,parseDecimal,digitsOnly } from '@/utils/number';
+import { formatQuantity,wholeOrNaN } from '@/utils/number';
+import { WholeNumberInput } from '@/components/forms/WholeNumberInput';
 import { FeatureGate } from '@/components/subscriptions/FeatureGate';
 import { AppSearchBar } from '@/components/ui/AppSearchBar';
 
@@ -20,8 +21,8 @@ export default function InventoryCountScreen(){
   const inventory=useQuery({queryKey:['inventory-count',id],queryFn:()=>getInventory(id),enabled:!!id});
   useEffect(()=>{if(!inventory.data)return;setCounts(current=>{const next={...current};for(const item of inventory.data.inventory_items)if(next[item.id]===undefined)next[item.id]=item.counted_quantity===null?'':String(item.counted_quantity);return next})},[inventory.data]);
   const rows=useMemo(()=>{const needle=search.trim().toLowerCase();return(inventory.data?.inventory_items??[]).filter(item=>(!needle||`${item.product?.name} ${item.variant?.name??''}`.toLowerCase().includes(needle))&&(!productId||item.product_id===productId))},[inventory.data,productId,search]);
-  const all=inventory.data?.inventory_items??[];const valid=all.length>0&&all.every(item=>counts[item.id]!==undefined&&counts[item.id]!==''&&parseDecimal(counts[item.id])>=0);
-  const finish=useMutation({mutationFn:()=>finalizeInventory(id,all.map(item=>({itemId:item.id,countedQuantity:parseDecimal(counts[item.id])}))),onSuccess:async()=>{await Promise.all([cache.invalidateQueries({queryKey:['stock-levels']}),cache.invalidateQueries({queryKey:['stock-movements']}),cache.invalidateQueries({queryKey:['sale-stock']})]);router.replace('/stock' as never)}});
+  const all=inventory.data?.inventory_items??[];const valid=all.length>0&&all.every(item=>counts[item.id]!==undefined&&counts[item.id]!==''&&wholeOrNaN(counts[item.id])>=0);
+  const finish=useMutation({mutationFn:()=>finalizeInventory(id,all.map(item=>({itemId:item.id,countedQuantity:wholeOrNaN(counts[item.id])}))),onSuccess:async()=>{await Promise.all([cache.invalidateQueries({queryKey:['stock-levels']}),cache.invalidateQueries({queryKey:['stock-movements']}),cache.invalidateQueries({queryKey:['sale-stock']})]);router.replace('/stock' as never)}});
   // Demande explicite du propriétaire (17/09) : le stock théorique est figé
   // au démarrage de l'inventaire, jamais réactualisé ensuite — une vente ou
   // réception normale pendant un comptage encore en brouillon fait paraître
@@ -35,7 +36,7 @@ export default function InventoryCountScreen(){
     {inventory.data?.status==='draft'&&<AppButton mode="outlined" icon="refresh" loading={refresh.isPending} disabled={refresh.isPending} onPress={()=>refresh.mutate()}>Actualiser les stocks théoriques</AppButton>}
     {!!refresh.error&&<HelperText type="error" visible>{refresh.error.message}</HelperText>}
     <AppSearchBar placeholder="Nom du produit" value={search} onChangeText={setSearch}/>
-    {rows.map(item=>{const counted=parseDecimal(counts[item.id]??'');const difference=Number.isFinite(counted)?counted-Number(item.expected_quantity):null;return <Card key={item.id} mode="outlined"><Card.Title title={item.variant?`${item.product?.name} • ${item.variant.name}`:item.product?.name??'Produit'} subtitle={`Stock théorique : ${formatQuantity(Number(item.expected_quantity))}`} right={()=>difference===null?null:<Chip style={{marginRight:12}}>{difference>0?'+':''}{formatQuantity(difference)}</Chip>}/><Card.Content><TextInput mode="outlined" label="Quantité réellement comptée" accessibilityLabel="Quantité réellement comptée" value={counts[item.id]??''} onChangeText={value=>setCounts(current=>({...current,[item.id]:digitsOnly(value)}))} keyboardType="number-pad" selectTextOnFocus/></Card.Content></Card>})}
+    {rows.map(item=>{const counted=wholeOrNaN(counts[item.id]??'');const difference=Number.isFinite(counted)?counted-Number(item.expected_quantity):null;return <Card key={item.id} mode="outlined"><Card.Title title={item.variant?`${item.product?.name} • ${item.variant.name}`:item.product?.name??'Produit'} subtitle={`Stock théorique : ${formatQuantity(Number(item.expected_quantity))}`} right={()=>difference===null?null:<Chip style={{marginRight:12}}>{difference>0?'+':''}{formatQuantity(difference)}</Chip>}/><Card.Content><WholeNumberInput label="Quantité réellement comptée" value={counts[item.id]??''} onChangeText={value=>setCounts(current=>({...current,[item.id]:value}))}/></Card.Content></Card>})}
     {!!inventory.error&&<HelperText type="error" visible>{inventory.error.message}</HelperText>}{!!finish.error&&<HelperText type="error" visible>{finish.error.message}</HelperText>}
     <AppButton icon="check-decagram" loading={finish.isPending} disabled={!valid||finish.isPending||inventory.data?.status==='completed'} onPress={()=>finish.mutate()}>Valider et corriger le stock</AppButton>
   </AdminPage></FeatureGate>

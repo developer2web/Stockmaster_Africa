@@ -10,7 +10,7 @@ import { SelectField } from '@/components/forms/SelectField';
 import { recordStockMovement } from '@/features/inventory/api';
 import { stockMovementSchema, StockMovementInput } from '@/schemas/inventory';
 import type { ProductVariant } from '@/types/database';
-import { formatQuantity, parseDecimal } from '@/utils/number';
+import { formatQuantity, wholeOrNaN } from '@/utils/number';
 
 type Props = {
   visible: boolean;
@@ -50,7 +50,7 @@ export function StockAdjustmentDialog({
     },
   });
   const direction = useWatch({ control, name: 'direction' });
-  const quantity = parseDecimal(useWatch({ control, name: 'quantity' })) || 0;
+  const quantity = wholeOrNaN(useWatch({ control, name: 'quantity' })) || 0;
   const projectedQuantity = currentQuantity + (direction === 'out' ? -quantity : quantity);
 
   useEffect(() => {
@@ -134,7 +134,7 @@ export function StockAdjustmentDialog({
               )}
             />
           )}
-          <FormField control={control} name="quantity" label="Quantité à déplacer" keyboardType="number-pad" integerOnly selectTextOnFocus />
+          <FormField control={control} name="quantity" label="Quantité à déplacer" keyboardType="number-pad" selectTextOnFocus />
           <FormField control={control} name="note" label="Motif obligatoire" multiline />
           {!!save.error && <HelperText type="error" visible>{save.error.message}</HelperText>}
           </ScrollView>
