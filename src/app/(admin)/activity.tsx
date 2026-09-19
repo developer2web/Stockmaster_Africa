@@ -67,8 +67,11 @@ function payloadSummary(payload: Record<string, unknown>) {
   return Object.entries(payload ?? {})
     // Un identifiant technique (clé en _id, ou une valeur qui ressemble à un
     // UUID quel que soit son nom) n'a aucun sens pour un propriétaire de
-    // commerce — jamais utile à afficher ici.
-    .filter(([key, value]) => !key.endsWith('_id') && !(typeof value === 'string' && uuidPattern.test(value)))
+    // commerce. Pareil pour une valeur objet/tableau (ex. new/old d'une
+    // action générique "insert"/"update", un instantané complet de ligne) :
+    // bug trouvé en vérifiant ce correctif en direct, String() sur un objet
+    // affichait littéralement "[object Object]", pire que le bruit d'origine.
+    .filter(([key, value]) => !key.endsWith('_id') && !(typeof value === 'string' && uuidPattern.test(value)) && (value === null || typeof value !== 'object'))
     .map(([key, value]) => `${fieldLabels[key] ?? key} : ${typeof value === 'number' ? formatNumber(value) : String(value)}`)
     .join(' · ');
 }
