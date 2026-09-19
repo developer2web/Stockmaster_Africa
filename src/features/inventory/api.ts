@@ -72,7 +72,7 @@ export async function getStockLevels(
 ): Promise<StockLevel[]> {
   // Keep read-only quantities separate from previously cached purchase prices.
   return withOfflineCache(`stock-levels:${companyId}:${productId??'all'}:${storeId??'all'}:cost:${includeCost}`, async () => {
-  const productColumns = 'name,sku,sale_price,is_active';
+  const productColumns = 'name,sku,sale_price,is_active,low_stock_threshold';
   let query = supabase
     .from('stock_levels')
     .select(`id,company_id,store_id,product_id,product_variant_id,quantity,updated_at,store:stores(name),product:products(${productColumns}),variant:product_variants(name,sku)`)

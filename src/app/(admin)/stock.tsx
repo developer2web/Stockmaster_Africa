@@ -93,7 +93,7 @@ export default function StockScreen() {
               )}
             </View>
             <Text style={[styles.storeColumn, compact && styles.compactValue]} numberOfLines={2}>{compact ? `Boutique : ${level.store?.name ?? 'Boutique'}` : level.store?.name ?? 'Boutique'}</Text>
-            <Text style={[styles.numberColumn, compact && styles.compactValue, styles.bold, { color: Number(level.quantity) <= 0 ? theme.colors.error : theme.colors.primary }]}>{compact ? `Quantité : ${formatQuantity(level.quantity)}` : formatQuantity(level.quantity)}</Text>
+            <Text style={[styles.numberColumn, compact && styles.compactValue, styles.bold, { color: Number(level.quantity) <= (level.product?.low_stock_threshold ?? 0) ? theme.colors.error : theme.colors.primary }]}>{compact ? `Quantité : ${formatQuantity(level.quantity)}` : formatQuantity(level.quantity)}</Text>
             <Text style={[styles.numberColumn, compact && styles.compactValue, styles.bold]}>{compact ? `Prix : ${money(Number(level.product?.sale_price ?? 0))}` : money(Number(level.product?.sale_price ?? 0))}</Text>
           </Card.Content>
         </Card>
