@@ -54,6 +54,21 @@ export default function PurchasesScreen() {
   const cashBalance = cashSummary.data?.balance ?? 0;
   const wouldGoNegative = paid && total > 0 && cashBalance - total < 0;
 
+  // Demande explicite du propriétaire (17/09) : le bouton restait actif
+  // quelle que soit la saisie (quantité négative silencieusement ramenée à
+  // 1 par digitsOnly, prix négatif refusé seulement après le clic) — cette
+  // même validation, calculée en direct plutôt qu'uniquement au clic,
+  // désactive le bouton et affiche l'erreur avant toute tentative d'ajout.
+  const parsedQuantityLive = parseDecimal(quantity);
+  const parsedCostLive = parseDecimal(unitCost);
+  const addError = !productId
+    ? null
+    : !(parsedQuantityLive > 0)
+      ? 'La quantité doit être supérieure à zéro.'
+      : !Number.isFinite(parsedCostLive) || parsedCostLive <= 0
+        ? 'Le prix d’achat doit être supérieur à zéro.'
+        : null;
+
   const add = () => {
     const product = products.data?.find((item) => item.id === productId);
     const parsedQuantity = parseDecimal(quantity);
@@ -102,8 +117,8 @@ export default function PurchasesScreen() {
           {!!products.error && <HelperText type="error" visible>{products.error.message}</HelperText>}
           <TextInput mode="outlined" label="Quantité reçue" accessibilityLabel="Quantité reçue" keyboardType="number-pad" selectTextOnFocus value={quantity} onChangeText={v=>setQuantity(digitsOnly(v))} />
           <TextInput mode="outlined" label="Prix d’achat unitaire" accessibilityLabel="Prix d’achat unitaire" keyboardType="decimal-pad" selectTextOnFocus value={unitCost} onChangeText={setUnitCost} />
-          {!!formError && <HelperText type="error" visible>{formError}</HelperText>}
-          <AppButton mode="outlined" icon="plus" onPress={add}>Ajouter à la commande</AppButton>
+          {!!(formError||addError) && <HelperText type="error" visible>{formError||addError}</HelperText>}
+          <AppButton mode="outlined" icon="plus" disabled={!productId||!!addError} onPress={add}>Ajouter à la commande</AppButton>
         </Card.Content>
       </Card>
       {items.map((item) => <Card key={item.productId} mode="contained"><Card.Title title={item.name} subtitle={`${formatQuantity(item.quantity)} × ${formatMoney(item.unitCost)}`} right={() => <IconButton icon="delete" accessibilityLabel={`Retirer ${item.name} de la commande`} onPress={() => setItems((rows) => rows.filter((row) => row.productId !== item.productId))} />} /></Card>)}
