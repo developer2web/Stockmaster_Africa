@@ -1,6 +1,6 @@
 import { describe,expect,it } from 'vitest';
 import { registerSchema } from '../src/schemas/auth';
-import { productSchema } from '../src/schemas/catalog';
+import { productSchema, variantSchema } from '../src/schemas/catalog';
 import { customerSchema } from '../src/schemas/customers';
 import { stockMovementSchema } from '../src/schemas/inventory';
 
@@ -43,6 +43,13 @@ describe('validations critiques',()=>{
       expect(productSchema.safeParse({...base,bulkEnabled:true,bulkUnitLabel:'Carton',bulkQuantity:'24',bulkPrice:'400'}).success).toBe(true);
       expect(messages({bulkEnabled:true,bulkUnitLabel:'Carton',bulkQuantity:'1',bulkPrice:'400'})).toEqual(['bulkQuantity: La quantité par lot doit être supérieure à 1.']);
     });
+  });
+  it('exige le nom d’une variante et refuse un prix mal saisi',()=>{
+    const base={name:'XL',sku:'',barcode:'',purchasePrice:'',salePrice:'',isActive:true};
+    expect(variantSchema.safeParse(base).success).toBe(true);
+    expect(variantSchema.safeParse({...base,name:'   '}).success).toBe(false);
+    expect(variantSchema.safeParse({...base,salePrice:'-5'}).success).toBe(false);
+    expect(variantSchema.safeParse({...base,purchasePrice:'1e3'}).success).toBe(false);
   });
   it('refuse une quantité de stock nulle ou négative',()=>{expect(stockMovementSchema.safeParse({storeId:'00000000-0000-4000-8000-000000000001',variantId:null,direction:'out',quantity:'0',note:''}).success).toBe(false)});
   it('refuse une quantité de mouvement de stock invalide sans la corriger',()=>{

@@ -4,11 +4,12 @@ import { router } from 'expo-router';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Dialog, HelperText, Icon, Portal, Switch, Text } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { DIALOG_TITLE_PADDING, DialogCloseButton } from '@/components/ui/DialogCloseButton';
 import { plural } from '@/utils/plural';
 import { ProductImagesCard } from '@/components/products/ProductImagesCard';
 import { StockAdjustmentDialog } from '@/components/products/StockAdjustmentDialog';
@@ -19,6 +20,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { hasPermission } from '@/features/auth/permissions';
 import { getStockLevels } from '@/features/inventory/api';
 import { useStockRealtime } from '@/hooks/useStockRealtime';
+import { canAutofill, lotMargin, lotPriceFromUnit, unitPriceFromLot } from './bulkPricing';
 import { deleteProduct, deleteVariant, findSimilarProduct, getProduct, getSuppliers, saveProduct, saveVariant } from './api';
 import { lookupOpenFoodFacts, type OpenFoodFactsMatch } from './openFoodFacts';
 import { productSchema, ProductInput, variantSchema, VariantInput } from '@/schemas/catalog';
@@ -71,21 +73,49 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   useEffect(() => { if (bulkEnabledValue) void trigger(['bulkUnitLabel', 'bulkQuantity', 'bulkPrice']); }, [bulkEnabledValue, bulkUnitLabelValue, bulkQuantityValue, bulkPriceValue, trigger]);
   // Un vendeur qui pense d'abord « lot » (prix payé au fournisseur pour un
   // carton, prix de vente du carton) ne devrait pas avoir à recalculer et
-  // retaper le prix à l'unité en haut : on le déduit automatiquement de
-  // prix du lot / quantité, tant que la personne n'a pas modifié ce champ
-  // elle-même. Seulement à la création — jamais sur un produit déjà
-  // enregistré, pour ne pas écraser un prix existant en retouchant le lot.
+  // retaper les prix à l'unité en haut : on les déduit de prix du lot ÷
+  // quantité, tant que la personne ne les a pas saisis elle-même. On compare
+  // la valeur du champ à la dernière valeur calculée (canAutofill) plutôt que
+  // de se fier à l'état « modifié » du formulaire : le prix suit ainsi la
+  // quantité à chaque changement (240 000 ÷ 24 = 10 000, puis ÷ 12 = 20 000).
+  const autoPurchase = useRef<string | null>(null);
+  const autoSale = useRef<string | null>(null);
+  const lotPurchaseEdited = !!dirtyFields.bulkPurchasePrice;
   useEffect(() => {
-    if (id || dirtyFields.purchasePrice) return;
-    const lotPurchasePrice = parseWholeNumber(bulkPurchasePriceValue);
-    if (lotPurchasePrice !== null && lotPurchasePrice > 0 && bulkQuantityNumber !== null && bulkQuantityNumber > 0) setValue('purchasePrice', String(Math.round(lotPurchasePrice / bulkQuantityNumber)), { shouldDirty: false, shouldValidate: true });
-  }, [id, bulkPurchasePriceValue, bulkQuantityNumber, dirtyFields.purchasePrice, setValue]);
+    if (!bulkEnabledValue) return;
+    const target = unitPriceFromLot(bulkPurchasePriceValue, bulkQuantityValue);
+    if (target === null) return;
+    const current = getValues('purchasePrice');
+    // Création : le prix du lot pilote le prix d'achat tant qu'il n'a pas été saisi à la main.
+    // Fiche existante : seulement une fois que la personne a elle-même modifié le prix d'achat
+    // du lot (jamais en ouvrant la fiche ni en changeant la quantité seule, pour ne pas
+    // écraser un prix enregistré).
+    if (id ? !lotPurchaseEdited : !canAutofill(current, autoPurchase.current)) return;
+    if (current !== target) setValue('purchasePrice', target, { shouldDirty: !!id, shouldValidate: true });
+    autoPurchase.current = target;
+  }, [id, bulkEnabledValue, bulkPurchasePriceValue, bulkQuantityValue, lotPurchaseEdited, getValues, setValue]);
+  // Fiche existante, prix du lot pas encore modifié : le prix d'achat du lot affiché reste
+  // égal au prix à l'unité enregistré × la quantité par lot (il n'est pas stocké à part).
   useEffect(() => {
-    if (id || dirtyFields.salePrice) return;
-    if (bulkPriceNumber !== null && bulkPriceNumber > 0 && bulkQuantityNumber !== null && bulkQuantityNumber > 0) setValue('salePrice', String(Math.round(bulkPriceNumber / bulkQuantityNumber)), { shouldDirty: false, shouldValidate: true });
-  }, [id, bulkPriceNumber, bulkQuantityNumber, dirtyFields.salePrice, setValue]);
+    if (!id || !bulkEnabledValue || lotPurchaseEdited) return;
+    const lot = lotPriceFromUnit(purchasePriceValue, bulkQuantityValue);
+    if (lot !== null && getValues('bulkPurchasePrice') !== lot) setValue('bulkPurchasePrice', lot, { shouldDirty: false });
+  }, [id, bulkEnabledValue, lotPurchaseEdited, purchasePriceValue, bulkQuantityValue, getValues, setValue]);
+  useEffect(() => {
+    if (id || !bulkEnabledValue) return;
+    const target = unitPriceFromLot(bulkPriceValue, bulkQuantityValue);
+    if (target === null) return;
+    const current = getValues('salePrice');
+    if (!canAutofill(current, autoSale.current)) return;
+    if (current !== target) setValue('salePrice', target, { shouldDirty: false, shouldValidate: true });
+    autoSale.current = target;
+  }, [id, bulkEnabledValue, bulkPriceValue, bulkQuantityValue, getValues, setValue]);
+  // Coût d'achat du lot : le prix saisi, sinon prix à l'unité × quantité. Sert à prévenir d'une
+  // vente en gros à perte, comme pour la vente au détail.
+  const lotCost = (bulkPurchasePriceValue ?? '').trim() !== '' ? bulkPurchasePriceValue : lotPriceFromUnit(purchasePriceValue, bulkQuantityValue);
+  const lotResult = bulkEnabledValue ? lotMargin(bulkPriceValue, lotCost) : null;
 
-  useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? '', barcode:product.data.barcode??'', supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:numericFieldValue(product.data.purchase_price), salePrice:numericFieldValue(product.data.sale_price), initialQuantity:'0', lowStockThreshold:numericFieldValue(product.data.low_stock_threshold), isActive:product.data.is_active, bulkEnabled:!!product.data.bulk_unit_label, bulkUnitLabel:product.data.bulk_unit_label??'', bulkQuantity:product.data.bulk_quantity!=null?String(product.data.bulk_quantity):'', bulkPrice:product.data.bulk_price!=null?numericFieldValue(product.data.bulk_price):'' }); }, [product.data,reset]);
+  useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? '', barcode:product.data.barcode??'', supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:numericFieldValue(product.data.purchase_price), salePrice:numericFieldValue(product.data.sale_price), initialQuantity:'0', lowStockThreshold:numericFieldValue(product.data.low_stock_threshold), isActive:product.data.is_active, bulkEnabled:!!product.data.bulk_unit_label, bulkUnitLabel:product.data.bulk_unit_label??'', bulkQuantity:product.data.bulk_quantity!=null?String(product.data.bulk_quantity):'', bulkPrice:product.data.bulk_price!=null?numericFieldValue(product.data.bulk_price):'', bulkPurchasePrice:(product.data.bulk_quantity!=null&&product.data.purchase_price!=null)?String(Math.round(Number(product.data.purchase_price)*Number(product.data.bulk_quantity))):'' }); }, [product.data,reset]);
 
   // Nouveau produit arrivant du scanner avec un code inconnu : on tente de retrouver son
   // nom (et une photo de référence) dans Open Food Facts pour accélérer la saisie. Ça reste
@@ -110,17 +140,28 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
     return () => { cancelled = true; };
   }, [id, initialBarcode, getValues, setValue]);
 
-  // Retour (bouton de l'en-tête, geste, bouton système ou navigateur) avec des
-  // modifications non enregistrées : on demande d'abord confirmation. Les
-  // sorties voulues (après enregistrement ou suppression) lèvent le garde via
-  // leaveAllowed avant de naviguer.
+  // Retour avec des modifications non enregistrées : on demande d'abord
+  // confirmation — bouton Retour de l'en-tête (requestLeave), geste ou bouton
+  // système qui retire l'écran (usePreventRemove), et actualisation ou
+  // fermeture de l'onglet sur le web (beforeunload). Les sorties voulues
+  // (après enregistrement ou suppression) lèvent le garde via leaveAllowed.
   const navigation = useNavigation();
   const leaveAllowed = useRef(false);
-  const [leaveAction, setLeaveAction] = useState<{ type: string } | null>(null);
+  const [leaveProceed, setLeaveProceed] = useState<(() => void) | null>(null);
   usePreventRemove(isDirty, ({ data }) => {
     if (leaveAllowed.current) navigation.dispatch(data.action);
-    else setLeaveAction(data.action);
+    else setLeaveProceed(() => () => navigation.dispatch(data.action));
   });
+  const requestLeave = (proceed: () => void) => {
+    if (!isDirty || leaveAllowed.current) proceed();
+    else setLeaveProceed(() => proceed);
+  };
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !isDirty) return;
+    const warn = (event: BeforeUnloadEvent) => { if (leaveAllowed.current) return; event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [isDirty]);
   const [pendingSave,setPendingSave] = useState<ProductInput|null>(null);
   const [similarProduct,setSimilarProduct] = useState<{id:string;name:string}|null>(null);
   const [checkingDuplicate,setCheckingDuplicate] = useState(false);
@@ -142,7 +183,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
     : product.data?.image_url ? [product.data.image_url] : [];
   const productVariants = Array.isArray(product.data?.product_variants) ? product.data.product_variants : [];
 
-  return <AdminPage title={id?'Fiche produit':'Nouveau produit'} backFallback={returnTo||basePath}>
+  return <AdminPage title={id?'Fiche produit':'Nouveau produit'} backTo={returnTo ? undefined : basePath} onBackPress={requestLeave}>
     {!company||!store?<HelperText type="error" visible>Sélectionnez une entreprise et une boutique avant d’enregistrer un produit.</HelperText>:null}
     {/* Avant ce garde, le formulaire s'affichait tout de suite avec ses valeurs
         par défaut (nom vide, prix à 0) le temps que la fiche charge, puis se
@@ -195,15 +236,22 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
             <FormField control={control} name="bulkUnitLabel" label="Nom de l’unité de gros (ex : Carton, Sac)" required />
             <FormField control={control} name="bulkQuantity" label="Quantité par lot (ex : 24)" required keyboardType="number-pad" selectTextOnFocus />
           </ResponsiveFormGrid>
-          {!id && <Text variant="bodySmall" style={{ fontStyle: 'italic' }}>Astuce : si vous ne saisissez pas vous-même les prix à l’unité en haut, ils se calculent tout seuls à partir des prix du lot (prix du lot ÷ quantité par lot). Un prix que vous avez saisi n’est jamais remplacé.</Text>}
+          {<Text variant="bodySmall" style={{ fontStyle: 'italic' }}>Astuce : si vous ne saisissez pas vous-même les prix à l’unité en haut, ils se calculent tout seuls à partir des prix du lot (prix du lot ÷ quantité par lot) et suivent la quantité. Un prix que vous avez saisi n’est jamais remplacé. Sur une fiche existante, le prix d’achat à l’unité ne change que si vous modifiez vous-même le prix d’achat du lot.</Text>}
           <ResponsiveFormGrid>
-            {!id && <FormField control={control} name="bulkPurchasePrice" label={`Prix d’achat du lot (${primaryCode}, facultatif)`} keyboardType="number-pad" selectTextOnFocus />}
+            {<FormField control={control} name="bulkPurchasePrice" label={`Prix d’achat du lot (${primaryCode}, facultatif)`} keyboardType="number-pad" selectTextOnFocus />}
             <FormField control={control} name="bulkPrice" label={`Prix de vente du lot (${primaryCode})`} required keyboardType="number-pad" selectTextOnFocus />
           </ResponsiveFormGrid>
           {perUnitBulkPrice > 0 && <HelperText type={perUnitBulkPrice > (saleNumber ?? 0) && (saleNumber ?? 0) > 0 ? 'error' : 'info'} visible>
             {perUnitBulkPrice > (saleNumber ?? 0) && (saleNumber ?? 0) > 0
               ? `Attention : ${formatMoney(perUnitBulkPrice)} par unité dans le lot, c’est plus cher que le prix au détail (${formatMoney(saleNumber ?? 0)}). Vérifiez le prix du lot.`
               : `Soit ${formatMoney(perUnitBulkPrice)} par unité dans le lot, contre ${formatMoney(saleNumber ?? 0)} au détail.`}
+          </HelperText>}
+          {lotResult && <HelperText type={lotResult.kind === 'loss' ? 'error' : 'info'} visible>
+            {lotResult.kind === 'loss'
+              ? `Attention : le prix de vente du lot (${formatMoney(bulkPriceNumber ?? 0)}) est inférieur à son prix d’achat (${formatMoney(parseWholeNumber(lotCost) ?? 0)}). Vous vendriez à perte (${formatMoney(lotResult.amount)}).`
+              : lotResult.kind === 'none'
+                ? 'Aucune marge sur le lot : vente au prix d’achat.'
+                : `Marge sur le lot : ${formatMoney(lotResult.amount)}.`}
           </HelperText>}
         </Card.Content>}
       </Card>} />}
@@ -277,14 +325,14 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
       {!!company && !!store && !isValid && Object.keys(errors).length === 0 && <HelperText type="info" visible>Renseignez les champs obligatoires (*) pour activer l’enregistrement.</HelperText>}
     </View>}
     <ConfirmDialog
-      visible={!!leaveAction}
+      visible={!!leaveProceed}
       title="Quitter sans enregistrer ?"
       message="Vous avez des modifications non enregistrées. Si vous quittez maintenant, elles seront perdues."
       destructive
       cancelLabel="Rester"
       confirmLabel="Quitter sans enregistrer"
-      onCancel={() => setLeaveAction(null)}
-      onConfirm={() => { const action = leaveAction; setLeaveAction(null); leaveAllowed.current = true; if (action) navigation.dispatch(action as never); }}
+      onCancel={() => setLeaveProceed(null)}
+      onConfirm={() => { const proceed = leaveProceed; setLeaveProceed(null); leaveAllowed.current = true; proceed?.(); }}
     />
     <ConfirmDialog
       visible={!!similarProduct}
@@ -325,13 +373,13 @@ const styles=StyleSheet.create({
 
 function Variants({ productId, companyId, variants, refresh }: { productId:string; companyId:string; variants:ProductVariant[]; refresh:()=>Promise<unknown> }) {
   const [open,setOpen]=useState(false); const [editing,setEditing]=useState<ProductVariant|null>(null); const [deleting,setDeleting]=useState<ProductVariant|null>(null);
-  const { control,handleSubmit,reset }=useForm<VariantInput>({resolver:zodResolver(variantSchema),defaultValues:{name:'',sku:'',barcode:'',purchasePrice:'',salePrice:'',isActive:true}});
+  const { control,handleSubmit,reset,formState:{errors,isValid} }=useForm<VariantInput>({resolver:zodResolver(variantSchema),defaultValues:{name:'',sku:'',barcode:'',purchasePrice:'',salePrice:'',isActive:true},mode:'onChange'});
   useEffect(()=>reset(editing?{name:editing.name,sku:editing.sku,barcode:editing.barcode??'',purchasePrice:numericFieldValue(editing.purchase_price),salePrice:numericFieldValue(editing.sale_price),isActive:editing.is_active}:{name:'',sku:'',barcode:'',purchasePrice:'',salePrice:'',isActive:true}),[editing,reset]);
   const save=useMutation({mutationFn:(v:VariantInput)=>saveVariant(companyId,productId,v,editing?.id),onSuccess:async()=>{await refresh();setOpen(false);setEditing(null)}});
   const remove=useMutation({mutationFn:()=>deleteVariant(deleting!.id),onSuccess:async()=>{await refresh();setDeleting(null)}});
   const show=(v?:ProductVariant)=>{setEditing(v??null);setOpen(true)};
   return <><Card><Card.Title title="Variantes" subtitle={`${variants.length} variante${plural(variants.length)}`} right={()=><AppButton compact mode="text" icon="plus" style={{marginRight:8}} onPress={()=>show()}>Ajouter</AppButton>}/><Card.Content>{variants.map(v=><Card key={v.id} mode="outlined" onPress={()=>show(v)} style={{marginBottom:8}}><Card.Title title={v.name} right={()=><AppButton mode="text" destructive onPress={()=>setDeleting(v)}>Retirer</AppButton>}/></Card>)}{!variants.length&&<Text>Aucune variante. Le produit simple reste utilisable.</Text>}</Card.Content></Card>
-    <Portal><Dialog visible={open} onDismiss={()=>setOpen(false)}><Dialog.Title>{editing?'Modifier la variante':'Nouvelle variante'}</Dialog.Title><Dialog.ScrollArea style={{paddingHorizontal:0}}><ScrollView nestedScrollEnabled contentContainerStyle={{gap:12,paddingHorizontal:24,paddingBottom:12}} keyboardShouldPersistTaps="handled"><FormField control={control} name="name" label="Nom"/><FormField control={control} name="barcode" label="Code-barres"/><FormField control={control} name="purchasePrice" label="Prix d’achat spécifique" keyboardType="number-pad" selectTextOnFocus/><FormField control={control} name="salePrice" label="Prix de vente spécifique" keyboardType="number-pad" selectTextOnFocus/><Controller control={control} name="isActive" render={({field})=><Card mode="outlined"><Card.Title title="Variante active" right={()=><Switch value={field.value} onValueChange={field.onChange} accessibilityLabel="Variante active" style={{marginRight:12}}/>}/></Card>}/>{!!save.error&&<HelperText type="error" visible>{save.error.message}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setOpen(false)}>Annuler</AppButton><AppButton loading={save.isPending} onPress={handleSubmit(v=>save.mutate(v))}>Enregistrer</AppButton></Dialog.Actions></Dialog></Portal>
+    <Portal><Dialog visible={open} onDismiss={()=>setOpen(false)}><DialogCloseButton onPress={()=>setOpen(false)}/><Dialog.Title style={DIALOG_TITLE_PADDING}>{editing?'Modifier la variante':'Nouvelle variante'}</Dialog.Title><Dialog.ScrollArea style={{paddingHorizontal:0}}><ScrollView nestedScrollEnabled contentContainerStyle={{gap:12,paddingHorizontal:24,paddingBottom:12}} keyboardShouldPersistTaps="handled"><FormField control={control} name="name" label="Nom" required/><FormField control={control} name="barcode" label="Code-barres"/><FormField control={control} name="purchasePrice" label="Prix d’achat spécifique" keyboardType="number-pad" selectTextOnFocus/><FormField control={control} name="salePrice" label="Prix de vente spécifique" keyboardType="number-pad" selectTextOnFocus/><Controller control={control} name="isActive" render={({field})=><Card mode="outlined"><Card.Title title="Variante active" right={()=><Switch value={field.value} onValueChange={field.onChange} accessibilityLabel="Variante active" style={{marginRight:12}}/>}/></Card>}/>{!!save.error&&<HelperText type="error" visible>{save.error.message}</HelperText>}{!isValid&&Object.keys(errors).length===0&&<HelperText type="info" visible>Renseignez le nom de la variante (obligatoire) pour l’enregistrer.</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setOpen(false)}>Annuler</AppButton><AppButton loading={save.isPending} disabled={!isValid||save.isPending} onPress={handleSubmit(v=>save.mutate(v))}>Enregistrer</AppButton></Dialog.Actions></Dialog></Portal>
     <ConfirmDialog visible={!!deleting} title="Supprimer la variante ?" message="Cette action est définitive." destructive loading={remove.isPending} onCancel={()=>setDeleting(null)} onConfirm={()=>remove.mutate()}/>
   </>;
 }

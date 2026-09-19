@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { HelperText, TextInput, TextInputProps } from 'react-native-paper';
 import { wholeNumberError } from '@/utils/number';
@@ -11,9 +12,10 @@ type Props = Omit<TextInputProps, 'value' | 'onChangeText'> & { value: string; o
 
 export function WholeNumberInput({ value, onChangeText, label, error, style, ...props }: Props) {
   const message = value.trim() === '' ? null : wholeNumberError(value);
+  const errorId = `${useId()}-error`;
   return <View style={styles.field}>
-    <TextInput mode="outlined" keyboardType="number-pad" selectTextOnFocus label={label} accessibilityLabel={typeof label === 'string' ? label : undefined} value={value} onChangeText={onChangeText} error={!!message || error} style={style} {...props} />
-    {message ? <HelperText type="error" visible>{message}</HelperText> : null}
+    <TextInput mode="outlined" keyboardType="number-pad" selectTextOnFocus label={label} accessibilityLabel={typeof label === 'string' ? label : undefined} value={value} onChangeText={onChangeText} error={!!message || error} aria-invalid={message ? true : undefined} aria-describedby={message ? errorId : undefined} style={style} {...props} />
+    {message ? <HelperText type="error" visible nativeID={errorId}>{message}</HelperText> : null}
   </View>;
 }
 

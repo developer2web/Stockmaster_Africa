@@ -23,7 +23,7 @@ const descriptions:Record<string,string>={
   'Nouvelle vente':'Ajoutez les produits, choisissez le client puis encaissez.',
 };
 
-export function AdminPage({ title, description, action, floatingAction, backToHome = false, backFallback, scrollResetKey, onContentWidthChange, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; backFallback?: string; scrollResetKey?: string; onContentWidthChange?: (width: number) => void }>) {
+export function AdminPage({ title, description, action, floatingAction, backToHome = false, backTo, onBackPress, scrollResetKey, onContentWidthChange, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; backTo?: string; onBackPress?: (proceed: () => void) => void; scrollResetKey?: string; onContentWidthChange?: (width: number) => void }>) {
   const theme = useTheme();
   const { session, membership, offlineAuthenticated, lockOfflineSession } = useAuth();
   const { signOut, signingOut } = useSignOutAction();
@@ -76,9 +76,12 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
     >
       <Appbar.Header elevated style={{ backgroundColor: employee ? employeeHeader : theme.colors.surface }}>
         {!offlineAuthenticated && <AppBackButton
-          fallback={cameFromTools ? toolsFallback : backFallback ?? (employee ? '/employee' : '/(admin)')}
+          fallback={cameFromTools ? toolsFallback : backTo ?? (employee ? '/employee' : '/(admin)')}
           light={employee}
-          forceFallback={backToHome || cameFromTools}
+          // backTo : destination imposée. Sur le web, « précédent » (safeBack) passe par l'historique
+          // des onglets d'(admin) et ramène à l'Accueil, pas à l'écran d'où l'on vient.
+          forceFallback={backToHome || cameFromTools || !!backTo}
+          guard={onBackPress}
         />}
         <Appbar.Content
           style={styles.headerContent}
@@ -101,7 +104,10 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
         nestedScrollEnabled
         contentContainerStyle={[styles.page, employee && styles.employeePage, compact && styles.compactPage]}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        // Web : 'on-drag' fermait le clavier (donc retirait le focus du champ en cours de saisie) à
+        // chaque défilement, y compris celui déclenché seul quand la page raccourcit (un message
+        // d'aide qui disparaît, une erreur qui s'efface) — la saisie s'interrompait toute seule.
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : Platform.OS === 'android' ? 'on-drag' : 'none'}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={80}
         onScroll={(event) => scrollPositions.set(pathname, event.nativeEvent.contentOffset.y)}

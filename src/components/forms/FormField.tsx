@@ -1,13 +1,14 @@
 import { Control, Controller, FieldPath, FieldValues } from 'react-hook-form';
 import { StyleSheet, View } from 'react-native';
 import { HelperText, TextInput, TextInputProps, useTheme } from 'react-native-paper';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 type Props<T extends FieldValues> = TextInputProps & { control: Control<T>; name: FieldPath<T>; passwordToggle?: boolean; required?: boolean };
 
 export function FormField<T extends FieldValues>({ control, name, passwordToggle=false, secureTextEntry, required=false, label, style, ...props }: Props<T>) {
   const [passwordHidden,setPasswordHidden]=useState(true);
   const theme = useTheme();
+  const errorId = `${useId()}-error`;
   return (
     <Controller control={control} name={name} render={({ field: { onBlur, onChange, value }, fieldState }) => (
       <View style={styles.field}><TextInput mode="outlined" value={value == null ? '' : String(value)} onBlur={onBlur} onChangeText={onChange}
@@ -16,7 +17,10 @@ export function FormField<T extends FieldValues>({ control, name, passwordToggle
         accessibilityLabel={typeof label === 'string' ? label : undefined}
         secureTextEntry={passwordToggle?passwordHidden:secureTextEntry}
         right={passwordToggle?<TextInput.Icon accessibilityLabel={passwordHidden?'Afficher le mot de passe':'Masquer le mot de passe'} icon={passwordHidden?'eye':'eye-off'} onPress={()=>setPasswordHidden(value=>!value)}/>:props.right}
-        error={!!fieldState.error} {...props} />{fieldState.error?.message ? <HelperText type="error" visible>{fieldState.error.message}</HelperText> : null}</View>
+        // Accessibilité : champ obligatoire, champ invalide et message d'erreur
+        // relié au champ (lu par un lecteur d'écran avec le champ lui-même).
+        aria-required={required || undefined} aria-invalid={fieldState.error ? true : undefined} aria-describedby={fieldState.error?.message ? errorId : undefined}
+        error={!!fieldState.error} {...props} />{fieldState.error?.message ? <HelperText type="error" visible nativeID={errorId}>{fieldState.error.message}</HelperText> : null}</View>
     )} />
   );
 }

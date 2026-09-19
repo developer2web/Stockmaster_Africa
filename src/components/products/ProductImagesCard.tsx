@@ -1,12 +1,25 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Card, HelperText, IconButton, Text } from 'react-native-paper';
 import { AppButton } from '@/components/ui/AppButton';
 import { ProductThumbnail } from './ProductThumbnail';
 import { deleteProductImage, updateProductImages, uploadProductImage } from '@/features/products/images';
+import { readableError } from '@/utils/errors';
+
+// Sur un ordinateur, le navigateur n'a pas de mode « prendre une photo » : sans ce message, le
+// bouton Photo semblait ne rien faire. Un téléphone (écran tactile) garde la vraie capture.
+const cameraUnavailable = () => Platform.OS === 'web' && !(typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0);
+const CAMERA_NOTICE = 'L’appareil photo n’est pas disponible depuis un ordinateur. Utilisez « Galerie » pour choisir une image.';
 
 export function ProductImagesCard({ productId, companyId, storeId, urls }: { productId: string; companyId: string; storeId: string; urls: string[] }) {
   const cache = useQueryClient();
+  const [notice, setNotice] = useState('');
+  const pickImage = (source: 'camera' | 'library', replace?: string) => {
+    if (source === 'camera' && cameraUnavailable()) { setNotice(CAMERA_NOTICE); return; }
+    setNotice('');
+    save.mutate({ source, replace });
+  };
   const save = useMutation({
     mutationFn: async ({ source, replace }: { source: 'camera' | 'library'; replace?: string }) => {
       const uploaded = await uploadProductImage(source, companyId, storeId, productId);
@@ -29,11 +42,12 @@ export function ProductImagesCard({ productId, companyId, storeId, urls }: { pro
     <Card.Content style={styles.content}>
       {urls.map((url, index) => { const imageLabel = index === 0 ? 'Image principale' : 'Deuxième image'; return <View key={url} style={styles.imageRow}>
         <ProductThumbnail url={url} size={92} />
-        <View style={styles.actions}><Text variant="labelLarge">{imageLabel}</Text><View style={styles.buttons}><IconButton icon="camera" accessibilityLabel={`Remplacer ${imageLabel.toLowerCase()} par une photo`} onPress={() => save.mutate({ source: 'camera', replace: url })} /><IconButton icon="image-edit" accessibilityLabel={`Remplacer ${imageLabel.toLowerCase()} depuis la galerie`} onPress={() => save.mutate({ source: 'library', replace: url })} /><IconButton icon="delete-outline" iconColor="#C92A2A" accessibilityLabel={`Supprimer ${imageLabel.toLowerCase()}`} onPress={() => remove.mutate(url)} /></View></View>
+        <View style={styles.actions}><Text variant="labelLarge">{imageLabel}</Text><View style={styles.buttons}><IconButton icon="camera" accessibilityLabel={`Remplacer ${imageLabel.toLowerCase()} par une photo`} onPress={() => pickImage('camera', url)} /><IconButton icon="image-edit" accessibilityLabel={`Remplacer ${imageLabel.toLowerCase()} depuis la galerie`} onPress={() => pickImage('library', url)} /><IconButton icon="delete-outline" iconColor="#C92A2A" accessibilityLabel={`Supprimer ${imageLabel.toLowerCase()}`} onPress={() => remove.mutate(url)} /></View></View>
       </View>; })}
       {!urls.length && <Text>Aucune image. Un visuel par défaut sera affiché.</Text>}
-      {urls.length < 2 && <View style={styles.add}><AppButton mode="outlined" icon="camera" loading={save.isPending} onPress={() => save.mutate({ source: 'camera' })}>Photo</AppButton><AppButton mode="outlined" icon="image-plus" loading={save.isPending} onPress={() => save.mutate({ source: 'library' })}>Galerie</AppButton></View>}
-      {(save.error || remove.error) && <HelperText type="error" visible>{(save.error ?? remove.error)?.message}</HelperText>}
+      {urls.length < 2 && <View style={styles.add}><AppButton mode="outlined" icon="camera" loading={save.isPending} onPress={() => pickImage('camera')}>Photo</AppButton><AppButton mode="outlined" icon="image-plus" loading={save.isPending} onPress={() => pickImage('library')}>Galerie</AppButton></View>}
+      {!!notice && <HelperText type="info" visible>{notice}</HelperText>}
+      {(save.error || remove.error) && <HelperText type="error" visible>{readableError(save.error ?? remove.error, 'Impossible de traiter cette image. Réessayez avec une autre image.')}</HelperText>}
     </Card.Content>
   </Card>;
 }

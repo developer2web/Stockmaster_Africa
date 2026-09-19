@@ -5,6 +5,7 @@ import { ScrollView } from 'react-native';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Card, Dialog, HelperText, Portal, SegmentedButtons, Text, useTheme } from 'react-native-paper';
 import { AppButton } from '@/components/ui/AppButton';
+import { DIALOG_TITLE_PADDING, DialogCloseButton } from '@/components/ui/DialogCloseButton';
 import { FormField } from '@/components/forms/FormField';
 import { SelectField } from '@/components/forms/SelectField';
 import { recordStockMovement } from '@/features/inventory/api';
@@ -39,8 +40,9 @@ export function StockAdjustmentDialog({
 }: Props) {
   const theme = useTheme();
   const queryClient = useQueryClient();
-  const { control, handleSubmit, reset } = useForm<StockMovementInput>({
+  const { control, handleSubmit, reset, formState: { errors, isValid } } = useForm<StockMovementInput>({
     resolver: zodResolver(stockMovementSchema),
+    mode: 'onChange',
     defaultValues: {
       storeId,
       variantId: initialVariantId,
@@ -52,6 +54,9 @@ export function StockAdjustmentDialog({
   const direction = useWatch({ control, name: 'direction' });
   const quantity = wholeOrNaN(useWatch({ control, name: 'quantity' })) || 0;
   const projectedQuantity = currentQuantity + (direction === 'out' ? -quantity : quantity);
+  // Retrait supérieur au stock : le bouton est bloqué, et on dit pourquoi au lieu de n'afficher
+  // qu'un nouveau stock négatif.
+  const exceedsStock = direction === 'out' && quantity > currentQuantity;
 
   useEffect(() => {
     if (!visible) return;
@@ -84,7 +89,8 @@ export function StockAdjustmentDialog({
   return (
     <Portal>
       <Dialog visible={visible} onDismiss={onDismiss} style={{ maxWidth: 540, width: '92%', alignSelf: 'center' }}>
-        <Dialog.Title>{initialDirection === 'in' ? 'Ajouter du stock' : 'Retirer du stock'}</Dialog.Title>
+        <DialogCloseButton onPress={onDismiss} />
+        <Dialog.Title style={DIALOG_TITLE_PADDING}>{initialDirection === 'in' ? 'Ajouter du stock' : 'Retirer du stock'}</Dialog.Title>
         <Dialog.ScrollArea style={{ paddingHorizontal: 0, maxHeight: 520 }}>
           <ScrollView
             nestedScrollEnabled
@@ -134,8 +140,10 @@ export function StockAdjustmentDialog({
               )}
             />
           )}
-          <FormField control={control} name="quantity" label="Quantité à déplacer" keyboardType="number-pad" selectTextOnFocus />
-          <FormField control={control} name="note" label="Motif obligatoire" multiline />
+          <FormField control={control} name="quantity" label="Quantité à déplacer" required keyboardType="number-pad" selectTextOnFocus />
+          <FormField control={control} name="note" label="Motif obligatoire" required multiline />
+          {exceedsStock && <HelperText type="error" visible>Stock insuffisant : vous ne pouvez pas retirer plus que le stock disponible ({formatQuantity(currentQuantity)}).</HelperText>}
+          {!isValid && Object.keys(errors).length === 0 && <HelperText type="info" visible>Renseignez la quantité et le motif (obligatoires) pour valider.</HelperText>}
           {!!save.error && <HelperText type="error" visible>{save.error.message}</HelperText>}
           </ScrollView>
         </Dialog.ScrollArea>
@@ -144,7 +152,7 @@ export function StockAdjustmentDialog({
           <AppButton
             icon={direction === 'in' ? 'plus' : 'minus'}
             loading={save.isPending}
-            disabled={!storeId || projectedQuantity < 0}
+            disabled={!storeId || !isValid || exceedsStock || save.isPending}
             onPress={handleSubmit((values) => save.mutate(values))}
           >
             {direction === 'in' ? 'Ajouter' : 'Retirer'}

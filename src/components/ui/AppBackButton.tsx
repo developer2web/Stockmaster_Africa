@@ -3,10 +3,12 @@ import { Icon, useTheme } from 'react-native-paper';
 import { router } from 'expo-router';
 import { safeBack } from '@/utils/navigation';
 
-export function AppBackButton({ fallback, light = false, forceFallback = false }: { fallback: string; light?: boolean; forceFallback?: boolean }) {
+// guard : permet à l'écran d'intercepter le retour (ex. confirmer des modifications non enregistrées).
+export function AppBackButton({ fallback, light = false, forceFallback = false, guard }: { fallback: string; light?: boolean; forceFallback?: boolean; guard?: (proceed: () => void) => void }) {
   const theme = useTheme();
   const color = light ? '#FFFFFF' : theme.colors.onSurface;
-  return <Pressable accessibilityRole="button" accessibilityLabel="Retour" hitSlop={10} onPress={() => forceFallback ? router.replace(fallback as never) : safeBack(fallback)} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
+  const go = () => forceFallback ? router.replace(fallback as never) : safeBack(fallback);
+  return <Pressable accessibilityRole="button" accessibilityLabel="Retour" hitSlop={10} onPress={() => guard ? guard(go) : go()} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
     <Icon source="arrow-left" size={30} color={color} />
   </Pressable>;
 }

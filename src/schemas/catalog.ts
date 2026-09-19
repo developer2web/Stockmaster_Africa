@@ -53,5 +53,5 @@ export const productSchema=z.object({
   else if(Number(v.bulkPrice.replace(/\s/g,''))<=0)issue('bulkPrice','Le prix de vente du lot doit être supérieur à 0.');
   if(v.bulkPurchasePrice.trim()!==''){const error=wholeNumberError(v.bulkPurchasePrice);if(error)issue('bulkPurchasePrice',error)}
 });
-export const variantSchema=z.object({name:z.string().trim().min(1,'Nom requis'),sku:z.string().trim().max(80),barcode:z.string().trim().optional(),purchasePrice:optionalWholeNonNegative,salePrice:optionalWholeNonNegative,isActive:z.boolean()});
+export const variantSchema=z.object({name:z.string().trim().min(1,'Nom de la variante requis').max(120,tooLong('Le nom',120)),sku:z.string().trim().max(80,tooLong('La référence',80)),barcode:z.string().trim().max(80,tooLong('Le code-barres',80)).optional(),purchasePrice:optionalWholeNonNegative,salePrice:optionalWholeNonNegative,isActive:z.boolean()});
 export type SupplierInput=z.input<typeof supplierSchema>; export type ProductInput=z.input<typeof productSchema>; export type VariantInput=z.input<typeof variantSchema>;
