@@ -4,6 +4,7 @@ import { useAuth } from './AuthProvider';
 import type { AppRole } from '@/types/database';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import { homeRoute } from './homeRoute';
 
 export function RoleGuard({ roles, children, requireActiveSubscription = true }: PropsWithChildren<{ roles: AppRole[]; requireActiveSubscription?: boolean }>) {
   const { session, membership, businesses, stores, membershipError, isAccessBlocked, isWorkspaceLoading, isSwitchingWorkspace, offlineUnlockRequired, refreshMembership, signOut } = useAuth();
@@ -30,7 +31,7 @@ export function RoleGuard({ roles, children, requireActiveSubscription = true }:
   if (!roles.includes(membership.role)) return <ErrorState
     title="Espace non autorisé"
     message={`Votre compte ${membership.role === 'employee' ? 'employé' : membership.role === 'company_admin' ? 'propriétaire' : 'Super Administrateur'} n’est pas autorisé à utiliser cet espace.`}
-    retryLabel="Retour à mon espace" onRetry={() => router.replace('/')} onCancel={() => void signOut()}
+    retryLabel="Retour à mon espace" onRetry={() => router.replace(homeRoute(membership.role) as never)} onCancel={() => void signOut()}
   />;
   if (
     requireActiveSubscription &&

@@ -4,6 +4,7 @@ import { useAuth } from './AuthProvider';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { companyIsReadOnly, READ_ONLY_MESSAGE } from '@/features/subscriptions/readOnlyAccess';
 import { usePermissions } from './usePermissions';
+import { homeRoute } from './homeRoute';
 
 export function PermissionGuard({ permission, children }: PropsWithChildren<{ permission: string | string[] }>) {
   const can = usePermissions();
@@ -23,9 +24,9 @@ export function PermissionGuard({ permission, children }: PropsWithChildren<{ pe
   const required = Array.isArray(permission) ? permission : [permission];
   if (!required.some(can)) {
     if (required.every(value => !value.endsWith('.read')) && companyIsReadOnly(membership.companyId)) {
-      return <ErrorState title="Abonnement en lecture seule" message={READ_ONLY_MESSAGE} retryLabel="Retour à mes données" onRetry={() => router.replace('/')} />;
+      return <ErrorState title="Abonnement en lecture seule" message={READ_ONLY_MESSAGE} retryLabel="Retour à mes données" onRetry={() => router.replace(homeRoute(membership.role) as never)} />;
     }
-    return <ErrorState title="Accès non attribué" message="Votre rôle ne permet pas de consulter cet écran. Demandez l’accès au propriétaire de l’entreprise." retryLabel="Retour à mon espace" onRetry={() => router.replace('/')} />;
+    return <ErrorState title="Accès non attribué" message="Votre rôle ne permet pas de consulter cet écran. Demandez l’accès au propriétaire de l’entreprise." retryLabel="Retour à mon espace" onRetry={() => router.replace(homeRoute(membership.role) as never)} />;
   }
   return children;
 }

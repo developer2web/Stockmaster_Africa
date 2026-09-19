@@ -58,3 +58,12 @@ describe('wholeNumberError / parseWholeNumber', () => {
     for (const bad of ['', '-2', '1e3', '20.75', 'abc']) expect(parseWholeNumber(bad)).toBeNull();
   });
 });
+
+describe('plafond des montants', () => {
+  it('refuse un montant au-dessus du plafond, accepte le plafond lui-même', () => {
+    expect(wholeNumberError('1000000001', { max: 1_000_000_000 })).toMatch(/ne peut pas dépasser/);
+    expect(wholeNumberError('1000000000', { max: 1_000_000_000 })).toBeNull();
+    expect(parseWholeNumber('999999999999', { max: 1_000_000_000 })).toBeNull();
+    expect(wholeNumberError('999999999999')).toBeNull();
+  });
+});

@@ -9,6 +9,16 @@ export const registerSchema = z.object({
   confirmPassword: z.string(),
 }).refine((v) => v.password === v.confirmPassword, { path: ['confirmPassword'], message: 'Les mots de passe diffèrent' });
 export const resetPasswordSchema=z.object({password:strongPassword});
+// Changement de mot de passe depuis l'espace connecté (employé et paramètres du propriétaire) : le
+// bouton de validation reste désactivé tant que ce schéma n'est pas satisfait.
+export const changePasswordSchema=z.object({
+  currentPassword:z.string().min(8,'Saisissez votre mot de passe actuel (8 caractères minimum)'),
+  password:strongPassword,
+  confirm:z.string().min(1,'Confirmez le nouveau mot de passe'),
+}).superRefine((value,ctx)=>{
+  if(value.password&&value.password===value.currentPassword)ctx.addIssue({code:'custom',path:['password'],message:'Le nouveau mot de passe doit être différent de l’ancien.'});
+  if(value.confirm&&value.confirm!==value.password)ctx.addIssue({code:'custom',path:['confirm'],message:'Les nouveaux mots de passe sont différents.'});
+});
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;

@@ -2,10 +2,12 @@ import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Card, Dialog, HelperText, Icon, Portal, Text, TextInput, useTheme } from 'react-native-paper';
+import { Card, Dialog, HelperText, Icon, Portal, Text, useTheme } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { AccountDeletionCard } from '@/components/legal/AccountDeletionCard';
+import { ValidatedInput } from '@/components/forms/ValidatedInput';
+import { changePasswordSchema } from '@/schemas/auth';
 import { OfflineAccessCard } from '@/components/security/OfflineAccessCard';
 import { changePasswordWithVerification } from '@/features/account/api';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -38,13 +40,14 @@ export default function SettingsScreen() {
     },
   });
 
+  // Le bouton « Confirmer » reste désactivé tant que le formulaire n'est pas valide.
+  const passwordCheck = changePasswordSchema.safeParse({ currentPassword, password: newPassword, confirm: confirmPassword });
+  const passwordIssues = passwordCheck.success ? [] : passwordCheck.error.issues;
+  const issueFor = (field: string, value: string) => value === '' ? undefined : passwordIssues.find((issue) => issue.path[0] === field)?.message;
   const submitPassword = () => {
     setPasswordValidation('');
     passwordMutation.reset();
-    if (currentPassword.length < 8) return setPasswordValidation('Saisissez votre mot de passe actuel.');
-    if (newPassword === currentPassword) return setPasswordValidation('Le nouveau mot de passe doit être différent de l’ancien.');
-    if (newPassword.length < 10 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) return setPasswordValidation('Utilisez 10 caractères minimum avec majuscule, minuscule, chiffre et caractère spécial.');
-    if (newPassword !== confirmPassword) return setPasswordValidation('Les nouveaux mots de passe sont différents.');
+    if (!passwordCheck.success) return setPasswordValidation(passwordCheck.error.issues[0].message);
     passwordMutation.mutate();
   };
 
@@ -86,14 +89,14 @@ export default function SettingsScreen() {
       <Dialog style={styles.dialog} visible={passwordOpen} onDismiss={() => !passwordMutation.isPending && setPasswordOpen(false)}>
         <Dialog.Title>Modifier le mot de passe</Dialog.Title>
         <Dialog.Content style={{ gap: 10 }}>
-          <TextInput mode="outlined" label="Mot de passe actuel" accessibilityLabel="Mot de passe actuel" value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry autoComplete="current-password" textContentType="password" />
-          <TextInput mode="outlined" label="Nouveau mot de passe" accessibilityLabel="Nouveau mot de passe" value={newPassword} onChangeText={setNewPassword} secureTextEntry autoComplete="new-password" textContentType="newPassword" />
-          <TextInput mode="outlined" label="Confirmer le nouveau mot de passe" accessibilityLabel="Confirmer le nouveau mot de passe" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry autoComplete="new-password" textContentType="newPassword" />
+          <ValidatedInput label="Mot de passe actuel" required errorText={issueFor('currentPassword', currentPassword)} value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry autoComplete="current-password" textContentType="password" />
+          <ValidatedInput label="Nouveau mot de passe" required errorText={issueFor('password', newPassword)} value={newPassword} onChangeText={setNewPassword} secureTextEntry autoComplete="new-password" textContentType="newPassword" />
+          <ValidatedInput label="Confirmer le nouveau mot de passe" required errorText={issueFor('confirm', confirmPassword)} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry autoComplete="new-password" textContentType="newPassword" />
           <HelperText type="info" visible>Majuscule, minuscule, chiffre et caractère spécial.</HelperText>
           {!!passwordValidation && <HelperText type="error" visible>{passwordValidation}</HelperText>}
           {!!passwordMutation.error && <HelperText type="error" visible>{passwordMutation.error.message}</HelperText>}
         </Dialog.Content>
-        <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" disabled={passwordMutation.isPending} onPress={() => setPasswordOpen(false)}>Annuler</AppButton><AppButton icon="shield-check" loading={passwordMutation.isPending} disabled={passwordMutation.isPending} onPress={submitPassword}>Confirmer</AppButton></Dialog.Actions>
+        <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" disabled={passwordMutation.isPending} onPress={() => setPasswordOpen(false)}>Annuler</AppButton><AppButton icon="shield-check" loading={passwordMutation.isPending} disabled={passwordMutation.isPending || !passwordCheck.success} onPress={submitPassword}>Confirmer</AppButton></Dialog.Actions>
       </Dialog>
 
     </Portal>

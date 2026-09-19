@@ -10,6 +10,7 @@ import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DIALOG_TITLE_PADDING, DialogCloseButton } from '@/components/ui/DialogCloseButton';
+import { useLeaveGuard } from '@/components/ui/leaveGuard';
 import { plural } from '@/utils/plural';
 import { ProductImagesCard } from '@/components/products/ProductImagesCard';
 import { StockAdjustmentDialog } from '@/components/products/StockAdjustmentDialog';
@@ -156,6 +157,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
     if (!isDirty || leaveAllowed.current) proceed();
     else setLeaveProceed(() => proceed);
   };
+  useLeaveGuard(isDirty, requestLeave);
   useEffect(() => {
     if (Platform.OS !== 'web' || !isDirty) return;
     const warn = (event: BeforeUnloadEvent) => { if (leaveAllowed.current) return; event.preventDefault(); event.returnValue = ''; };

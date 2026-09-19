@@ -15,6 +15,9 @@ describe('explications avant validation de vente', () => {
   it('respecte le blocage des crédits et les limites de remise', () => {
     expect(checkoutIssue({ ...ready, payment: 'credit', customerId: 'client', creditAllowed: false })).toContain('désactivée');
     expect(checkoutIssue({ ...ready, discountTooHigh: true })).toContain('remise');
+    expect(checkoutIssue({ ...ready, discountTooHigh: true })).toContain('responsable');
+    expect(checkoutIssue({ ...ready, zeroTotal: true, total: 0 })).toContain('vente à 0');
+    expect(checkoutIssue({ ...ready, zeroTotal: false })).toBeNull();
   });
   it('explique les données manquantes et les enregistrements en cours', () => {
     expect(checkoutIssue({ ...ready, invalidQuantity: true })).toContain('quantité');

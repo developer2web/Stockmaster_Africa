@@ -47,22 +47,23 @@ export function numericFieldValue(value: unknown): string {
  * "20,75" ou "1e3" sont refusés avec une explication au lieu de devenir
  * silencieusement "100", "20" ou "13".
  */
-export function wholeNumberError(raw: unknown): string | null {
+export function wholeNumberError(raw: unknown, options: { max?: number } = {}): string | null {
   const value = typeof raw === 'string' ? raw.replace(/\s/g, '') : '';
   if (value === '') return 'Valeur requise';
   if (value.startsWith('-')) return 'La valeur ne peut pas être négative.';
   if (/^\d+[.,]\d*$/.test(value)) return 'Saisissez un nombre entier, sans décimale.';
   if (!/^\d+$/.test(value)) return 'Saisissez uniquement des chiffres (nombre entier).';
   if (value.length > 12) return 'Nombre trop grand (12 chiffres maximum).';
+  if (options.max !== undefined && Number(value) > options.max) return `La valeur ne peut pas dépasser ${options.max.toLocaleString('fr-FR')}.`;
   return null;
 }
 
 /** Entier positif ou nul saisi en chiffres, ou null si la saisie est vide/invalide. */
-export function parseWholeNumber(raw: unknown): number | null {
-  return wholeNumberError(raw) === null ? Number(String(raw).replace(/\s/g, '')) : null;
+export function parseWholeNumber(raw: unknown, options: { max?: number } = {}): number | null {
+  return wholeNumberError(raw, options) === null ? Number(String(raw).replace(/\s/g, '')) : null;
 }
 
 /** Comme parseWholeNumber, mais NaN (et non null) quand la saisie est vide ou invalide : s'intègre aux contrôles existants (`> 0`, `Number.isFinite`). */
-export function wholeOrNaN(raw: unknown): number {
-  return parseWholeNumber(raw) ?? NaN;
+export function wholeOrNaN(raw: unknown, options: { max?: number } = {}): number {
+  return parseWholeNumber(raw, options) ?? NaN;
 }

@@ -48,3 +48,19 @@ export function addCartItem(items: CartLine[], item: SaleStockItem, allowNegativ
   }
   return items.map((row) => cartKey(row) === id ? { ...row, quantity: row.quantity + step } : row);
 }
+
+/**
+ * Garde uniquement les lignes dont le produit (et la variante) figure dans la liste de la boutique
+ * active. Chaque produit appartient à une seule boutique : une ligne absente de cette liste vient
+ * d'une autre boutique, ou d'un produit archivé, et ne doit jamais pouvoir être validée.
+ * Renvoie aussi les lignes retirées.
+ */
+export function retainProducts(items: CartLine[], validProducts: ReadonlySet<string>): { kept: CartLine[]; removed: CartLine[] } {
+  const kept: CartLine[] = [];
+  const removed: CartLine[] = [];
+  for (const item of items) (validProducts.has(baseKey(item)) ? kept : removed).push(item);
+  return { kept, removed };
+}
+
+/** Clé « produit:variante » utilisée par retainProducts. */
+export const productKey = baseKey;

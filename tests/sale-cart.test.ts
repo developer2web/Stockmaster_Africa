@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addCartItem, type CartLine } from '../src/stores/saleCartLogic';
+import { addCartItem, retainProducts, productKey, type CartLine } from '../src/stores/saleCartLogic';
 import type { SaleStockItem } from '../src/types/database';
 
 const nido:SaleStockItem={stockLevelId:'stock-1',productId:'nido',variantId:null,unit:'piece',name:'NIDO',sku:'NIDO-1',lookupCodes:['1234567890123'],salePrice:100,purchasePrice:70,available:3,imageUrl:null,bulkUnitLabel:null,bulkQuantity:null,bulkPrice:null};
@@ -54,5 +54,20 @@ describe('vente en gros et au détail sur le même produit',()=>{
     const before=items;
     items=addCartItem(items,lait,false,'bulk');
     expect(items).toBe(before); // refusé, rien n’a changé
+  });
+});
+
+describe('panier et boutique active',()=>{
+  const sucre:SaleStockItem={...nido,stockLevelId:'',productId:'sucre',name:'Sucre'};
+  it('retire les lignes dont le produit n’est pas dans la boutique active',()=>{
+    const items=addCartItem(addCartItem([],nido),sucre);
+    const { kept, removed }=retainProducts(items,new Set([productKey(nido)]));
+    expect(kept.map(line=>line.productId)).toEqual(['nido']);
+    expect(removed.map(line=>line.productId)).toEqual(['sucre']);
+  });
+  it('un produit sans ligne de stock (identifiant vide) est reconnu par son produit, pas par un identifiant vide',()=>{
+    const items=addCartItem([],sucre);
+    expect(retainProducts(items,new Set([productKey(nido)])).removed).toHaveLength(1);
+    expect(retainProducts(items,new Set([productKey(sucre)])).kept).toHaveLength(1);
   });
 });

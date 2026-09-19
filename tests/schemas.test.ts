@@ -1,10 +1,19 @@
 import { describe,expect,it } from 'vitest';
-import { registerSchema } from '../src/schemas/auth';
+import { changePasswordSchema, registerSchema } from '../src/schemas/auth';
 import { productSchema, variantSchema } from '../src/schemas/catalog';
 import { customerSchema } from '../src/schemas/customers';
 import { stockMovementSchema } from '../src/schemas/inventory';
 
 describe('validations critiques',()=>{
+  it('n’active le changement de mot de passe que si tous les champs sont valides',()=>{
+    const ok={currentPassword:'AncienMdp1!',password:'NouveauMdp2@x',confirm:'NouveauMdp2@x'};
+    expect(changePasswordSchema.safeParse(ok).success).toBe(true);
+    expect(changePasswordSchema.safeParse({...ok,currentPassword:''}).success).toBe(false);
+    expect(changePasswordSchema.safeParse({...ok,password:'faible',confirm:'faible'}).success).toBe(false);
+    expect(changePasswordSchema.safeParse({...ok,confirm:'Autre1234!@'}).success).toBe(false);
+    expect(changePasswordSchema.safeParse({...ok,password:ok.currentPassword,confirm:ok.currentPassword}).success).toBe(false);
+    expect(changePasswordSchema.safeParse({currentPassword:'',password:'',confirm:''}).success).toBe(false);
+  });
   it('refuse un mot de passe faible',()=>{expect(registerSchema.safeParse({fullName:'Mamadou',companyName:'Stock',storeName:'Centre',countryCode:'GN',email:'a@b.com',password:'password',confirmPassword:'password'}).success).toBe(false)});
   it('accepte un produit sans SKU',()=>{expect(productSchema.safeParse({name:'Produit',description:'',barcode:'',supplierId:null,unit:'piece',purchasePrice:'10',salePrice:'20',initialQuantity:'5',lowStockThreshold:'2',isActive:true}).success).toBe(true)});
   it('refuse un prix ou un seuil négatif',()=>{expect(productSchema.safeParse({name:'Produit',description:'',sku:'SKU-1',barcode:'',supplierId:null,unit:'piece',purchasePrice:'-1',salePrice:'2',initialQuantity:'1',lowStockThreshold:'-1',isActive:true}).success).toBe(false)});

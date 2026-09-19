@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Card, HelperText, Icon, Text, useTheme } from 'react-native-paper';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { router } from 'expo-router';
 import { FormField } from '@/components/forms/FormField';
@@ -9,6 +10,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { changePasswordWithVerification } from '@/features/account/api';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { RoleGuard } from '@/features/auth/RoleGuard';
+import { changePasswordSchema } from '@/schemas/auth';
 
 type PasswordForm = { currentPassword: string; password: string; confirm: string };
 
@@ -17,16 +19,12 @@ export default function EmployeeSecurity() {
   const theme = useTheme();
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const { control, handleSubmit, formState, reset } = useForm<PasswordForm>({ defaultValues: { currentPassword: '', password: '', confirm: '' } });
+  const { control, handleSubmit, formState, reset } = useForm<PasswordForm>({ resolver: zodResolver(changePasswordSchema), mode: 'onChange', defaultValues: { currentPassword: '', password: '', confirm: '' } });
   if (!session) return null;
 
   const submit = handleSubmit(async (values) => {
     setError('');
     setMessage('');
-    if (values.currentPassword.length < 8) return setError('Saisissez votre mot de passe actuel.');
-    if (values.password === values.currentPassword) return setError('Le nouveau mot de passe doit être différent de l’ancien.');
-    if (values.password.length < 10 || !/[A-Z]/.test(values.password) || !/[a-z]/.test(values.password) || !/[0-9]/.test(values.password) || !/[^A-Za-z0-9]/.test(values.password)) return setError('Utilisez au moins 10 caractères avec majuscule, minuscule, chiffre et caractère spécial.');
-    if (values.password !== values.confirm) return setError('Les nouveaux mots de passe sont différents.');
     try {
       await changePasswordWithVerification(values.currentPassword, values.password);
       setMessage('Votre mot de passe a été mis à jour en toute sécurité.');
@@ -43,13 +41,14 @@ export default function EmployeeSecurity() {
       <View style={styles.copy}><Text variant="titleLarge" style={styles.bold}>Action protégée</Text><Text style={{ color: theme.colors.onPrimaryContainer }}>Votre mot de passe actuel est obligatoire avant toute modification.</Text></View>
     </Card.Content></Card>
     <Card mode="outlined"><Card.Content style={styles.form}>
-      <FormField control={control} name="currentPassword" label="Mot de passe actuel" passwordToggle autoComplete="current-password" textContentType="password" />
-      <FormField control={control} name="password" label="Nouveau mot de passe" passwordToggle autoComplete="new-password" textContentType="newPassword" />
-      <FormField control={control} name="confirm" label="Confirmer le nouveau mot de passe" passwordToggle autoComplete="new-password" textContentType="newPassword" />
+      <FormField control={control} name="currentPassword" label="Mot de passe actuel" required passwordToggle autoComplete="current-password" textContentType="password" />
+      <FormField control={control} name="password" label="Nouveau mot de passe" required passwordToggle autoComplete="new-password" textContentType="newPassword" />
+      <FormField control={control} name="confirm" label="Confirmer le nouveau mot de passe" required passwordToggle autoComplete="new-password" textContentType="newPassword" />
       <HelperText type="info" visible>Majuscule, minuscule, chiffre et caractère spécial.</HelperText>
       {!!error && <HelperText type="error" visible>{error}</HelperText>}
       {!!message && <HelperText type="info" visible>{message}</HelperText>}
-      <AppButton icon="lock-reset" loading={formState.isSubmitting} disabled={formState.isSubmitting} onPress={submit}>Changer mon mot de passe</AppButton>
+      {!formState.isValid && Object.keys(formState.errors).length === 0 && <HelperText type="info" visible>Renseignez les trois champs (*) pour activer le bouton.</HelperText>}
+      <AppButton icon="lock-reset" loading={formState.isSubmitting} disabled={formState.isSubmitting || !formState.isValid} onPress={submit}>Changer mon mot de passe</AppButton>
     </Card.Content></Card>
   </AdminPage></RoleGuard>;
 }

@@ -4,11 +4,15 @@ import { PendingSales } from '@/features/offline/PendingSales';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
+import { useLeaveGuard } from '@/components/ui/leaveGuard';
+import { hasPermission } from '@/features/auth/permissions';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Card, Chip, HelperText, Icon, IconButton, SegmentedButtons, Text, TextInput, useTheme } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
+import { ValidatedInput } from '@/components/forms/ValidatedInput';
 import { AppFeedback } from '@/components/ui/AppFeedback';
 import { ProductThumbnail } from '@/components/products/ProductThumbnail';
 import { getCheckoutCustomers } from '@/features/customers/api';
@@ -16,8 +20,8 @@ import { getCompany } from '@/features/employees/api';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { createSale, getSaleStock } from '@/features/sales/api';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
-import { cartKey, useSaleCart } from '@/stores/saleCart';
-import { reservedElsewhere } from '@/stores/saleCartLogic';
+import { cartKey, useBindCartScope, useSaleCart } from '@/stores/saleCart';
+import { productKey, reservedElsewhere } from '@/stores/saleCartLogic';
 import { formatQuantity, parseDecimal, wholeNumberError, wholeOrNaN } from '@/utils/number';
 import { useOffline } from '@/features/offline/OfflineProvider';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
@@ -59,11 +63,35 @@ export default function NewSale() {
   const { items, add, setQuantity, setDiscount, remove, autoClearedAt, acknowledgeAutoClear } = useSaleCart();
   const processedScan = useRef<string|null>(null);
   const operationId=useRef(createOperationId());
+  // Le panier appartient à une boutique : en changer le vide (voir saleCart.ts).
+  const cartReady = useBindCartScope(company && storeId ? `${company}:${storeId}` : '');
+  const removedForeignCount = useSaleCart((state) => state.removedForeignCount);
   const stock = useQuery({
     queryKey: ['sale-stock', company, storeId, employee],
     queryFn: () => getSaleStock(company, storeId, !employee),
     enabled: !!company && !!storeId,
   });
+  // Revalidation : toute ligne dont le produit n'est pas dans la liste de la boutique active est retirée
+  // (le serveur refuse de toute façon un article d'une autre boutique, mais la personne ne doit pas
+  // le découvrir seulement au moment d'encaisser).
+  useEffect(() => {
+    if (!stock.data || !cartReady) return;
+    useSaleCart.getState().retainProducts(new Set(stock.data.map(productKey)));
+  }, [stock.data, cartReady]);
+  // Quitter la vente avec un panier rempli : confirmation (le panier n'est pas enregistré).
+  const navigation = useNavigation();
+  const leaveAllowed = useRef(false);
+  const [leaveProceed, setLeaveProceed] = useState<(() => void) | null>(null);
+  const hasCart = items.length > 0;
+  usePreventRemove(hasCart, ({ data }) => {
+    if (leaveAllowed.current) navigation.dispatch(data.action);
+    else setLeaveProceed(() => () => navigation.dispatch(data.action));
+  });
+  useLeaveGuard(hasCart, (proceed) => {
+    if (leaveAllowed.current) proceed();
+    else setLeaveProceed(() => proceed);
+  });
+  useEffect(() => { if (hasCart) leaveAllowed.current = false; }, [hasCart]);
   useQuery({
     queryKey: ['checkout-customers', company],
     queryFn: () => getCheckoutCustomers(company),
@@ -113,10 +141,17 @@ export default function NewSale() {
       0,
     ),
   })}, [items]);
-  const discountTooHigh=items.some(item=>item.discount>item.salePrice*item.quantity*Number(companySettings.data?.max_discount_percent??100)/100);
+  // Au-delà de la limite de remise de l'entreprise, ou pour une vente ramenée à 0, il faut la
+  // permission « Dépasser la limite normale de remise » (rôle responsable). Le serveur applique la
+  // même règle : ce contrôle évite seulement de découvrir le refus au moment d'encaisser.
+  const canOverrideDiscount = hasPermission(membership, 'sales.discount_override');
+  const discountLimit = Number(companySettings.data?.max_discount_percent ?? 100);
+  const discountTooHigh = !canOverrideDiscount && items.some(item => item.discount > item.salePrice * item.quantity * discountLimit / 100);
+  const zeroTotal = !canOverrideDiscount && totals.subtotal > 0 && totals.total <= 0;
   const save = useMutation({
     mutationFn: () => createSale(company, storeId, payment, items, customerId, payment==='credit'?0:payment==='partial'?parseDecimal(amountPaid):totals.total,operationId.current,!!companySettings.data?.allow_negative_stock,totals.total),
     onSuccess: async (result) => {
+      leaveAllowed.current = true;
       useSaleCart.getState().clear();
       operationId.current = createOperationId();
       processedScan.current = null;
@@ -161,7 +196,7 @@ export default function NewSale() {
     invalidQuantity,
     itemCount: items.length, storeId, pending: save.isPending,
     settingsReady: !!companySettings.data && !companySettings.error,
-    discountTooHigh, payment, customerId, amountPaid: parseDecimal(amountPaid), total: totals.total,
+    discountTooHigh, zeroTotal, payment, customerId, amountPaid: parseDecimal(amountPaid), total: totals.total,
     creditAllowed: companySettings.data?.allow_credit_sales !== false,
   });
   const checkoutDisabled = issue !== null;
@@ -298,10 +333,10 @@ export default function NewSale() {
                   <IconButton mode="contained" icon="plus" accessibilityLabel={`Ajouter un ${item.bulkUnitLabel}`} disabled={!allowNegative&&item.quantity+bulkStep>item.available-reservedElsewhere(items,item,'bulk')} onPress={()=>setQuantity(id,item.quantity+bulkStep,allowNegative)}/>
                 </View>
               ) : (
-                <View style={styles.quantityRow}><IconButton mode="outlined" icon="minus" accessibilityLabel="Diminuer la quantité" disabled={item.quantity<=1} onPress={()=>changeQuantity(id,String(item.quantity-1),item.available)}/><TextInput style={styles.quantityInput} mode="outlined" label="Quantité" accessibilityLabel="Quantité" keyboardType="number-pad" selectTextOnFocus value={quantityDrafts[id] ?? String(item.quantity)} onChangeText={(value) => changeQuantity(id, value, item.available)} error={quantityDrafts[id] !== undefined && wholeNumberError(quantityDrafts[id]) !== null && quantityDrafts[id].trim() !== ''} /><IconButton mode="contained" icon="plus" accessibilityLabel="Augmenter la quantité" disabled={!allowNegative&&item.quantity>=item.available-reservedElsewhere(items,item,'unit')} onPress={()=>changeQuantity(id,String(item.quantity+1),item.available)}/></View>
+                <View style={styles.quantityRow}><IconButton mode="outlined" icon="minus" accessibilityLabel="Diminuer la quantité" disabled={item.quantity<=1} onPress={()=>changeQuantity(id,String(item.quantity-1),item.available)}/><TextInput style={styles.quantityInput} mode="outlined" label="Quantité" accessibilityLabel="Quantité" keyboardType="number-pad" selectTextOnFocus value={quantityDrafts[id] ?? String(item.quantity)} onChangeText={(value) => changeQuantity(id, value, item.available)} error={quantityDrafts[id] !== undefined && wholeNumberError(quantityDrafts[id]) !== null && quantityDrafts[id].trim() !== ''} aria-invalid={quantityDrafts[id] !== undefined && quantityDrafts[id].trim() !== '' && wholeNumberError(quantityDrafts[id]) !== null ? true : undefined} aria-describedby={quantityDrafts[id] !== undefined && quantityDrafts[id].trim() !== '' && wholeNumberError(quantityDrafts[id]) !== null ? `quantity-error-${id}` : undefined} /><IconButton mode="contained" icon="plus" accessibilityLabel="Augmenter la quantité" disabled={!allowNegative&&item.quantity>=item.available-reservedElsewhere(items,item,'unit')} onPress={()=>changeQuantity(id,String(item.quantity+1),item.available)}/></View>
               )}
-              {quantityDrafts[id]!==undefined&&quantityDrafts[id].trim()!==''&&wholeNumberError(quantityDrafts[id])!==null&&<HelperText type="error" visible>{wholeNumberError(quantityDrafts[id])}</HelperText>}
-              {companySettings.data?.allow_discounts&&showDiscounts&&<TextInput style={styles.field} mode="outlined" label="Remise sur cette ligne" accessibilityLabel="Remise sur cette ligne" keyboardType="decimal-pad" selectTextOnFocus value={String(item.discount)} onChangeText={value=>setDiscount(id,parseDecimal(value)||0)}/>}<Text>Total ligne : {formatMoney(item.salePrice * item.quantity-item.discount)}</Text>
+              {quantityDrafts[id]!==undefined&&quantityDrafts[id].trim()!==''&&wholeNumberError(quantityDrafts[id])!==null&&<HelperText type="error" visible nativeID={`quantity-error-${id}`}>{wholeNumberError(quantityDrafts[id])}</HelperText>}
+              {companySettings.data?.allow_discounts&&showDiscounts&&<ValidatedInput style={styles.field} label="Remise sur cette ligne" errorText={discountTooHigh && item.discount > item.salePrice * item.quantity * discountLimit / 100 ? `Au-delà de ${discountLimit} % : autorisation d’un responsable requise.` : undefined} keyboardType="decimal-pad" selectTextOnFocus value={String(item.discount)} onChangeText={value=>setDiscount(id,parseDecimal(value)||0)}/>}<Text>Total ligne : {formatMoney(item.salePrice * item.quantity-item.discount)}</Text>
             </Card.Content>
           </Card>
         );
@@ -319,7 +354,7 @@ export default function NewSale() {
             retenu malgré son intitulé ("continuer sans client"). */}
         {payment !== 'credit' && payment !== 'partial' && !customerId && <AppButton mode="text" onPress={() => setShowCustomer(false)}>Continuer sans client</AppButton>}
       </View> : <AppButton mode="text" icon="account-plus-outline" onPress={() => setShowCustomer(true)}>Associer un client (facultatif)</AppButton>}
-      {(payment==='credit'||payment==='partial')&&<Card mode="outlined"><Card.Content style={styles.list}>{payment==='partial'&&<TextInput mode="outlined" label="Montant payé maintenant" accessibilityLabel="Montant payé maintenant" keyboardType="decimal-pad" selectTextOnFocus value={amountPaid} onChangeText={setAmountPaid}/>}<Text>{payment==='credit'?`Dette client : ${formatMoney(totals.total)}`:`Reste dû : ${formatMoney(Math.max(0,totals.total-(parseDecimal(amountPaid)||0)))}`}</Text>{!customerId&&<HelperText type="error" visible>Choisissez obligatoirement le client associé à cette dette.</HelperText>}</Card.Content></Card>}
+      {(payment==='credit'||payment==='partial')&&<Card mode="outlined"><Card.Content style={styles.list}>{payment==='partial'&&<ValidatedInput label="Montant payé maintenant" required errorText={payment === 'partial' && amountPaid !== '' && !(parseDecimal(amountPaid) > 0 && parseDecimal(amountPaid) < totals.total) ? 'L’acompte doit être supérieur à zéro et inférieur au total.' : undefined} keyboardType="decimal-pad" selectTextOnFocus value={amountPaid} onChangeText={setAmountPaid}/>}<Text>{payment==='credit'?`Dette client : ${formatMoney(totals.total)}`:`Reste dû : ${formatMoney(Math.max(0,totals.total-(parseDecimal(amountPaid)||0)))}`}</Text>{!customerId&&<HelperText type="error" visible>Choisissez obligatoirement le client associé à cette dette.</HelperText>}</Card.Content></Card>}
       <Card mode="contained" style={[styles.checkout,{ backgroundColor: theme.colors.primaryContainer }]}>
         <Card.Content style={styles.checkoutContent}>
           <Icon source="cart-check" size={32} color={theme.colors.primary}/>
@@ -331,10 +366,13 @@ export default function NewSale() {
         </Card.Content>
       </Card>
       {!!save.error && <HelperText type="error" visible>{readableError(save.error)}</HelperText>}
-      {discountTooHigh&&<HelperText type="error" visible>Une remise dépasse la limite de {Number(companySettings.data?.max_discount_percent??100)} % définie par l’administrateur.</HelperText>}
+      {discountTooHigh&&<HelperText type="error" visible>Une remise dépasse la limite de {discountLimit} % définie par l’administrateur. L’autorisation d’un responsable est requise au-delà.</HelperText>}
+      {zeroTotal&&<HelperText type="error" visible>Une vente à 0 nécessite l’autorisation d’un responsable : réduisez la remise ou demandez-lui de valider la vente.</HelperText>}
       </View>}
       </View>
       <ConfirmDialog visible={confirmClear} title="Vider le panier ?" message="Les articles et remises de cette vente non validée seront retirés. Aucune vente enregistrée ne sera modifiée." destructive onCancel={() => setConfirmClear(false)} onConfirm={() => { useSaleCart.getState().clear(); setQuantityDrafts({}); setConfirmClear(false); setStep('products'); setCustomerId(null); setPayment('cash'); setAmountPaid(''); }} />
+      <ConfirmDialog visible={!!leaveProceed} title="Quitter cette vente ?" message={`Le panier contient ${items.length} article${plural(items.length)} qui ne ${items.length > 1 ? 'sont' : 'est'} pas encore enregistré${plural(items.length)}. Si vous quittez maintenant, le panier sera vidé.`} destructive cancelLabel="Rester" confirmLabel="Quitter et vider le panier" onCancel={() => setLeaveProceed(null)} onConfirm={() => { const proceed = leaveProceed; setLeaveProceed(null); leaveAllowed.current = true; useSaleCart.getState().clear(); setQuantityDrafts({}); proceed?.(); }} />
+      <AppFeedback message={removedForeignCount > 0 ? `${removedForeignCount} article${plural(removedForeignCount)} du panier ${removedForeignCount > 1 ? 'n’appartenaient' : 'n’appartenait'} pas à cette boutique et ${removedForeignCount > 1 ? 'ont été retirés' : 'a été retiré'}.` : ''} type="info" onDismiss={() => useSaleCart.getState().acknowledgeForeignRemoval()} offsetBottom={76} />
       <AppFeedback message={autoClearedAt ? 'Panier vidé automatiquement après 5 minutes sans activité.' : ''} type="info" onDismiss={acknowledgeAutoClear} offsetBottom={76} />
     </AdminPage>
   );
