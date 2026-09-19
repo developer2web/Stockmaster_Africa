@@ -134,22 +134,28 @@ export default function RegisterScreen() {
           SM-03). */}
       <Card mode="contained" style={{ backgroundColor: theme.colors.primaryContainer }}><Card.Content style={{ gap: 6 }}><Text variant="titleMedium" style={{ fontWeight: '800', color: theme.colors.onPrimaryContainer }}>Commencez simplement</Text><Text style={{ color: theme.colors.onPrimaryContainer }}>Renseignez les champs marqués *, confirmez votre email, puis ajoutez votre entreprise et votre boutique.</Text></Card.Content></Card>
       {!!error && <HelperText type="error" visible>{error}</HelperText>}
-      <FormField control={control} name="fullName" label="Nom complet *" autoComplete="name" textContentType="name" />
+      {/* Astérisque via le prop required (comme partout ailleurs dans l'app)
+          plutôt que figé dans le texte du label : seul "Nom complet" l'avait,
+          alors que les 3 autres champs sont tout autant obligatoires pour
+          créer un compte — repéré en direct sur un écran réel. */}
+      <FormField control={control} name="fullName" label="Nom complet" required autoComplete="name" textContentType="name" />
       <FormField
         control={control}
         name="email"
         label="Email"
+        required
         autoCapitalize="none"
         keyboardType="email-address"
         autoComplete="username"
         textContentType="username"
       />
-      <FormField control={control} name="password" label="Mot de passe" passwordToggle autoComplete="new-password" textContentType="newPassword" />
+      <FormField control={control} name="password" label="Mot de passe" required passwordToggle autoComplete="new-password" textContentType="newPassword" />
       <HelperText type="info" visible style={styles.passwordHint}>Majuscule, minuscule, chiffre et caractère spécial.</HelperText>
       <FormField
         control={control}
         name="confirmPassword"
         label="Confirmer le mot de passe"
+        required
         passwordToggle
         autoComplete="new-password"
         textContentType="newPassword"
