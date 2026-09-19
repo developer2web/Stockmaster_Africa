@@ -1,9 +1,13 @@
 begin;
 
--- Proposition non déployée (retours du 19/09, côté employé) : à relire, tester (pgTAP sur une base
--- reconstruite), puis à déplacer dans supabase/migrations avec un numéro de version avant `supabase db push`.
--- Rangée dans proposals/ pour qu'un `db push` ne l'applique pas par erreur. Non testée. Le client applique déjà ces règles ; ceci empêche de les contourner en
--- appelant directement l'API.
+-- Retours du 19/09 (côté employé) : le client applique déjà ces règles ; ceci empêche de les
+-- contourner en appelant directement l'API.
+--
+-- STATUT : préparée, NON appliquée à la base distante. Vérifiée seulement sur un schéma minimal dans
+-- un vrai Postgres (PGlite : 15 cas, dont vente à 0 avec/sans permission et plafond de caisse), pas sur
+-- la base complète (create_sale, audit, autres déclencheurs de `sales`). Avant `supabase db push`,
+-- suivre supabase/DESTRUCTIVE_MIGRATIONS.md : sauvegarde restaurable, `supabase migration list --linked`,
+-- revue du plan, essai sur une copie de staging.
 --
 -- Déjà en place côté serveur, sans changement : create_sale refuse un article qui n'appartient pas
 -- à la boutique de la vente (`p.store_id = p_store_id`, migration 202609180001), et refuse une

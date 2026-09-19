@@ -1337,4 +1337,30 @@
   versionné (puppeteer-core non ajouté aux dépendances). 276 tests, tsc et
   eslint propres. Poussé sur dev ; déploiement app-web-export à lancer par le
   propriétaire (commande refusée par le système de permissions).
+- [x] Cinquième série de retours du propriétaire (19/09) : côté employé.
+  - Panier lié à l'entreprise + boutique (persisté) : changer de boutique le
+    vide, toute ligne dont le produit n'est pas dans la boutique active est
+    retirée avec un message. Le serveur refusait déjà un article d'une autre
+    boutique (create_sale : p.store_id = p_store_id).
+  - Remises : au-delà de la limite de l'entreprise, ou vente ramenée à 0, la
+    permission « Dépasser la limite normale de remise » est requise (client).
+    Pas de validation en direct par un responsable (code/mot de passe) : choix
+    de produit et de sécurité à trancher.
+  - Caisse : entiers positifs, plafond 1 000 000 000 ; la clôture ne s'active
+    plus avec un montant vide.
+  - Sortie d'une vente avec panier rempli : confirmation ; garde de sortie
+    partagé (leaveGuard) qui couvre aussi le formulaire produit (barres de
+    navigation). « Retour à mon espace » : /employee pour un employé.
+  - Mot de passe : bouton grisé tant que le formulaire n'est pas valide ;
+    accessibilité (aria-required/invalid/describedby) sur vente, caisse,
+    mot de passe.
+  - Migration serveur 202609190001_employee_sales_and_cash_guards.sql
+    (limite de remise 10 % par défaut pour les NOUVELLES entreprises, vente à 0
+    réservée aux responsables, plafond de caisse) : écrite, testée seulement
+    sur un schéma minimal (PGlite, 15 cas), NON APPLIQUÉE. Suivre
+    supabase/DESTRUCTIVE_MIGRATIONS.md (sauvegarde, migration list --linked,
+    essai sur staging) avant `supabase db push`. L'entreprise de test garde
+    max_discount_percent = 100 (ancien défaut) : à régler dans Entreprise.
+  Vérifié en navigateur (Chrome + puppeteer-core, Supabase simulé) : 42
+  vérifications côté employé, sur la version locale et le build de production.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
