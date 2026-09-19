@@ -1179,4 +1179,74 @@
   -101 000 GNF (Sahel Commerce SARL/Boutique Kaloum Centre) : question
   posée explicitement le 17/09, réponse du propriétaire « Non, laisse-
   le tel quel » — laissé en l'état volontairement, ne pas y toucher.
+- [x] Deuxième série de retours du propriétaire (17-18/09, message en 8
+  points numérotés + rapport de test détaillé). Traité point par point :
+  - Dette client (paiement/remise) : plafonnée côté écran en plus du
+    serveur (déjà refusé, jamais signalé avant l'envoi).
+  - Approvisionnement : prix d'achat nul refusé en plus des négatifs
+    (serveur + interface). Bouton "Ajouter à la commande" désactivé et
+    erreur affichée dès la saisie invalide plutôt qu'au clic seulement
+    (quantité/prix négatifs y compris).
+  - "12,50" devenait "1250" : digitsOnly() tronquait mal, corrigé pour
+    tout champ entier de l'app (prix, quantités, seuils).
+  - Taux de marge / taux de marque inversés sur la fiche produit,
+    corrigés sur demande explicite (définition standard française).
+  - Transferts : "Cette information est déjà utilisée" venait d'une
+    contrainte d'unicité de code-barres à l'échelle de l'entreprise
+    alors que StockMaster traite chaque boutique comme une fiche
+    séparée — recréée à l'échelle de la boutique.
+  - Inventaires : bouton "Actualiser les stocks théoriques" ajouté
+    (figés au démarrage, jamais rafraîchis, faussaient l'écart si une
+    vente normale avait lieu pendant un comptage encore en brouillon).
+  - Permission employé : bouton "Effectuer une dépense" (Caisse)
+    désormais masqué sans la permission "Gérer les dépenses", pas
+    seulement refusé côté serveur.
+  - Accessibilité : SelectField et 8 Chip (moyens de paiement, mode de
+    règlement, filtres) n'exposaient aucun état perceptible pour un
+    lecteur d'écran malgré un fonctionnement visuel correct — racine
+    probable de plusieurs constats du rapport de test ("bouton qui ne
+    fait rien", "aucun état sélectionné"). accessibilityLabel explicite
+    ajouté partout plutôt que de dépendre d'un detail de bibliothèque
+    qui ne se traduisait pas en ARIA dans cette configuration.
+  - Écart de clôture de caisse : seuil de contrôle de l'entreprise
+    récupéré côté client, note rendue obligatoire et bouton désactivé
+    au-delà du seuil (déjà refusé côté serveur, jamais signalé avant).
+  - Traçabilité financière : référence facultative (n° Mobile Money,
+    chèque, virement) sur les paiements fournisseur et client, moyen de
+    paiement capturé sur un approvisionnement payé immédiatement
+    (jusque-là implicitement "espèces"), remboursement d'achat annulé
+    pré-rempli avec le moyen d'origine.
+  - Produits inactifs : déjà correctement filtrés à l'approvisionnement
+    (la plainte initiale) ; manquaient au transfert entre boutiques,
+    corrigé (la vente elle-même filtrait déjà côté serveur).
+  - BLOQUANT trouvé en creusant « différences d'heure entre ventes et
+    reçus » (hors liste initiale) : une vente hors ligne envoyait déjà
+    sa vraie heure, mais create_sale_v3 ne s'en servait que pour une
+    colonne d'audit séparée — sales.created_at restait l'heure de
+    synchronisation partout, y compris sur le reçu remis au client.
+    Corrigé à la source (create_sale accepte l'heure réelle dès
+    l'insert). Vérifié en direct de bout en bout (vraie coupure réseau,
+    vente hors ligne, reconnexion) : comparé aux ventes hors ligne
+    précédentes en base, qui montrent bien l'ancien bug.
+  - Journal d'activité nettoyé : actions traduites en français au lieu
+    du nom technique brut, identifiants techniques (UUID, champs en
+    _id) retirés de l'affichage.
+  - "Référence produit non conservée" (SKU remplacé par un SKU auto-
+    généré) : non reproduit à la création d'un produit (vérifié en
+    base, la référence tapée est bien conservée) — flux de modification
+    non testé faute de temps, à revérifier si le problème persiste.
+  - "Boutons X des fenêtres" : aucun composant de ce type trouvé dans
+    le code (react-native-paper Dialog n'en a pas par défaut, fermeture
+    par "Annuler"/"Fermer" partout) — probablement la même famille de
+    bug d'accessibilité que les Chip/SelectField ci-dessus, ou un
+    instantané dépassé côté testeur. Pas de changement de code sans
+    reproduction précise.
+  Hors périmètre (demandes de fonctionnalités plus larges, pas des
+  bugs, notées pour une passe future) : échéances de paiement,
+  conditions de paiement, n° de facture fournisseur, bon de livraison/
+  commande, pièces justificatives et rappels de paiement sur les achats
+  à crédit.
+  266/266 tests, tsc propre. Déployé et vérifié en direct pour chaque
+  correctif significatif (dette client, clôture de caisse, import
+  Excel, vente hors ligne) plutôt que sur la seule relecture du code.
 - [ ] Maintenir Expo SDK 54 jusqu'à une migration séparée (voir AGENTS.md).
