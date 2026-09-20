@@ -19,5 +19,27 @@ function receiptHtml(sale:Sale,branding:ReceiptBranding,money:(value:number)=>st
   </style></head><body><header>${branding.logoUrl?`<img src="${escape(branding.logoUrl)}" alt="Logo" style="max-width:80px;max-height:80px;object-fit:contain">`:''}<h1>${escape(branding.company)}</h1><div class="meta">${escape(branding.store??sale.store?.name??'Boutique')}</div><div class="meta">${[branding.address,branding.phone,branding.email].filter(Boolean).map(escape).join(' • ')}</div><div class="meta">Reçu ${escape(sale.reference??sale.id)}</div><div class="meta">${escape(formatDateTime(sale.created_at))}</div></header><div class="identity"><div><span>CLIENT</span><b>${escape(customer)}</b>${sale.customer?.phone?`<small>${escape(sale.customer.phone)}</small>`:''}</div><div><span>SERVI PAR</span><b>${escape(seller)}</b></div></div><table><thead><tr><th>Produit</th><th>Qté</th><th>Prix</th><th>Total TTC</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><div class="line"><span>Sous-total</span><b>${escape(money(Number(sale.subtotal)))}</b></div>${discount}<div class="line"><span>Payé</span><b>${escape(money(Number(sale.amount_paid)))}</b></div>${due}<div class="line grand"><span>Total</span><span>${escape(money(Number(sale.total)))}</span></div></div><footer>Paiement : ${escape(paymentLabels[sale.payment_method??'']??'Non précisé')}<br>${branding.footer?`${escape(branding.footer)}<br>`:''}Merci ${escape(customer)} pour votre confiance.</footer></body></html>`;
 }
 
+const paymentLabels:Record<string,string>={cash:'Espèces',mobile_money:'Mobile Money',credit:'Crédit',partial:'Paiement partiel',card:'Carte bancaire',bank_transfer:'Virement bancaire'};
+
+/** Résumé lisible du reçu en texte brut, utilisé par le partage web (e-mail, WhatsApp…) qui ne sait pas joindre le PDF généré nativement. */
+function receiptText(sale:Sale,branding:ReceiptBranding,money:(value:number)=>string){
+  const customer=sale.customer?.name??'Client de passage';
+  const lines=(sale.sale_items??[]).map(item=>`${item.variant?`${item.product?.name} - ${item.variant.name}`:item.product?.name??'Produit'} x${formatQuantity(item.quantity)} : ${money(Number(item.line_total))}`);
+  return [
+    `${branding.company} — Reçu ${sale.reference??sale.id}`,
+    branding.store??sale.store?.name??'',
+    formatDateTime(sale.created_at),
+    '',
+    `Client : ${customer}`,
+    '',
+    ...lines,
+    '',
+    Number(sale.discount_total)>0?`Remise : -${money(Number(sale.discount_total))}`:'',
+    `Total : ${money(Number(sale.total))}`,
+    Number(sale.amount_due)>0?`Reste dû : ${money(Number(sale.amount_due))}`:'',
+    `Paiement : ${paymentLabels[sale.payment_method??'']??'Non précisé'}`,
+  ].filter(Boolean).join('\n');
+}
+
 export async function printReceipt(sale:Sale,branding:ReceiptBranding,money:(value:number)=>string){await printHtmlDocument(receiptHtml(sale,branding,money),`Reçu ${sale.reference??sale.id}`)}
-export async function shareReceipt(sale:Sale,branding:ReceiptBranding,money:(value:number)=>string){await shareHtmlAsPdf(receiptHtml(sale,branding,money),`Reçu ${sale.reference??sale.id}`)}
+export async function shareReceipt(sale:Sale,branding:ReceiptBranding,money:(value:number)=>string){await shareHtmlAsPdf(receiptHtml(sale,branding,money),`Reçu ${sale.reference??sale.id}`,receiptText(sale,branding,money))}

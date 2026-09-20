@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { wholeNumberError } from '@/utils/number';
 
 const optionalText = z.string().trim().max(250).optional();
-export const supplierSchema=z.object({name:z.string().trim().min(2,'Nom requis').max(100),email:z.union([z.string().email('Email invalide'),z.literal('')]),phone:optionalText,address:optionalText,isActive:z.boolean()});
+const optionalPhone = z.union([z.string().trim().regex(/^\+?[0-9]{8,15}$/, 'Numéro de téléphone invalide.'), z.literal('')]).optional();
+export const supplierSchema=z.object({name:z.string().trim().min(2,'Nom requis').max(100),email:z.union([z.string().email('Email invalide'),z.literal('')]),phone:optionalPhone,address:optionalText,isActive:z.boolean()});
 // Les quantités, prix et seuils n'ont ni fraction ni signe dans StockMaster
 // (pas de fraction d'unité, le franc guinéen n'a pas de sous-unité). Une saisie
 // hors format est refusée avec un message — jamais corrigée en silence (voir

@@ -12,7 +12,7 @@ export const storeSchema = z.object({
   isActive: z.boolean(),
   receiptDisplayName: z.string().trim().max(100).optional(),
   receiptAddress: z.string().trim().max(250).optional(),
-  receiptPhone: z.string().trim().max(40).optional(),
+  receiptPhone: z.union([z.string().trim().regex(/^\+?[0-9]{8,15}$/, 'Numéro de téléphone invalide.'), z.literal('')]).optional(),
   receiptEmail: z.union([z.literal(''), z.string().trim().email('Email invalide').max(160)]).optional(),
   receiptLogoUrl: optionalUrl.optional(),
   receiptFooter: z.string().trim().max(300).optional(),

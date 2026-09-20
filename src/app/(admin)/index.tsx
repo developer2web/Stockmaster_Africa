@@ -91,7 +91,7 @@ export default function AdminDashboard() {
         <View style={styles.metrics}>
           <Metric title="Ventes du jour" value={report.error ? 'Indisponible' : report.data ? money(report.data.revenue) : '…'} hint="Montant des ventes, crédits compris" onPress={() => router.push('/sales')} />
           <Metric title="Solde de caisse" value={cash.error ? 'Indisponible' : cash.data ? money(cash.data.balance) : '…'} hint="Entrées moins sorties enregistrées" onPress={() => router.push('/cash')} negative={!!cash.data && cash.data.balance < 0} />
-          <Metric title="À réapprovisionner" value={overview.error ? 'Indisponible' : overview.data ? String(lowStock) : '…'} hint="Produits dont le stock est faible" onPress={() => router.push('/stock')} />
+          {(!!overview.error || !overview.data || lowStock > 0) && <Metric title="À réapprovisionner" value={overview.error ? 'Indisponible' : overview.data ? String(lowStock) : '…'} hint="Produits dont le stock est faible" onPress={() => router.push('/stock')} />}
         </View>
         {hasError && <Card mode="outlined"><Card.Content style={styles.intro}>
           <Text>Certains indicateurs ne sont pas disponibles. Vous pouvez continuer à utiliser les outils de la boutique.</Text>

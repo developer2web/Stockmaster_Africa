@@ -47,9 +47,25 @@ export async function printHtmlDocument(html: string, title = 'Document StockMas
   }
 }
 
-/** Produit un PDF natif puis ouvre le partage. Sur le web, ouvre l'impression avec « Enregistrer au format PDF ». */
-export async function shareHtmlAsPdf(html:string,title='Document StockMaster'){
+/**
+ * Produit un PDF natif puis ouvre le partage (e-mail, WhatsApp…) via la
+ * feuille de partage du système. Sur le web, expo-print ne sait pas générer
+ * de PDF (natif uniquement) — on utilise donc l'API Web Share du navigateur,
+ * qui ouvre la même feuille de partage (e-mail, WhatsApp…) avec un résumé en
+ * texte du document. Sans support Web Share (vieux navigateur, HTTP non
+ * sécurisé), on retombe sur l'impression telle quelle.
+ */
+export async function shareHtmlAsPdf(html:string,title='Document StockMaster',shareText=title){
   if(Platform.OS==='web'){
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title, text: shareText });
+        return;
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        await logger.error('receipt_web_share_failed', error, { title });
+      }
+    }
     await printHtmlDocument(html,title);
     return;
   }
