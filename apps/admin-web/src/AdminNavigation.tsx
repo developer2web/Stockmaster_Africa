@@ -1,14 +1,14 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 
-export type AdminView = 'Vue générale' | 'Entreprises' | 'Utilisateurs' | 'Abonnements' | 'Paiements' | 'Promotions' | 'Support' | 'Suppressions' | 'Erreurs' | 'Avertissements' | 'Activité' | 'Paramètres';
+export type AdminView = 'Vue générale' | 'Entreprises' | 'Utilisateurs' | 'Abonnements' | 'Paiements' | 'Promotions' | 'Support' | 'Suppressions' | 'Emails' | 'Erreurs' | 'Avertissements' | 'Activité' | 'Paramètres';
 type Group = { label: string; items: AdminView[] };
 const groups: Group[] = [
   { label: 'Clients', items: ['Entreprises', 'Utilisateurs'] },
   { label: 'Facturation', items: ['Paiements', 'Abonnements', 'Promotions'] },
-  { label: 'Suivi', items: ['Support', 'Suppressions', 'Erreurs', 'Avertissements'] },
+  { label: 'Suivi', items: ['Support', 'Suppressions', 'Emails', 'Erreurs', 'Avertissements'] },
   { label: 'Administration', items: ['Activité', 'Paramètres'] },
 ];
-const icons: Record<AdminView, string> = { 'Vue générale': '⌂', Entreprises: '▦', Utilisateurs: '♧', Abonnements: '▤', Paiements: '▣', Promotions: '◇', Support: '◉', Suppressions: '⌫', Erreurs: '!', Avertissements: '⚠', Activité: '◷', Paramètres: '⚙' };
+const icons: Record<AdminView, string> = { 'Vue générale': '⌂', Entreprises: '▦', Utilisateurs: '♧', Abonnements: '▤', Paiements: '▣', Promotions: '◇', Support: '◉', Suppressions: '⌫', Emails: '✉', Erreurs: '!', Avertissements: '⚠', Activité: '◷', Paramètres: '⚙' };
 export const pageDescriptions: Record<AdminView, string> = {
   'Vue générale': 'Les actions à traiter et les chiffres essentiels de StockMaster.',
   Entreprises: 'Retrouvez une entreprise, ses boutiques et son accès à la plateforme.',
@@ -18,6 +18,7 @@ export const pageDescriptions: Record<AdminView, string> = {
   Promotions: 'Créez et suivez vos offres commerciales.',
   Support: 'Répondez aux demandes et suivez leur résolution.',
   Suppressions: 'Traitez les demandes de suppression de compte des clients.',
+  Emails: 'Approuvez ou refusez les demandes de modification d’email de connexion ou d’entreprise.',
   Erreurs: 'Examinez les incidents signalés par l’application et leur résolution.',
   Avertissements: 'Repérez les points à surveiller et les problèmes d’envoi des emails.',
   Activité: 'Retrouvez les opérations enregistrées dans le journal.',

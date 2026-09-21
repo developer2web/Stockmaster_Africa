@@ -13,7 +13,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { StatusChip } from '@/components/ui/StatusChip';
 import { AppFeedback } from '@/components/ui/AppFeedback';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { getStores, saveStore } from '@/features/employees/api';
+import { getCompany, getStores, saveStore } from '@/features/employees/api';
 import { storeSchema, type StoreInput } from '@/schemas/organization';
 import type { Store } from '@/types/database';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
@@ -45,11 +45,16 @@ export default function StoresScreen() {
   const [discard,setDiscard]=useState(false);
   const [message,setMessage]=useState('');
   const stores = useQuery({ queryKey: ['stores', companyId], queryFn: () => getStores(companyId), enabled: !!companyId });
+  const company = useQuery({ queryKey: ['company', companyId], queryFn: () => getCompany(companyId), enabled: !!companyId });
   const { control, handleSubmit, reset, watch,formState:{isDirty,isValid} } = useForm<StoreInput>({ resolver: zodResolver(storeSchema), defaultValues: emptyStore,mode:'onChange' });
   const preview = watch();
   const canAddStore = canUseFeature('multi_store') || !stores.data?.length;
 
-  useEffect(() => { reset(editing ? storeValues(editing) : emptyStore); }, [editing, reset]);
+  // Une nouvelle boutique part de l'email de contact de l'entreprise (lui-même
+  // prérempli depuis l'email de connexion du propriétaire) au lieu d'un champ
+  // vide à retaper — reste modifiable librement ensuite, ce champ-ci n'est
+  // pas concerné par la demande d'approbation Super Admin.
+  useEffect(() => { reset(editing ? storeValues(editing) : { ...emptyStore, receiptEmail: company.data?.email ?? '' }); }, [editing, reset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = useMutation({
     mutationFn: (values: StoreInput) => saveStore(companyId, values, editing?.id),

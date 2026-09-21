@@ -21,6 +21,7 @@ type Payment = { id: string; company_name: string; client_email: string; plan_na
 type Promotion = { id: string; name: string; code: string | null; promotion_type: string; value: number; expires_at: string; is_active: boolean };
 type Ticket = { id: string; subject: string; description: string; priority: string; status: string; resolution: string | null; created_at: string; company: { name: string } | null };
 type DeletionRequest = { id: string; user_id: string; full_name: string; email: string; reason: string | null; status: string; requested_at: string; processed_at: string | null; processed_by_name: string | null };
+type EmailChangeRequest = { id: string; company_id: string; company_name: string; requested_by_name: string; target: 'account_email' | 'company_email'; current_email: string | null; requested_email: string; reason: string | null; status: string; requested_at: string; processed_at: string | null; processed_by_name: string | null; processed_note: string | null };
 type Audit = { id: string; action: string; entity_type: string; created_at: string; company: { name: string } | null; actor: { full_name: string } | null };
 type ErrorEvent = { id: string; severity: 'warning'|'error'|'fatal'; code: string; message: string; context: Record<string,unknown>; platform: string|null; app_version: string|null; created_at: string; resolved_at: string|null; resolution_note: string|null; company: { name:string }|null; user: { full_name:string }|null };
 type PlatformWarning = { warning_key:string; warning_type:string; severity:'info'|'warning'|'critical'; title:string; detail:string; company_ids:string[]; company_names:string[]; occurrence_count:number; detected_at:string; status:'open'|'ignored'|'resolved'; note:string|null };
@@ -87,12 +88,13 @@ function App() {
   const [planCatalog, setPlanCatalog] = useState<CatalogPlan[]>([]);
   const [errors, setErrors] = useState<ErrorEvent[]>([]); const [warnings, setWarnings] = useState<PlatformWarning[]>([]); const [emailSummary, setEmailSummary] = useState<EmailDeliverySummary[]>([]);
   const [deletionRequests, setDeletionRequests] = useState<DeletionRequest[]>([]);
+  const [emailRequests, setEmailRequests] = useState<EmailChangeRequest[]>([]);
   useEffect(() => { supabase.auth.getSession().then(async ({ data }) => { if (data.session) { const current = await getContext().catch(() => null); if (current?.role === 'super_admin') setContext(current); } setOpening(false); }); }, []);
   const load = useCallback(async () => {
     if (!context) return;
     setBusy(true); setError('');
     try {
-      const [s, c, u, p, pr, t, a, b, subscriptions, e, w, em, catalog, dr] = await Promise.all([
+      const [s, c, u, p, pr, t, a, b, subscriptions, e, w, em, catalog, dr, ecr] = await Promise.all([
         supabase.rpc('super_admin_dashboard'),
         supabase.rpc('super_admin_companies'),
         supabase.rpc('super_admin_users'),
@@ -107,6 +109,7 @@ function App() {
         supabase.rpc('super_admin_email_delivery_summary'),
         supabase.from('plans').select('code,name').eq('is_active', true).order('monthly_price'),
         supabase.rpc('super_admin_account_deletion_requests'),
+        supabase.rpc('super_admin_email_change_requests'),
       ]);
       for (const result of [s, c, u, p, subscriptions, catalog, b]) if (result.error) throw result.error;
       const latestByCompany = new Map<string, SubscriptionLifecycle>();
@@ -131,7 +134,8 @@ function App() {
       if (!w.error) setWarnings((w.data ?? []) as PlatformWarning[]);
       if (!em.error) setEmailSummary((em.data ?? []) as EmailDeliverySummary[]);
       if (!dr.error) setDeletionRequests((dr.data ?? []) as DeletionRequest[]);
-      const failures: [View, unknown][] = [['Promotions', pr.error], ['Support', t.error], ['Activité', a.error], ['Erreurs', e.error], ['Avertissements', w.error || em.error], ['Suppressions', dr.error]];
+      if (!ecr.error) setEmailRequests((ecr.data ?? []) as EmailChangeRequest[]);
+      const failures: [View, unknown][] = [['Promotions', pr.error], ['Support', t.error], ['Activité', a.error], ['Erreurs', e.error], ['Avertissements', w.error || em.error], ['Suppressions', dr.error], ['Emails', ecr.error]];
       const missingSections = failures.filter(([, failure]) => failure).map(([section]) => section);
       setUnavailableViews(missingSections);
       if(missingSections.length) setError(`Chargement incomplet : ${missingSections.join(', ')}. Vérifiez les migrations du serveur puis actualisez.`);
@@ -151,6 +155,7 @@ function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_transactions' }, () => { void load(); })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'app_error_events' }, () => { setNotice('Une nouvelle erreur applicative a été enregistrée.'); void load(); })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'account_deletion_requests' }, () => { setNotice('Nouvelle demande de suppression de compte.'); void load(); })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'email_change_requests' }, () => { setNotice('Nouvelle demande de modification d’email.'); void load(); })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [context, load]);
@@ -167,6 +172,7 @@ function App() {
   if (stats && !unavailableViews.includes('Paiements')) counts.Paiements = payments.filter(payment => !payment.archived_at && ['pending', 'processing'].includes(payment.status)).length;
   if (stats && !unavailableViews.includes('Support')) counts.Support = tickets.filter(ticket => ['open', 'in_progress'].includes(ticket.status)).length;
   if (stats && !unavailableViews.includes('Suppressions')) counts.Suppressions = deletionRequests.filter(request => ['pending', 'processing'].includes(request.status)).length;
+  if (stats && !unavailableViews.includes('Emails')) counts.Emails = emailRequests.filter(request => request.status === 'pending').length;
   if (stats && !unavailableViews.includes('Erreurs')) counts.Erreurs = errors.filter(item => !item.resolved_at).length;
   if (stats && !unavailableViews.includes('Avertissements')) counts.Avertissements = warnings.filter(item => item.status === 'open').length;
   const navigation = { view, onNavigate: changeView, onLogout: () => void logout(), counts };
@@ -185,6 +191,7 @@ function App() {
         {view === 'Paiements' && <Payments data={shownPayments} search={search} setSearch={setSearch} status={status} setStatus={setStatus} run={run} proof={proof}/>}
         {view === 'Promotions' && <Promotions data={promotions} run={run}/>}
         {view === 'Suppressions' && <AccountDeletions data={deletionRequests} run={run}/>}
+        {view === 'Emails' && <EmailChangeRequests data={emailRequests} run={run}/>}
         {view === 'Support' && <Support data={tickets} run={run}/>}
         {view === 'Erreurs' && <ErrorsPage data={errors} run={run}/>}
         {view === 'Avertissements' && <WarningsPage data={warnings} emailSummary={emailSummary} run={run}/>}
@@ -487,6 +494,51 @@ function AccountDeletions({ data, run }: { data: DeletionRequest[]; run: Run }) 
       </tr>)}
     </Table>
     {!filtered.length && <div className="monitoringEmpty"><i>✓</i><b>Aucune demande</b><span>Aucune demande de suppression ne correspond à ces filtres.</span></div>}
+  </>;
+}
+
+const emailTargetLabel: Record<string, string> = { account_email: 'Email de connexion', company_email: 'Email de l’entreprise' };
+function EmailChangeRequests({ data, run }: { data: EmailChangeRequest[]; run: Run }) {
+  const [query, setQuery] = useState(''); const [requestStatus, setRequestStatus] = useState('pending');
+  const filtered = data.filter(request => (!query.trim() || `${request.company_name} ${request.requested_by_name} ${request.requested_email}`.toLowerCase().includes(query.toLowerCase().trim())) && (requestStatus === 'all' || request.status === requestStatus));
+  function approve(request: EmailChangeRequest) {
+    if (!window.confirm(`Approuver le changement de « ${request.current_email || 'aucun email'} » vers « ${request.requested_email} » pour ${request.company_name} ?`)) return;
+    void run(() => supabase.rpc('super_admin_review_email_change_request', { p_id: request.id, p_approve: true, p_note: null }), 'Demande approuvée.');
+  }
+  function reject(request: EmailChangeRequest) {
+    const note = promptReason(`Motif obligatoire pour refuser la demande de ${request.company_name} :`);
+    if (!note) return;
+    void run(() => supabase.rpc('super_admin_review_email_change_request', { p_id: request.id, p_approve: false, p_note: note }), 'Demande refusée.');
+  }
+  return <><Title description={pageDescriptions.Emails}>Demandes de modification d’email</Title>
+    <div className="warningBox">L’email de connexion et l’email de contact de l’entreprise partent tous les deux de l’email du Propriétaire et ne sont plus modifiables directement par un administrateur — chaque changement passe par une demande ici. « Email de connexion » reste à confirmer par l’admin lui-même une fois approuvé (Supabase Auth envoie sa propre confirmation à la nouvelle adresse) ; « Email de l’entreprise » est appliqué immédiatement à l’approbation.</div>
+    <Toolbar search={query} setSearch={setQuery}>
+      <select value={requestStatus} onChange={event => setRequestStatus(event.target.value)}>
+        <option value="all">Tous les statuts</option>
+        <option value="pending">En attente</option>
+        <option value="approved">Approuvées</option>
+        <option value="rejected">Refusées</option>
+        <option value="cancelled">Appliquées</option>
+      </select>
+      {(query || requestStatus !== 'pending') && <button className="resetFilters" onClick={() => { setQuery(''); setRequestStatus('pending'); }}>Réinitialiser</button>}
+    </Toolbar>
+    <Table heads={['Entreprise', 'Demandée par', 'Cible', 'Email actuel', 'Nouvel email', 'Motif', 'Demandée le', 'Statut', 'Action']}>
+      {filtered.map(request => <tr key={request.id}>
+        <td><b>{request.company_name}</b></td>
+        <td>{request.requested_by_name}</td>
+        <td>{emailTargetLabel[request.target] ?? request.target}</td>
+        <td>{request.current_email || '—'}</td>
+        <td><b>{request.requested_email}</b></td>
+        <td>{request.reason || '—'}</td>
+        <td>{day(request.requested_at)}</td>
+        <td><Badge ok={request.status === 'approved' || request.status === 'cancelled'}>{request.status === 'cancelled' ? 'appliquée' : request.status}</Badge></td>
+        <td><RowActions>
+          {request.status === 'pending' && <button className="successBtn" onClick={() => approve(request)}>Approuver</button>}
+          {request.status === 'pending' && <button className="warnBtn" onClick={() => reject(request)}>Refuser</button>}
+        </RowActions></td>
+      </tr>)}
+    </Table>
+    {!filtered.length && <div className="monitoringEmpty"><i>✓</i><b>Aucune demande</b><span>Aucune demande de modification d’email ne correspond à ces filtres.</span></div>}
   </>;
 }
 

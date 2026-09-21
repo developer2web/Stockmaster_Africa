@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Card, HelperText, Switch, Text, TextInput } from 'react-native-paper';
+import { Card, Dialog, HelperText, Portal, Switch, Text, TextInput } from 'react-native-paper';
 
 import { FormField } from '@/components/forms/FormField';
 import { SelectField } from '@/components/forms/SelectField';
@@ -19,6 +19,8 @@ import {
 import { companySchema, CompanyInput } from '@/schemas/organization';
 import { useSubscription } from '@/features/subscriptions/SubscriptionProvider';
 import { FeatureGate } from '@/components/subscriptions/FeatureGate';
+import { getMyEmailChangeRequests, requestEmailChange } from '@/features/account/api';
+import { readableError } from '@/utils/errors';
 
 export default function CompanyScreen() {
   const { membership, refreshMembership } = useAuth();
@@ -42,6 +44,15 @@ export default function CompanyScreen() {
   const [primaryCurrency, setPrimaryCurrency] = useState('');
   const [secondaryCurrency, setSecondaryCurrency] = useState<string | null>(null);
   const [settings,setSettings]=useState({phone:'',email:'',address:'',language:'fr' as 'fr'|'en',taxRate:'0',allowDiscounts:false,allowCreditSales:true,allowNegativeStock:false,maxDiscountPercent:'100',requireRefundReason:true,cashOpeningRequired:false,cashVarianceReasonThreshold:'0',expenseApprovalThreshold:'',lowStockAlerts:true,receiptFooter:''});
+  const [emailDialogOpen,setEmailDialogOpen]=useState(false);
+  const [newCompanyEmail,setNewCompanyEmail]=useState('');
+  const [companyEmailReason,setCompanyEmailReason]=useState('');
+  const emailRequests=useQuery({queryKey:['email-change-requests',companyId],queryFn:()=>getMyEmailChangeRequests(companyId),enabled:!!companyId});
+  const pendingCompanyEmailRequest=emailRequests.data?.find((request)=>request.target==='company_email'&&request.status==='pending');
+  const companyEmailMutation=useMutation({
+    mutationFn:()=>requestEmailChange(companyId,'company_email',newCompanyEmail,companyEmailReason),
+    onSuccess:async()=>{setEmailDialogOpen(false);setNewCompanyEmail('');setCompanyEmailReason('');await queryClient.invalidateQueries({queryKey:['email-change-requests',companyId]});},
+  });
 
   useEffect(() => {
     if (!company.data) return;
@@ -136,8 +147,19 @@ export default function CompanyScreen() {
       <Card mode="outlined">
         <Card.Title title="Coordonnées" subtitle="Informations visibles pour les clients et les équipes" />
         <Card.Content style={{ gap: 12 }}>
-          <TextInput mode="outlined" label="Téléphone" accessibilityLabel="Téléphone" value={settings.phone} onChangeText={(phone) => setSettings((value) => ({ ...value, phone }))} />
-          <TextInput mode="outlined" label="Email" accessibilityLabel="Email" keyboardType="email-address" value={settings.email} onChangeText={(email) => setSettings((value) => ({ ...value, email }))} />
+          <TextInput mode="outlined" label="Téléphone" accessibilityLabel="Téléphone" keyboardType="phone-pad" value={settings.phone} onChangeText={(phone) => setSettings((value) => ({ ...value, phone }))} />
+          {/* L'email de contact de l'entreprise part de l'email de connexion
+              du propriétaire et sert de valeur par défaut ailleurs (reçus
+              des boutiques...) — sa modification passe par une demande
+              approuvée par le Super Admin plutôt qu'un champ libre, pour
+              éviter qu'il change silencieusement (facturation, retrouver
+              l'accès au compte). */}
+          <TextInput mode="outlined" label="Email" accessibilityLabel="Email" editable={false} value={settings.email || 'Non renseigné'} right={<TextInput.Icon icon="lock-outline" />} />
+          {pendingCompanyEmailRequest ? (
+            <HelperText type="info" visible>Demande en attente d’approbation par le Super Admin : {pendingCompanyEmailRequest.requestedEmail}</HelperText>
+          ) : (
+            <AppButton mode="outlined" icon="email-edit-outline" onPress={() => { setNewCompanyEmail(settings.email); setEmailDialogOpen(true); }}>Demander la modification de l’email</AppButton>
+          )}
           <TextInput mode="outlined" label="Adresse" accessibilityLabel="Adresse" value={settings.address} onChangeText={(address) => setSettings((value) => ({ ...value, address }))} />
           {/* Audit externe (SM-09) : cette carte n'avait pas de bouton
               d'enregistrement à elle (seul celui de "Règles de vente", plus
@@ -195,6 +217,21 @@ export default function CompanyScreen() {
       </FeatureGate>
 
       {!!settingsMutation.error && <HelperText type="error" visible>{settingsMutation.error.message}</HelperText>}
+      <Portal>
+        <Dialog visible={emailDialogOpen} onDismiss={() => setEmailDialogOpen(false)}>
+          <Dialog.Title>Demander la modification de l’email</Dialog.Title>
+          <Dialog.Content style={{ gap: 12 }}>
+            <Text>Cette demande sera envoyée au Super Admin pour approbation.</Text>
+            <TextInput mode="outlined" label="Nouvel email" accessibilityLabel="Nouvel email" keyboardType="email-address" autoCapitalize="none" value={newCompanyEmail} onChangeText={setNewCompanyEmail} />
+            <TextInput mode="outlined" label="Motif (facultatif)" accessibilityLabel="Motif" value={companyEmailReason} onChangeText={setCompanyEmailReason} />
+            {!!companyEmailMutation.error && <HelperText type="error" visible>{readableError(companyEmailMutation.error)}</HelperText>}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <AppButton mode="text" onPress={() => setEmailDialogOpen(false)}>Annuler</AppButton>
+            <AppButton loading={companyEmailMutation.isPending} disabled={!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(newCompanyEmail.trim())} onPress={() => companyEmailMutation.mutate()}>Envoyer la demande</AppButton>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </AdminPage>
   );
 }

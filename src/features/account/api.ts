@@ -74,3 +74,27 @@ export type AdminAccessRequest = { id:string;company_name:string;store_name:stri
 export async function getMyAdminAccessRequest(){const{data,error}=await supabase.from('admin_access_requests').select('id,company_name,store_name,country_code,status,review_reason,created_at').order('created_at',{ascending:false}).limit(1).maybeSingle();if(error)throw new Error(userErrorMessage(error));return data as AdminAccessRequest|null}
 export async function requestAdminAccess(input:{companyName:string;storeName:string;countryCode:string}){const{data,error}=await supabase.rpc('request_admin_access',{p_company_name:input.companyName,p_store_name:input.storeName,p_country_code:input.countryCode});if(error)throw new Error(userErrorMessage(error));return data as string}
 export async function finalizeAdminAccess(requestId:string){const{data,error}=await supabase.rpc('finalize_approved_admin_access',{p_request_id:requestId});if(error)throw new Error(userErrorMessage(error));return data as string}
+
+export type EmailChangeTarget='account_email'|'company_email';
+export type EmailChangeRequest={id:string;target:EmailChangeTarget;currentEmail:string|null;requestedEmail:string;reason:string|null;status:'pending'|'approved'|'rejected'|'cancelled';requestedAt:string;processedAt:string|null;processedNote:string|null};
+const mapEmailChangeRequest=(row:{id:string;target:EmailChangeTarget;current_email:string|null;requested_email:string;reason:string|null;status:EmailChangeRequest['status'];requested_at:string;processed_at:string|null;processed_note:string|null}):EmailChangeRequest=>({id:row.id,target:row.target,currentEmail:row.current_email,requestedEmail:row.requested_email,reason:row.reason,status:row.status,requestedAt:row.requested_at,processedAt:row.processed_at,processedNote:row.processed_note});
+
+/** Dépose (ou remplace) la demande "pending" en cours pour cette entreprise et cette cible — approbation exclusivement réservée au Super Admin. */
+export async function requestEmailChange(companyId:string,target:EmailChangeTarget,newEmail:string,reason?:string){
+  const{error}=await supabase.rpc('request_email_change',{p_company_id:companyId,p_target:target,p_new_email:newEmail.trim(),p_reason:reason?.trim()||null});
+  if(error)throw new Error(userErrorMessage(error));
+}
+
+/** Dernière demande (toute cible confondue) pour cette entreprise, afin d'afficher son statut à l'admin qui l'a déposée. */
+export async function getMyEmailChangeRequests(companyId:string):Promise<EmailChangeRequest[]>{
+  const{data,error}=await supabase.from('email_change_requests').select('id,target,current_email,requested_email,reason,status,requested_at,processed_at,processed_note').eq('company_id',companyId).order('requested_at',{ascending:false}).limit(10);
+  if(error)throw new Error(userErrorMessage(error));
+  return (data??[]).map(mapEmailChangeRequest);
+}
+
+/** Une fois la demande "account_email" approuvée par le Super Admin, déclenche le changement officiel via Supabase Auth (confirmation envoyée à la nouvelle adresse), puis marque la demande appliquée. */
+export async function applyApprovedAccountEmailChange(request:EmailChangeRequest){
+  const{error}=await supabase.auth.updateUser({email:request.requestedEmail});
+  if(error)throw new Error(userErrorMessage(error));
+  await supabase.rpc('acknowledge_email_change_applied',{p_id:request.id});
+}
