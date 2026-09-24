@@ -6,6 +6,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { ProductThumbnail } from './ProductThumbnail';
 import { deleteProductImage, updateProductImages, uploadProductImage } from '@/features/products/images';
 import { readableError } from '@/utils/errors';
+import { invalidateProductCaches } from '@/utils/queryInvalidation';
 
 // Sur un ordinateur, le navigateur n'a pas de mode « prendre une photo » : sans ce message, le
 // bouton Photo semblait ne rien faire. Un navigateur de téléphone ou de tablette garde la vraie capture (détecté par son user-agent : un écran tactile
@@ -29,14 +30,14 @@ export function ProductImagesCard({ productId, companyId, storeId, urls }: { pro
       await updateProductImages(productId, next);
       if (replace) await deleteProductImage(replace);
     },
-    onSuccess: () => cache.invalidateQueries({ queryKey: ['product', productId] }),
+    onSuccess: () => invalidateProductCaches(cache, companyId, storeId, productId),
   });
   const remove = useMutation({
     mutationFn: async (url: string) => {
       await updateProductImages(productId, urls.filter((item) => item !== url));
       await deleteProductImage(url);
     },
-    onSuccess: () => cache.invalidateQueries({ queryKey: ['product', productId] }),
+    onSuccess: () => invalidateProductCaches(cache, companyId, storeId, productId),
   });
   return <Card mode="outlined">
     <Card.Title title="Images du produit" subtitle={`${urls.length}/2 • facultatives`} />

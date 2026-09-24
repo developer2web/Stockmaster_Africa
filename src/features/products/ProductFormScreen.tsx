@@ -28,7 +28,7 @@ import { productSchema, ProductInput, variantSchema, VariantInput } from '@/sche
 import type { ProductVariant } from '@/types/database';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { formatQuantity, numericFieldValue, parseWholeNumber } from '@/utils/number';
-import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
+import { invalidateOperationalSummaries, invalidateProductCaches } from '@/utils/queryInvalidation';
 import { readableError } from '@/utils/errors';
 
 const defaults: ProductInput = { name:'', description:'', sku:'', barcode:'',  supplierId:null, unit:'piece', purchasePrice:'', salePrice:'', initialQuantity:'0', lowStockThreshold:'5', isActive:true, bulkEnabled:false, bulkUnitLabel:'', bulkQuantity:'', bulkPrice:'', bulkPurchasePrice:'' };
@@ -199,7 +199,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   const [pendingSave,setPendingSave] = useState<ProductInput|null>(null);
   const [similarProduct,setSimilarProduct] = useState<{id:string;name:string}|null>(null);
   const [checkingDuplicate,setCheckingDuplicate] = useState(false);
-  const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onError:(error)=>{ if(error instanceof ProductFieldError)setError(error.field,{type:'server',message:error.fieldMessage},{shouldFocus:true}) }, onSuccess:async(saved)=>{ clearDraft(); leaveAllowed.current=true; await Promise.all([qc.invalidateQueries({queryKey:['products',company,store]}),qc.invalidateQueries({queryKey:['employee-products',company,store]}),qc.invalidateQueries({queryKey:['employee-catalog-products',company,store]}),qc.invalidateQueries({queryKey:['product',saved]}),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),qc.invalidateQueries({queryKey:['sale-stock',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace({pathname:basePath as never,params:{notice:id?'produit_modifie':'produit_enregistre'}}); } });
+  const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onError:(error)=>{ if(error instanceof ProductFieldError)setError(error.field,{type:'server',message:error.fieldMessage},{shouldFocus:true}) }, onSuccess:async(saved)=>{ clearDraft(); leaveAllowed.current=true; await Promise.all([invalidateProductCaches(qc,company,store,saved),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace({pathname:basePath as never,params:{notice:id?'produit_modifie':'produit_enregistre'}}); } });
   // Une erreur d'enregistrement (doublon, réseau...) ne doit pas rester affichée une fois le
   // formulaire modifié : la personne est en train de la corriger.
   const saveRef = useRef(save);
