@@ -214,6 +214,7 @@ export default function NewSale() {
   return (
     <AdminPage
       title="Nouvelle vente"
+      wide
       onContentWidthChange={setContentWidth}
       description="Choisissez les articles, puis vérifiez le panier et le paiement."
       scrollResetKey={step}
@@ -297,7 +298,9 @@ export default function NewSale() {
       {issue && <HelperText type="info" visible accessibilityLiveRegion="polite">{issue}</HelperText>}
       {!!companySettings.error && <AppButton mode="text" onPress={() => void companySettings.refetch()}>Recharger les règles de vente</AppButton>}
       {!desktop && <AppButton mode="text" icon="plus" onPress={() => setStep('products')}>Ajouter des articles</AppButton>}
-      {!!items.length && companySettings.data?.allow_discounts && <AppButton mode="text" icon="percent" onPress={() => setShowDiscounts(value => !value)}>{showDiscounts ? 'Masquer les remises' : 'Appliquer une remise'}</AppButton>}
+      {/* mode="outlined" plutôt que "text" (comme les autres actions ci-dessus) : retour
+          testeur du 24/09, le bouton passait inaperçu au milieu d'actions plus secondaires. */}
+      {!!items.length && companySettings.data?.allow_discounts && <AppButton mode="outlined" icon="percent" onPress={() => setShowDiscounts(value => !value)}>{showDiscounts ? 'Masquer les remises' : 'Appliquer une remise'}</AppButton>}
       {!!items.length && companySettings.data && !companySettings.data.allow_discounts && !employee && <HelperText type="info" visible>Les remises sont désactivées pour cette entreprise. Activez-les depuis Entreprise (Plus &gt; Boutique) pour les proposer ici.</HelperText>}
       {!items.length && (
         <Card mode="outlined">

@@ -24,7 +24,7 @@ const descriptions:Record<string,string>={
   'Nouvelle vente':'Ajoutez les produits, choisissez le client puis encaissez.',
 };
 
-export function AdminPage({ title, description, action, floatingAction, backToHome = false, backTo, onBackPress, scrollResetKey, onContentWidthChange, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; backTo?: string; onBackPress?: (proceed: () => void) => void; scrollResetKey?: string; onContentWidthChange?: (width: number) => void }>) {
+export function AdminPage({ title, description, action, floatingAction, backToHome = false, backTo, onBackPress, scrollResetKey, onContentWidthChange, wide = false, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; backTo?: string; onBackPress?: (proceed: () => void) => void; scrollResetKey?: string; onContentWidthChange?: (width: number) => void; wide?: boolean }>) {
   const theme = useTheme();
   const { session, membership, offlineAuthenticated, lockOfflineSession } = useAuth();
   const { signOut, signingOut } = useSignOutAction();
@@ -69,9 +69,15 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
   // repère continu discret en plus, pas à la place de l'alerte urgente ci-dessus.
   const showTrialBanner = !showRenewalWarning && subscription?.status === 'trialing' && remainingDays !== null && remainingDays >= 0;
   if (!isFocused) return null;
+  // Les écrans employé sont plafonnés plus étroit que ceux du propriétaire (grille de
+  // cartes du menu, pensée pour rester compacte). `wide` lève ce plafond pour un écran
+  // employé précis qui a vraiment besoin de la largeur, comme un panneau catalogue +
+  // panier côte à côte : sans lui, l'espace disponible sur un grand écran reste inutilisé
+  // (retour testeur du 24/09, écran « Nouvelle vente »).
+  const maxContentWidth = employee && !wide ? 1100 : design.contentMaxWidth;
   return (
     <KeyboardAvoidingView
-      onLayout={event => onContentWidthChange?.(Math.max(0, Math.min(event.nativeEvent.layout.width, employee ? 1100 : design.contentMaxWidth) - (compact ? 24 : 40)))}
+      onLayout={event => onContentWidthChange?.(Math.max(0, Math.min(event.nativeEvent.layout.width, maxContentWidth) - (compact ? 24 : 40)))}
       style={[styles.flex, { backgroundColor: pageBackground }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
@@ -103,7 +109,7 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
         ref={scrollRef}
         style={styles.scroll}
         nestedScrollEnabled
-        contentContainerStyle={[styles.page, employee && styles.employeePage, compact && styles.compactPage]}
+        contentContainerStyle={[styles.page, employee && styles.employeePage, employee && wide && { maxWidth: design.contentMaxWidth }, compact && styles.compactPage]}
         keyboardShouldPersistTaps="handled"
         // Web : 'on-drag' fermait le clavier (donc retirait le focus du champ en cours de saisie) à
         // chaque défilement, y compris celui déclenché seul quand la page raccourcit (un message

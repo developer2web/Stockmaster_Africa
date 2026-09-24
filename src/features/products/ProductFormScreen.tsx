@@ -268,7 +268,11 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
       {!id && <Card mode="outlined">
         <Card.Title title="Images du produit" subtitle="facultatives" />
         <Card.Content style={styles.formContent}>
-          <Text variant="bodyMedium">Vous pourrez ajouter des images depuis cette fiche une fois le produit enregistré.</Text>
+          {/* Retour testeur du 24/09 (« pourquoi faut-il enregistrer avant d'ajouter une
+              image ? ») : chaque image est rangée dans le stockage sous l'identifiant du
+              produit, qui n'existe qu'après l'enregistrement — le texte l'explique
+              maintenant au lieu de se contenter d'annoncer la contrainte. */}
+          <Text variant="bodyMedium">Chaque image est associée à la fiche du produit une fois créée : enregistrez d’abord le produit, vous pourrez ensuite en ajouter ici.</Text>
         </Card.Content>
       </Card>}
       {!productVariants.length && <Controller control={control} name="bulkEnabled" render={({ field: bulkField }) => <Card mode="outlined">
