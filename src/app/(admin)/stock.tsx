@@ -51,10 +51,8 @@ export default function StockScreen() {
       description="Consultez les quantités disponibles. Pour vérifier les quantités réelles, utilisez Compter le stock."
       action={<View style={{flexDirection:'row',alignItems:'center'}}><IconButton accessibilityLabel="Compter le stock" icon="clipboard-list-outline" onPress={()=>router.push('/inventory-count' as never)}/><IconButton accessibilityLabel="Scanner un produit" icon="barcode-scan" onPress={() => router.push('/scanner' as never)} /></View>}
     >
+      {/* Retour testeur du 24/09 : icône retirée (demande explicite). */}
       <View style={[styles.summary, compact && styles.compactSummary, { backgroundColor: theme.colors.primaryContainer }]}>
-        <View style={[styles.summaryIcon, { backgroundColor: theme.colors.primary }]}>
-          <Icon source="warehouse" size={30} color={theme.colors.onPrimary} />
-        </View>
         <View style={styles.metrics}>
           <Metric compact={compact} label="Produits référencés" value={String(new Set(rows.map((row) => row.product_id)).size)} />
           <Metric compact={compact} label="Quantité totale" value={formatQuantity(total)} />
@@ -128,7 +126,10 @@ function Metric({ compact, label, value }: { compact: boolean; label: string; va
   return (
     <View style={[styles.metric, compact && styles.compactMetric]}>
       <Text style={{ color: theme.colors.onPrimaryContainer }}>{label}</Text>
-      <Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={styles.bold}>{value}</Text>
+      {/* Retour testeur du 24/09 : un montant à 10+ chiffres (ex. valeur de stock à plus d'un
+          milliard de GNF) finissait tronqué par « … » même à l'échelle minimale précédente —
+          police plus petite par défaut (titleMedium) et davantage de marge pour rétrécir. */}
+      <Text variant="titleMedium" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={styles.bold}>{value}</Text>
     </View>
   );
 }
@@ -136,7 +137,6 @@ function Metric({ compact, label, value }: { compact: boolean; label: string; va
 const styles = StyleSheet.create({
   summary: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18, padding: 20, borderRadius: 24 },
   compactSummary: { flexDirection: 'column', alignItems: 'stretch', padding: 16 },
-  summaryIcon: { width: 58, height: 58, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   metrics: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   metric: { flexGrow: 1, flexBasis: 130, minWidth: 0 },
   compactMetric: { flexBasis: '45%' },

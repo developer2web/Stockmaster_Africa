@@ -123,12 +123,14 @@ export default function CashScreen() {
 
   return (
     <AdminPage title="Caisse" description="">
+      {/* Retour testeur du 24/09 : icône retirée (demande explicite) ; montant sur police plus
+          petite par défaut avec davantage de marge pour rétrécir, un solde à 10+ chiffres
+          finissait tronqué par « … » même à l'échelle minimale précédente. */}
       <Card mode="contained" style={[styles.balance, { backgroundColor: theme.colors.primaryContainer }]}>
         <Card.Content style={styles.balanceContent}>
-          <View style={[styles.wallet, { backgroundColor: theme.colors.primary }]}><Icon source="wallet-outline" size={32} color={theme.colors.onPrimary} /></View>
           <View style={styles.grow}>
             <Text style={{ color: theme.colors.onPrimaryContainer }}>Solde de {membership?.storeName ?? 'la boutique'}</Text>
-            <Text variant="displaySmall" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55} style={[styles.bold, { color: balance < 0 ? theme.colors.error : theme.colors.onPrimaryContainer }]}>{money(balance)}</Text>
+            <Text variant="headlineSmall" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.45} style={[styles.bold, { color: balance < 0 ? theme.colors.error : theme.colors.onPrimaryContainer }]}>{money(balance)}</Text>
           </View>
         </Card.Content>
       </Card>
@@ -216,7 +218,6 @@ export default function CashScreen() {
 const styles = StyleSheet.create({
   balance: { borderRadius: 26 },
   balanceContent: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14 },
-  wallet: { width: 58, height: 58, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   grow: { flex: 1, minWidth: 0 },
   bold: { fontWeight: '800' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
