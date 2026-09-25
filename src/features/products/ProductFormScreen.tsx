@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Dialog, HelperText, Icon, Portal, Switch, Text } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
@@ -13,6 +13,7 @@ import { DIALOG_TITLE_PADDING, DialogCloseButton } from '@/components/ui/DialogC
 import { useLeaveGuard } from '@/components/ui/leaveGuard';
 import { plural } from '@/utils/plural';
 import { ProductImagesCard } from '@/components/products/ProductImagesCard';
+import { PendingProductImagesCard, type PendingImage } from '@/components/products/PendingProductImagesCard';
 import { StockAdjustmentDialog } from '@/components/products/StockAdjustmentDialog';
 import { FormField } from '@/components/forms/FormField';
 import { SelectField } from '@/components/forms/SelectField';
@@ -23,6 +24,7 @@ import { getStockLevels } from '@/features/inventory/api';
 import { useStockRealtime } from '@/hooks/useStockRealtime';
 import { canAutofill, lotMargin, lotPriceFromUnit, unitPriceFromLot } from './bulkPricing';
 import { ProductFieldError, deleteProduct, deleteVariant, findSimilarProduct, getProduct, getSuppliers, saveProduct, saveVariant } from './api';
+import { updateProductImages, uploadPreparedImage } from './images';
 import { lookupOpenFoodFacts, type OpenFoodFactsMatch } from './openFoodFacts';
 import { productSchema, ProductInput, variantSchema, VariantInput } from '@/schemas/catalog';
 import type { ProductVariant } from '@/types/database';
@@ -55,6 +57,11 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   const suppliers = useQuery({ queryKey:['suppliers',company,store], queryFn:()=>getSuppliers(company,store), enabled:!!company&&!!store });
   const { control, handleSubmit, reset, setValue, getValues, trigger, setError, watch, formState:{errors,isDirty,isValid,dirtyFields} } = useForm({ resolver:zodResolver(productSchema), defaultValues:{...defaults,barcode:initialBarcode??''},mode:'onChange' });
   const levels = useQuery({queryKey:['stock-levels',company,store,id],queryFn:()=>getStockLevels(company,id,store),enabled:!!company&&!!store&&!!id});
+  // Images choisies avant l'enregistrement (produit pas encore créé, voir PendingProductImagesCard) :
+  // envoyées juste après avoir obtenu l'identifiant du nouveau produit, dans le onSuccess de `save`
+  // plus bas. Comptent aussi comme une modification non enregistrée (voir hasUnsavedChanges).
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const hasUnsavedChanges = isDirty || pendingImages.length > 0;
   // Prix par unité dans le lot, calculé en direct pour que le vendeur voie
   // tout de suite s'il vend vraiment moins cher en gros — sans avoir à
   // sortir une calculette.
@@ -161,21 +168,21 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   const navigation = useNavigation();
   const leaveAllowed = useRef(false);
   const [leaveProceed, setLeaveProceed] = useState<(() => void) | null>(null);
-  usePreventRemove(isDirty, ({ data }) => {
+  usePreventRemove(hasUnsavedChanges, ({ data }) => {
     if (leaveAllowed.current) navigation.dispatch(data.action);
     else setLeaveProceed(() => () => navigation.dispatch(data.action));
   });
   const requestLeave = (proceed: () => void) => {
-    if (!isDirty || leaveAllowed.current) proceed();
+    if (!hasUnsavedChanges || leaveAllowed.current) proceed();
     else setLeaveProceed(() => proceed);
   };
-  useLeaveGuard(isDirty, requestLeave);
+  useLeaveGuard(hasUnsavedChanges, requestLeave);
   useEffect(() => {
-    if (Platform.OS !== 'web' || !isDirty) return;
+    if (Platform.OS !== 'web' || !hasUnsavedChanges) return;
     const warn = (event: BeforeUnloadEvent) => { if (leaveAllowed.current) return; event.preventDefault(); event.returnValue = ''; };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [isDirty]);
+  }, [hasUnsavedChanges]);
   // Brouillon (création, web) : les saisies sont gardées dans sessionStorage — propre à l'onglet,
   // qui survit à une actualisation mais pas à sa fermeture. Une actualisation ne fait donc plus
   // perdre le formulaire ; le brouillon est effacé à l'enregistrement, quand on quitte volontairement,
@@ -211,7 +218,20 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   const [pendingSave,setPendingSave] = useState<ProductInput|null>(null);
   const [similarProduct,setSimilarProduct] = useState<{id:string;name:string}|null>(null);
   const [checkingDuplicate,setCheckingDuplicate] = useState(false);
-  const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onError:(error)=>{ if(error instanceof ProductFieldError)setError(error.field,{type:'server',message:error.fieldMessage},{shouldFocus:true}) }, onSuccess:async(saved)=>{ clearDraft(); leaveAllowed.current=true; await Promise.all([invalidateProductCaches(qc,company,store,saved),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace({pathname:basePath as never,params:{notice:id?'produit_modifie':'produit_enregistre'}}); } });
+  const save = useMutation({ mutationFn:(v:ProductInput)=>saveProduct(company,store,v,id), onError:(error)=>{ if(error instanceof ProductFieldError)setError(error.field,{type:'server',message:error.fieldMessage},{shouldFocus:true}) }, onSuccess:async(saved)=>{
+    clearDraft(); leaveAllowed.current=true;
+    if (!id && pendingImages.length) {
+      // Un échec ici ne doit jamais bloquer la confirmation ni la navigation : le produit est
+      // déjà bien enregistré, seule la photo reste à réessayer, depuis sa fiche désormais existante.
+      try {
+        const urls: string[] = [];
+        for (const picked of pendingImages) urls.push(await uploadPreparedImage(picked, company, store, saved));
+        await updateProductImages(saved, urls);
+      } catch (error) {
+        Alert.alert('Produit enregistré', readableError(error, 'Le produit est enregistré, mais l’image n’a pas pu être envoyée. Réessayez depuis sa fiche.'));
+      }
+    }
+    await Promise.all([invalidateProductCaches(qc,company,store,saved),qc.invalidateQueries({queryKey:['stock-levels',company,store]}),invalidateOperationalSummaries(qc,company,store)]); if(returnTo)router.replace({pathname:returnTo as never,params:{productId:saved,scanToken:String(Date.now())}});else router.replace({pathname:basePath as never,params:{notice:id?'produit_modifie':'produit_enregistre'}}); } });
   // Une erreur d'enregistrement (doublon, réseau...) ne doit pas rester affichée une fois le
   // formulaire modifié : la personne est en train de la corriger.
   const saveRef = useRef(save);
@@ -248,7 +268,7 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
     {!!product.error && <><HelperText type="error" visible>{readableError(product.error)}</HelperText><AppButton mode="text" onPress={() => void product.refetch()}>Réessayer le chargement</AppButton></>}
     {!!levels.error&&<HelperText type="error" visible>{readableError(levels.error)}</HelperText>}
     {(!id || product.data) && <View style={styles.form}>
-      {draftRestored && <Card mode="outlined"><Card.Content style={styles.draftBanner}><Text style={styles.draftText}>Brouillon restauré : vos dernières saisies non enregistrées ont été rechargées.</Text><AppButton compact mode="text" onPress={() => { clearDraft(); reset({ ...defaults, barcode: initialBarcode ?? '' }); setDraftRestored(false); }}>Repartir de zéro</AppButton></Card.Content></Card>}
+      {draftRestored && <Card mode="outlined"><Card.Content style={styles.draftBanner}><Text style={styles.draftText}>Brouillon restauré : vos dernières saisies non enregistrées ont été rechargées.</Text><AppButton compact mode="text" onPress={() => { clearDraft(); reset({ ...defaults, barcode: initialBarcode ?? '' }); setDraftRestored(false); setPendingImages([]); }}>Repartir de zéro</AppButton></Card.Content></Card>}
       <Card mode="outlined">
         <Card.Content style={[styles.formContent, styles.essentialFields]}>
           <FormField control={control} name="name" label="Nom du produit" required autoFocus />
@@ -315,16 +335,12 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
         </Card.Content>
       </Card>
       {id && product.data && <ProductImagesCard productId={id} companyId={company} storeId={store} urls={productImages} />}
-      {!id && <Card mode="outlined">
-        <Card.Title title="Images du produit" subtitle="facultatives" />
-        <Card.Content style={styles.formContent}>
-          {/* Retour testeur du 24/09 (« pourquoi faut-il enregistrer avant d'ajouter une
-              image ? ») : chaque image est rangée dans le stockage sous l'identifiant du
-              produit, qui n'existe qu'après l'enregistrement — le texte l'explique
-              maintenant au lieu de se contenter d'annoncer la contrainte. */}
-          <Text variant="bodyMedium">Chaque image est associée à la fiche du produit une fois créée : enregistrez d’abord le produit, vous pourrez ensuite en ajouter ici.</Text>
-        </Card.Content>
-      </Card>}
+      {/* Retour testeur du 24/09 (« pourquoi faut-il enregistrer avant d'ajouter une image ? ») :
+          les images sont choisies ici (état local, rien envoyé), puis réellement envoyées par
+          `save`, juste après avoir obtenu l'identifiant du produit — voir plus bas et
+          PendingProductImagesCard. Avant, il fallait enregistrer une première fois puis revenir
+          sur la fiche pour ajouter une photo. */}
+      {!id && <PendingProductImagesCard images={pendingImages} onChange={setPendingImages} />}
       <Card mode="outlined">
         <Card.Content style={styles.formContent}>
           <Pressable

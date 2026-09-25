@@ -13,6 +13,14 @@ const TOO_HEAVY = 'Cette image est trop lourde (3 Mo maximum) et n’a pas pu ê
 type PreparedImage = { bytes: ArrayBuffer; contentType: 'image/jpeg' | 'image/png' | 'image/webp'; extension: 'jpg' | 'png' | 'webp' };
 const EXTENSIONS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' } as const;
 
+// Partagé entre la fiche produit existante et le formulaire de création : sur un ordinateur, le
+// navigateur n'a pas de mode « prendre une photo » — sans ce message, le bouton Photo semblait ne
+// rien faire. Un navigateur de téléphone ou de tablette garde la vraie capture (détecté par son
+// user-agent : un écran tactile ne suffit pas, beaucoup d'ordinateurs et de navigateurs automatisés
+// en déclarent un).
+export const cameraUnavailable = () => Platform.OS === 'web' && !(typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
+export const CAMERA_NOTICE = 'L’appareil photo n’est pas disponible depuis un ordinateur. Utilisez « Galerie » pour choisir une image.';
+
 // Type réel du fichier d'après ses premiers octets (jamais d'après son nom ni son type déclaré).
 async function sniffImageType(blob: Blob): Promise<PreparedImage['contentType'] | null> {
   const head = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
@@ -76,7 +84,12 @@ async function prepareOnDevice(uri: string, sourceWidth: number): Promise<Prepar
   return { bytes: await (await fetch(optimized.uri)).arrayBuffer(), contentType: 'image/jpeg', extension: 'jpg' };
 }
 
-async function pick(source: 'camera' | 'library') {
+export type PickedImage = { uri: string; width: number; file?: Blob };
+
+// Exporté : un produit pas encore enregistré n'a pas encore d'identifiant (le chemin de
+// stockage en a besoin), donc la sélection doit pouvoir se faire à part de l'envoi — voir
+// uploadPreparedImage, appelé une fois le produit créé.
+export async function pickProductImage(source: 'camera' | 'library'): Promise<PickedImage | null> {
   const permission = source === 'camera'
     ? await ImagePicker.requestCameraPermissionsAsync()
     : await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -93,9 +106,8 @@ function storagePath(url: string) {
   return index < 0 ? null : decodeURIComponent(url.slice(index + marker.length));
 }
 
-export async function uploadProductImage(source: 'camera' | 'library', companyId: string, storeId: string, productId: string) {
-  const picked = await pick(source);
-  if (!picked) return null;
+/** Optimise puis envoie une image déjà sélectionnée (voir pickProductImage) pour un produit qui a désormais un identifiant. */
+export async function uploadPreparedImage(picked: PickedImage, companyId: string, storeId: string, productId: string) {
   let image: PreparedImage;
   try {
     image = Platform.OS === 'web' ? await prepareOnWeb(picked.uri, picked.file) : await prepareOnDevice(picked.uri, picked.width);
@@ -108,6 +120,13 @@ export async function uploadProductImage(source: 'camera' | 'library', companyId
   if (error) throw new Error(error.message);
   const base = process.env.EXPO_PUBLIC_SUPABASE_URL;
   return `${base}/storage/v1/object/authenticated/${bucket}/${path}`;
+}
+
+/** Sélectionne puis envoie en un seul appel, pour une fiche déjà enregistrée (voir ProductImagesCard). */
+export async function uploadProductImage(source: 'camera' | 'library', companyId: string, storeId: string, productId: string) {
+  const picked = await pickProductImage(source);
+  if (!picked) return null;
+  return uploadPreparedImage(picked, companyId, storeId, productId);
 }
 
 export async function deleteProductImage(url: string) {

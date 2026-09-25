@@ -1,18 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Card, HelperText, IconButton, Text } from 'react-native-paper';
 import { AppButton } from '@/components/ui/AppButton';
 import { ProductThumbnail } from './ProductThumbnail';
-import { deleteProductImage, updateProductImages, uploadProductImage } from '@/features/products/images';
+import { CAMERA_NOTICE, cameraUnavailable, deleteProductImage, updateProductImages, uploadProductImage } from '@/features/products/images';
 import { readableError } from '@/utils/errors';
 import { invalidateProductCaches } from '@/utils/queryInvalidation';
-
-// Sur un ordinateur, le navigateur n'a pas de mode « prendre une photo » : sans ce message, le
-// bouton Photo semblait ne rien faire. Un navigateur de téléphone ou de tablette garde la vraie capture (détecté par son user-agent : un écran tactile
-// ne suffit pas, beaucoup d'ordinateurs et de navigateurs automatisés en déclarent un).
-const cameraUnavailable = () => Platform.OS === 'web' && !(typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
-const CAMERA_NOTICE = 'L’appareil photo n’est pas disponible depuis un ordinateur. Utilisez « Galerie » pour choisir une image.';
 
 export function ProductImagesCard({ productId, companyId, storeId, urls }: { productId: string; companyId: string; storeId: string; urls: string[] }) {
   const cache = useQueryClient();
