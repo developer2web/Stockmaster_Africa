@@ -1,0 +1,75 @@
+-- Correction urgente de 202609251500 : la logique d'héritage ne doit
+-- s'appliquer qu'à la toute première ligne subscriptions d'une entreprise
+-- (une entreprise qui vient d'être créée), jamais à un changement de forfait
+-- sur une entreprise existante.
+--
+-- Trouvé en répondant à « et si le propriétaire essaie de downgrade à Pro ? » :
+-- un changement de forfait (super_admin_review_manual_payment,
+-- super_admin_grant_trial, etc.) fonctionne toujours en expirant l'ancienne
+-- ligne PUIS en insérant une nouvelle ligne pour la MÊME entreprise — donc
+-- tg_op='INSERT' aussi. Sans le garde-fou ci-dessous, cette nouvelle ligne se
+-- faisait écraser par le forfait encore actif d'une entreprise sœur, ce qui
+-- aurait rendu tout downgrade/upgrade/renouvellement sans effet réel dès
+-- qu'un propriétaire a plusieurs entreprises. Testé via PGlite avant
+-- application : downgrade Premium -> Pro reste bien sur Pro même avec une
+-- entreprise sœur encore en Premium.
+create or replace function public.fill_subscription_client()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare
+  v_trial integer; v_grace integer; v_trial_enabled boolean; v_requested_plan uuid;
+  v_existing record;
+begin
+  if new.client_id is null then
+    select coalesce(
+      (select cb.client_id from client_businesses cb where cb.company_id=new.company_id order by cb.is_primary desc limit 1),
+      (select c.created_by from companies c where c.id=new.company_id)
+    ) into new.client_id;
+  end if;
+  new.starts_at:=coalesce(new.starts_at,new.created_at,now());
+
+  if tg_op='INSERT' and new.client_id is not null
+     and not exists(select 1 from subscriptions where company_id=new.company_id) then
+    select s.plan_id,s.status,s.trial_ends_at,s.current_period_ends_at,s.expires_at,
+           s.grace_period_ends_at,s.billing_cycle,s.auto_renew
+    into v_existing
+    from subscriptions s
+    where s.client_id=new.client_id and s.company_id<>new.company_id
+      and s.expires_at is not null and s.expires_at>now()
+    order by s.created_at desc limit 1;
+    if found then
+      new.plan_id:=v_existing.plan_id;
+      new.status:=v_existing.status;
+      new.trial_ends_at:=v_existing.trial_ends_at;
+      new.current_period_ends_at:=v_existing.current_period_ends_at;
+      new.expires_at:=v_existing.expires_at;
+      new.grace_period_ends_at:=v_existing.grace_period_ends_at;
+      new.billing_cycle:=coalesce(v_existing.billing_cycle,'monthly');
+      new.auto_renew:=v_existing.auto_renew;
+      return new;
+    end if;
+  end if;
+
+  select trial_days,grace_period_days,trial_enabled into v_trial,v_grace,v_trial_enabled
+  from billing_settings where id;
+  if tg_op='INSERT' and new.status='trialing' and coalesce(new.payment_provider,'')='' then
+    select p.id into v_requested_plan
+    from auth.users u
+    join plans p on p.code=case
+      when u.raw_user_meta_data->>'selected_plan' in ('basic','pro','premium')
+        then u.raw_user_meta_data->>'selected_plan'
+      when u.raw_user_meta_data->>'selected_plan'='business' then 'premium'
+      else 'pro'
+    end and p.is_active
+    where u.id=coalesce(new.client_id,new.created_by,auth.uid());
+    new.plan_id:=coalesce(v_requested_plan,new.plan_id);
+    new.trial_ends_at:=new.starts_at+make_interval(days=>v_trial);
+    new.current_period_ends_at:=new.trial_ends_at;
+    new.expires_at:=new.trial_ends_at;
+    if not v_trial_enabled then new.status:='expired';end if;
+  else
+    new.expires_at:=coalesce(new.expires_at,new.current_period_ends_at,new.trial_ends_at);
+  end if;
+  new.grace_period_ends_at:=coalesce(new.grace_period_ends_at,new.expires_at+make_interval(days=>v_grace));
+  new.billing_cycle:=coalesce(new.billing_cycle,'monthly');
+  return new;
+end $$;
