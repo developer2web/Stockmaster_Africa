@@ -24,7 +24,7 @@ const descriptions:Record<string,string>={
   'Nouvelle vente':'Ajoutez les produits, choisissez le client puis encaissez.',
 };
 
-export function AdminPage({ title, description, action, floatingAction, backToHome = false, backTo, hideBack = false, onBackPress, scrollResetKey, onContentWidthChange, wide = false, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; backTo?: string; hideBack?: boolean; onBackPress?: (proceed: () => void) => void; scrollResetKey?: string; onContentWidthChange?: (width: number) => void; wide?: boolean }>) {
+export function AdminPage({ title, description, onDescriptionPress, action, floatingAction, backToHome = false, backTo, hideBack = false, onBackPress, scrollResetKey, onContentWidthChange, wide = false, children }: PropsWithChildren<{ title: string; description?: string; onDescriptionPress?: () => void; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; backTo?: string; hideBack?: boolean; onBackPress?: (proceed: () => void) => void; scrollResetKey?: string; onContentWidthChange?: (width: number) => void; wide?: boolean }>) {
   const theme = useTheme();
   const { session, membership, offlineAuthenticated, lockOfflineSession } = useAuth();
   const { signOut, signingOut } = useSignOutAction();
@@ -126,7 +126,7 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
           scrollRef.current?.scrollTo({ y: scrollPositions.get(pathname) ?? 0, animated: false });
         }}
       >
-        <PageIntro title={title} description={description??descriptions[title]} action={action}/>
+        <PageIntro title={title} description={description??descriptions[title]} onDescriptionPress={onDescriptionPress} action={action}/>
         {!offlineAuthenticated && showRenewalWarning && (
           <Card mode="contained" style={{ backgroundColor: theme.colors.errorContainer }}>
             <Card.Content style={styles.subscriptionWarning}>

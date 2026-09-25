@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Card, HelperText, Icon, IconButton, Text, useTheme } from 'react-native-paper';
+import { Card, HelperText, Icon, Text, useTheme } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -49,7 +49,6 @@ export default function StockScreen() {
       onContentWidthChange={setContentWidth}
       title="Stock"
       description="Consultez les quantités disponibles. Pour vérifier les quantités réelles, utilisez Compter le stock."
-      action={<View style={{flexDirection:'row',alignItems:'center'}}><IconButton accessibilityLabel="Compter le stock" icon="clipboard-list-outline" onPress={()=>router.push('/inventory-count' as never)}/><IconButton accessibilityLabel="Scanner un produit" icon="barcode-scan" onPress={() => router.push('/scanner' as never)} /></View>}
     >
       {/* Retour testeur du 24/09 : icône retirée (demande explicite). */}
       <View style={[styles.summary, compact && styles.compactSummary, { backgroundColor: theme.colors.primaryContainer }]}>

@@ -91,10 +91,7 @@ export default function SettingsScreen() {
 
     <AppButton mode="outlined" icon="logout" loading={signingOut} disabled={signingOut} onPress={signOut}>Se déconnecter</AppButton>
 
-    {admin && <>
-      <Text variant="titleMedium" style={{ color: theme.colors.error }}>Zone sensible</Text>
-      <AccountDeletionCard />
-    </>}
+    {admin && <AccountDeletionCard />}
 
     <Portal>
       <Dialog style={styles.dialog} visible={passwordOpen} onDismiss={() => !passwordMutation.isPending && setPasswordOpen(false)}>

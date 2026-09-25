@@ -45,7 +45,10 @@ export default function AdminDashboard() {
     <AdminPage
       title="Votre boutique aujourd’hui"
       description={membership?.storeName ?? 'Sélectionnez une boutique'}
-      action={(businesses.length > 1 || stores.length > 1) ? <AppButton mode="outlined" icon="swap-horizontal" onPress={() => router.push(businesses.length > 1 ? '/choose-business' : '/choose-store')}>Changer de boutique</AppButton> : undefined}
+      // Retour testeur du 25/09 : une petite flèche à côté du nom de la boutique plutôt
+      // qu'un gros bouton séparé — le bouton d'action, libéré, sert maintenant la recherche.
+      onDescriptionPress={(businesses.length > 1 || stores.length > 1) ? () => router.push(businesses.length > 1 ? '/choose-business' : '/choose-store') : undefined}
+      action={<AppButton mode="outlined" icon="magnify" onPress={() => router.push('/search')}>Rechercher</AppButton>}
       // Retour testeur du 24/09 : la flèche ne menait qu'à cet écran lui-même (fallback '/(admin)',
       // déjà la page active) — retirée seulement ici, l'Accueil étant la racine de l'espace admin.
       hideBack
@@ -78,7 +81,6 @@ export default function AdminDashboard() {
       <View style={styles.shortcuts}>
         <AppButton mode="outlined" icon="account-group-outline" onPress={() => router.push('/customers')}>Clients et crédits</AppButton>
         <AppButton mode="text" icon="chart-box-outline" onPress={() => router.push('/reports')}>Voir les rapports</AppButton>
-        <AppButton mode="text" icon="magnify" onPress={() => router.push('/search')}>Rechercher</AppButton>
       </View>
     </AdminPage>
   );

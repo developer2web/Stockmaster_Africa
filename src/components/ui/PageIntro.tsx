@@ -1,15 +1,24 @@
 import { ReactNode, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Text, useTheme } from 'react-native-paper';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Icon, Text, useTheme } from 'react-native-paper';
 
-export function PageIntro({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
+export function PageIntro({ title, description, action, onDescriptionPress }: { title: string; description?: string; action?: ReactNode; onDescriptionPress?: () => void }) {
   const theme = useTheme();
   const [availableWidth, setAvailableWidth] = useState(0);
   const compact = availableWidth < 620;
   return <View onLayout={event => setAvailableWidth(event.nativeEvent.layout.width)} style={[styles.row, compact && styles.compactRow]}>
     <View style={[styles.copy, compact && styles.compactCopy]}>
       <Text variant="headlineSmall" style={[styles.title, compact && styles.compactTitle]}>{title}</Text>
-      {!!description && <Text style={[styles.description, { color: theme.colors.onSurfaceVariant }]}>{description}</Text>}
+      {!!description && (onDescriptionPress ? (
+        // Retour testeur du 25/09 : une petite flèche à côté du nom de la boutique,
+        // plutôt qu'un gros bouton « Changer de boutique » séparé plus loin.
+        <Pressable accessibilityRole="button" accessibilityLabel="Changer de boutique" onPress={onDescriptionPress} style={({ pressed }) => [styles.descriptionRow, pressed && styles.pressed]}>
+          <Text style={[styles.description, { color: theme.colors.onSurfaceVariant }]}>{description}</Text>
+          <Icon source="chevron-down" size={18} color={theme.colors.onSurfaceVariant} />
+        </Pressable>
+      ) : (
+        <Text style={[styles.description, { color: theme.colors.onSurfaceVariant }]}>{description}</Text>
+      ))}
     </View>
     {!!action && <View style={[styles.action, compact && styles.compactAction]}>{action}</View>}
   </View>;
@@ -22,6 +31,8 @@ const styles = StyleSheet.create({
   title: { fontWeight: '900' },
   compactTitle: { fontSize: 23, lineHeight: 29 },
   description: { fontSize: 14, lineHeight: 20 },
+  descriptionRow: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start' },
+  pressed: { opacity: 0.6 },
   action: { flexShrink: 1, minWidth: 0, maxWidth: '100%' },
   compactAction: { width: '100%', alignItems: 'stretch' },
 });
