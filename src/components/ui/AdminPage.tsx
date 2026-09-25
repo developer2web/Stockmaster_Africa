@@ -24,7 +24,7 @@ const descriptions:Record<string,string>={
   'Nouvelle vente':'Ajoutez les produits, choisissez le client puis encaissez.',
 };
 
-export function AdminPage({ title, description, action, floatingAction, backToHome = false, backTo, onBackPress, scrollResetKey, onContentWidthChange, wide = false, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; backTo?: string; onBackPress?: (proceed: () => void) => void; scrollResetKey?: string; onContentWidthChange?: (width: number) => void; wide?: boolean }>) {
+export function AdminPage({ title, description, action, floatingAction, backToHome = false, backTo, hideBack = false, onBackPress, scrollResetKey, onContentWidthChange, wide = false, children }: PropsWithChildren<{ title: string; description?: string; action?: ReactNode; floatingAction?: ReactNode; backToHome?: boolean; backTo?: string; hideBack?: boolean; onBackPress?: (proceed: () => void) => void; scrollResetKey?: string; onContentWidthChange?: (width: number) => void; wide?: boolean }>) {
   const theme = useTheme();
   const { session, membership, offlineAuthenticated, lockOfflineSession } = useAuth();
   const { signOut, signingOut } = useSignOutAction();
@@ -82,7 +82,9 @@ export function AdminPage({ title, description, action, floatingAction, backToHo
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <Appbar.Header elevated style={{ backgroundColor: employee ? employeeHeader : theme.colors.surface }}>
-        {!offlineAuthenticated && <AppBackButton
+        {/* hideBack : pour un écran d'accueil, où la flèche ne mènerait qu'à lui-même (retour
+            testeur du 24/09, « la flèche ne mène à rien »). */}
+        {!offlineAuthenticated && !hideBack && <AppBackButton
           fallback={cameFromTools ? toolsFallback : backTo ?? (employee ? '/employee' : '/(admin)')}
           light={employee}
           // backTo : destination imposée. Sur le web, « précédent » (safeBack) passe par l'historique

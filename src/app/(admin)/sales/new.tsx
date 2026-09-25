@@ -222,9 +222,10 @@ export default function NewSale() {
       floatingAction={!desktop && step === 'products' ? <AppButton icon="cart-outline" style={{ alignSelf: 'stretch' }} disabled={!items.length} onPress={() => setStep('checkout')}>Panier · {formatMoney(totals.total)}</AppButton> : <AppButton style={!desktop ? { alignSelf: 'stretch' } : undefined} icon="cash-register" loading={save.isPending} disabled={checkoutDisabled} onPress={() => save.mutate()}>{save.isPending ? 'Enregistrement…' : payment === 'credit' ? 'Enregistrer le crédit' : `Valider · ${formatMoney(totals.total)}`}</AppButton>}
     >
       {offlineAuthenticated && <Card mode="contained" style={{ backgroundColor: theme.colors.primaryContainer }}><Card.Content style={styles.notice}><Chip icon="wifi-off">Vente hors ligne</Chip><Text style={{ color: theme.colors.onPrimaryContainer }}>{membership?.companyName} · {membership?.storeName ?? 'Boutique'} · Produits, prix, stock et clients préchargés</Text></Card.Content></Card>}
+      {/* Retour testeur du 24/09 : préfixes « 1. »/« 2. » retirés, sur demande explicite. */}
       {!desktop && <SegmentedButtons value={step} onValueChange={setStep} buttons={[
-        { value: 'products', label: '1. Articles', icon: 'package-variant' },
-        { value: 'checkout', label: `2. Panier (${items.length})`, icon: 'cart-outline' },
+        { value: 'products', label: 'Articles', icon: 'package-variant' },
+        { value: 'checkout', label: `Panier (${items.length})`, icon: 'cart-outline' },
       ]} />}
       <View pointerEvents={save.isPending ? 'none' : 'auto'} style={[styles.workspace, desktop && styles.workspaceDesktop]}>
       {(desktop || step === 'products') && <View style={styles.catalogPane}>

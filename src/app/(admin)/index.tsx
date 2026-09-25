@@ -46,6 +46,9 @@ export default function AdminDashboard() {
       title="Votre boutique aujourd’hui"
       description={membership?.storeName ?? 'Sélectionnez une boutique'}
       action={(businesses.length > 1 || stores.length > 1) ? <AppButton mode="outlined" icon="swap-horizontal" onPress={() => router.push(businesses.length > 1 ? '/choose-business' : '/choose-store')}>Changer de boutique</AppButton> : undefined}
+      // Retour testeur du 24/09 : la flèche ne menait qu'à cet écran lui-même (fallback '/(admin)',
+      // déjà la page active) — retirée seulement ici, l'Accueil étant la racine de l'espace admin.
+      hideBack
     >
       <AppButton icon="cart-plus" disabled={!enabled} onPress={() => router.push('/sales/new')}>Nouvelle vente</AppButton>
       {showGettingStarted && <Card mode="outlined"><Card.Content style={styles.intro}>
