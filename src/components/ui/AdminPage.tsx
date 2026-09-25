@@ -103,6 +103,9 @@ export function AdminPage({ title, description, onDescriptionPress, action, floa
           }
           subtitleStyle={employee ? styles.employeeSubtitle : styles.storeSubtitle}
         />
+        {/* Retour testeur du 25/09 : recherche accessible depuis l'en-tête, à côté de la
+            cloche, sur tous les écrans (admin comme employé) plutôt que sur un seul écran. */}
+        {!offlineAuthenticated && <Appbar.Action icon="magnify" color={employee ? '#FFFFFF' : undefined} accessibilityLabel="Rechercher" onPress={() => router.push((employee ? '/employee/search' : '/search') as never)} />}
         {!offlineAuthenticated && <NotificationBell color={employee ? '#FFFFFF' : undefined} />}
         {offlineAuthenticated && <Appbar.Action icon="lock-outline" color={employee ? '#FFFFFF' : undefined} accessibilityLabel="Verrouiller l’accès hors ligne" onPress={lockOfflineSession} />}
         {!employee && !offlineAuthenticated && <Appbar.Action icon="logout" accessibilityLabel="Se déconnecter" disabled={signingOut} onPress={signOut} />}

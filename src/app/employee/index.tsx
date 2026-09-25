@@ -67,24 +67,38 @@ export default function EmployeeEntry() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header elevated style={{ backgroundColor: '#084B50' }}>
-        <Appbar.Content title={membership.companyName} titleStyle={{color:'#FFFFFF',fontWeight:'800'}} subtitle={membership.storeName ?? 'Boutique'} subtitleStyle={{color:'#D7EFF0'}} />
+        {/* Retour testeur du 25/09 : après un changement de boutique (Sonfonia → T6), l'accueil
+            n'affichait plus que le nom de l'entreprise — le nom de la boutique active, en
+            subtitle d'Appbar.Content, ne s'affiche pas de façon fiable (constaté en direct,
+            déjà rencontré ailleurs dans la session). La boutique passe donc en title, seul
+            emplacement fiable, comme sur tous les autres écrans employé (AdminPage) ; l'entreprise
+            passe en subtitle, redondante mais moins critique pour éviter une opération dans la
+            mauvaise boutique. */}
+        <Appbar.Content title={membership.storeName ?? membership.companyName ?? 'Boutique'} titleStyle={{color:'#FFFFFF',fontWeight:'800'}} subtitle={membership.companyName} subtitleStyle={{color:'#D7EFF0'}} />
         {stores.length > 1 && <Appbar.Action color="#FFFFFF" icon="swap-horizontal" accessibilityLabel="Changer de boutique" onPress={() => router.push('/choose-store')} />}
+        {/* Retour testeur du 25/09 : recherche à côté de la cloche, comme sur tous les
+            autres écrans (AdminPage). */}
+        <Appbar.Action color="#FFFFFF" icon="magnify" accessibilityLabel="Rechercher" onPress={() => router.push('/employee/search' as never)} />
         <NotificationBell color="#FFFFFF" />
-        <Appbar.Action color="#FFFFFF" icon="logout" accessibilityLabel="Se déconnecter" disabled={signingOut} onPress={signOut} />
+        {/* Retour testeur du 25/09 : retiré d'ici — trop facile à toucher par erreur et se
+            déconnecter sans le vouloir. Le bouton « Se déconnecter » en bas de page suffit,
+            plus délibéré. */}
       </Appbar.Header>
       <ScrollView
         contentContainerStyle={[styles.page, compact && styles.pageCompact]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Retour testeur du 25/09 : cadre trop grand, réduit (padding, icône et texte plus
+            petits). */}
         <View style={[styles.hero, { backgroundColor: theme.colors.primaryContainer }, compact && styles.heroCompact]}>
           <View style={[styles.heroIcon, { backgroundColor: '#084B50' }]}>
-            <Icon source="account-hard-hat-outline" size={compact ? 28 : 34} color="#FFFFFF" />
+            <Icon source="account-hard-hat-outline" size={compact ? 20 : 24} color="#FFFFFF" />
           </View>
           <View style={styles.heroCopy}>
-            <Text variant={compact ? 'headlineSmall' : 'headlineMedium'} style={{ color: theme.colors.onPrimaryContainer, fontWeight: '800' }}>
+            <Text variant={compact ? 'titleMedium' : 'titleLarge'} style={{ color: theme.colors.onPrimaryContainer, fontWeight: '800' }}>
               Bonjour {employeeName} 👋
             </Text>
-            <Text variant="bodyLarge" style={{ color: theme.colors.onPrimaryContainer }}>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onPrimaryContainer }}>
               Retrouvez rapidement les outils utiles à votre travail.
             </Text>
           </View>
@@ -223,9 +237,9 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   page: { padding: 24, paddingBottom: 44, gap: 22, width: '100%', maxWidth: 1120, alignSelf: 'center' },
   pageCompact: { padding: 16, paddingBottom: 32, gap: 18 },
-  hero: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, padding: 24, borderRadius: 28 },
-  heroCompact: { padding: 16, borderRadius: 22, alignItems: 'flex-start' },
-  heroIcon: { width: 62, height: 62, borderRadius: 21, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-4deg' }] },
+  hero: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: 14, borderRadius: 20 },
+  heroCompact: { padding: 12, borderRadius: 18, alignItems: 'flex-start' },
+  heroIcon: { width: 44, height: 44, borderRadius: 16, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-4deg' }] },
   heroCopy: { flexGrow: 1, flexBasis: 210, minWidth: 0, gap: 4 },
   sectionHeading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   sectionCopy: { flexGrow: 1, flexBasis: 230, minWidth: 0, gap: 3 },

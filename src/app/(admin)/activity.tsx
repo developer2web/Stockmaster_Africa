@@ -48,9 +48,19 @@ const actionLabels: Record<string, string> = {
   delete_unused_employee: 'Employé inutilisé supprimé',
   update_employee_access: 'Accès employé modifié',
   super_admin_delete_account_permanently: 'Compte supprimé définitivement',
-  insert: 'Création',
-  update: 'Modification',
-  delete: 'Suppression',
+};
+// Retour testeur du 25/09 : beaucoup de lignes ne disent que « Création »/« Modification »
+// sans dire de quoi — ce sont les tables suivies par le déclencheur générique
+// write_audit_log() (voir 202607220002_phase2_hardening.sql et les ajouts ultérieurs),
+// dont entity_type est le nom technique de la table. Séparées de actionLabels ci-dessus
+// (sinon leur présence y court-circuitait actionLabel avant d'atteindre l'ajout de
+// l'entité) et combinées avec entityLabels pour dire de quoi il s'agit.
+const genericActionLabels: Record<string, string> = { insert: 'Création', update: 'Modification', delete: 'Suppression' };
+const entityLabels: Record<string, string> = {
+  products: 'produit', product_variants: 'variante de produit', categories: 'catégorie',
+  suppliers: 'fournisseur', expenses: 'dépense', memberships: 'accès employé',
+  roles: 'rôle', stock_movements: 'mouvement de stock', sales: 'vente',
+  supplier_payments: 'paiement fournisseur', cash_transactions: 'opération de caisse',
 };
 const fieldLabels: Record<string, string> = {
   amount: 'Montant', total: 'Total', subtotal: 'Sous-total', discount: 'Remise',
@@ -60,8 +70,12 @@ const fieldLabels: Record<string, string> = {
   closed_by: 'Clôturé par',
 };
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function actionLabel(action: string) {
-  return actionLabels[action] ?? action.replaceAll('_', ' ').replace(/^./, (char) => char.toUpperCase());
+function actionLabel(action: string, entityType?: string) {
+  const known = actionLabels[action];
+  if (known) return known;
+  const base = genericActionLabels[action] ?? action.replaceAll('_', ' ').replace(/^./, (char) => char.toUpperCase());
+  const entity = entityType ? entityLabels[entityType] : undefined;
+  return entity ? `${base} — ${entity}` : base;
 }
 function payloadSummary(payload: Record<string, unknown>) {
   return Object.entries(payload ?? {})
@@ -86,6 +100,6 @@ export default function ActivityScreen() {
     return (data ?? []).map((item) => ({ ...item, actor: Array.isArray(item.actor) ? item.actor[0] ?? null : item.actor })) as unknown as { id: string; action: string; entity_type: string; payload: Record<string, unknown>; created_at: string; actor: { full_name: string } | null }[];
   }, enabled: !!companyId && membership?.role === 'company_admin' });
   const term = search.trim().toLowerCase();
-  const rows = (query.data ?? []).filter((item) => !term || `${actionLabel(item.action)} ${item.actor?.full_name ?? ''}`.toLowerCase().includes(term));
-  return <FeatureGate feature="audit_log" label="Le journal d’activité"><AdminPage title="Journal d’activité" description="Suivez les opérations importantes de votre entreprise."><Searchbar placeholder="Rechercher une action ou un utilisateur…" value={search} onChangeText={setSearch} />{query.error && <Text>{query.error.message}</Text>}{query.isLoading && <Text>Chargement du journal…</Text>}{rows.map((item) => { const summary = payloadSummary(item.payload); return <Card key={item.id} mode="outlined"><Card.Title title={actionLabel(item.action)} subtitle={formatDateTime(item.created_at)} left={() => <Chip>{item.actor?.full_name ?? 'Système'}</Chip>} />{!!summary && <Card.Content><Text>{summary}</Text></Card.Content>}</Card>; })}{!query.isLoading && !rows.length && <EmptyState icon="history" title="Aucune activité" message={term ? 'Aucune activité ne correspond à votre recherche.' : 'Les opérations importantes apparaîtront ici.'}/>}</AdminPage></FeatureGate>;
+  const rows = (query.data ?? []).filter((item) => !term || `${actionLabel(item.action, item.entity_type)} ${item.actor?.full_name ?? ''}`.toLowerCase().includes(term));
+  return <FeatureGate feature="audit_log" label="Le journal d’activité"><AdminPage title="Journal d’activité" description="Suivez les opérations importantes de votre entreprise."><Searchbar placeholder="Rechercher une action ou un utilisateur…" value={search} onChangeText={setSearch} />{query.error && <Text>{query.error.message}</Text>}{query.isLoading && <Text>Chargement du journal…</Text>}{rows.map((item) => { const summary = payloadSummary(item.payload); return <Card key={item.id} mode="outlined"><Card.Title title={actionLabel(item.action, item.entity_type)} subtitle={formatDateTime(item.created_at)} left={() => <Chip>{item.actor?.full_name ?? 'Système'}</Chip>} />{!!summary && <Card.Content><Text>{summary}</Text></Card.Content>}</Card>; })}{!query.isLoading && !rows.length && <EmptyState icon="history" title="Aucune activité" message={term ? 'Aucune activité ne correspond à votre recherche.' : 'Les opérations importantes apparaîtront ici.'}/>}</AdminPage></FeatureGate>;
 }

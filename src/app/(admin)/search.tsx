@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Card, Searchbar, Text, useTheme } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -38,5 +38,9 @@ export default function GlobalSearchScreen() {
   const companyId = membership?.companyId ?? '';
   const storeId = membership?.storeId ?? '';
   const query = useQuery({ queryKey: ['global-search', companyId, storeId, term.trim()], queryFn: () => searchWorkspace(companyId, storeId, term.trim()), enabled: !!companyId && !!storeId && term.trim().length >= 2 });
-  return <AdminPage title="Recherche globale" backToHome><Searchbar placeholder="Produit, client, fournisseur ou référence…" value={term} onChangeText={setTerm} autoFocus /><Text style={{ color: theme.colors.onSurfaceVariant }}>Saisissez au moins 2 caractères. Les résultats restent limités à votre entreprise et votre boutique.</Text>{query.isLoading && <Text>Recherche en cours…</Text>}{query.error && <Text style={{ color: theme.colors.error }}>{query.error.message}</Text>}{term.trim().length >= 2 && !query.isLoading && !query.data?.length && <EmptyState icon="magnify-close" title="Aucun résultat" message="Essayez un nom, une référence ou un numéro de téléphone."/>}<View style={{ gap: 10 }}>{query.data?.map((result) => <Card key={`${result.kind}-${result.id}`} mode="outlined" onPress={() => router.push(result.path as never)}><Card.Title title={result.title} subtitle={result.subtitle} left={() => <Card.Content><Text style={{ color: theme.colors.primary, fontWeight: '800' }}>{result.kind}</Text></Card.Content>} /></Card>)}</View></AdminPage>;
+  // Retour testeur du 25/09 : un Card.Content dans le `left` de Card.Title s'affichait avec
+  // le texte empilé lettre par lettre à la verticale — une simple View suffit.
+  return <AdminPage title="Recherche globale" backToHome><Searchbar placeholder="Produit, client, fournisseur ou référence…" value={term} onChangeText={setTerm} autoFocus /><Text style={{ color: theme.colors.onSurfaceVariant }}>Saisissez au moins 2 caractères. Les résultats restent limités à votre entreprise et votre boutique.</Text>{query.isLoading && <Text>Recherche en cours…</Text>}{query.error && <Text style={{ color: theme.colors.error }}>{query.error.message}</Text>}{term.trim().length >= 2 && !query.isLoading && !query.data?.length && <EmptyState icon="magnify-close" title="Aucun résultat" message="Essayez un nom, une référence ou un numéro de téléphone."/>}<View style={{ gap: 10 }}>{query.data?.map((result) => <Card key={`${result.kind}-${result.id}`} mode="outlined" onPress={() => router.push(result.path as never)}><Card.Title title={result.title} subtitle={result.subtitle} left={() => <View style={styles.kind}><Text numberOfLines={1} style={{ color: theme.colors.primary, fontWeight: '800' }}>{result.kind}</Text></View>} /></Card>)}</View></AdminPage>;
 }
+
+const styles = StyleSheet.create({ kind: { width: 76 } });

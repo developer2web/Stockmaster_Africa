@@ -90,7 +90,10 @@ export default function CompanyScreen() {
   const settingsMutation=useMutation({mutationFn:()=>updateBusinessSettings(companyId,{...settings,taxRate:0,maxDiscountPercent:Math.min(100,Math.max(0,Number(settings.maxDiscountPercent)||0)),cashOpeningRequired:canUseFeature('advanced_cash_closure')&&settings.cashOpeningRequired,cashVarianceReasonThreshold:canUseFeature('advanced_cash_closure')?Math.max(0,Number(settings.cashVarianceReasonThreshold)||0):0,expenseApprovalThreshold:canUseFeature('expense_approval')&&settings.expenseApprovalThreshold.trim()?Math.max(0,Number(settings.expenseApprovalThreshold)||0):null}),onSuccess:refresh});
 
   return (
-    <AdminPage title="Entreprise">
+    // Retour testeur du 25/09 : sans backTo, le bouton retour renvoyait à l'Accueil au lieu
+    // de Paramètres (d'où cet écran est ouvert) — le "précédent" du web ne suit pas toujours
+    // l'historique réel dans les onglets d'(admin), voir le commentaire dans AdminPage.
+    <AdminPage title="Entreprise" backTo="/(settings)">
       <Text variant="bodyLarge">Identité et configuration monétaire de l’entreprise.</Text>
       <FormField control={control} name="name" label="Nom de l’entreprise" disabled={company.isLoading} />
       {!!nameMutation.error && <HelperText type="error" visible>{nameMutation.error.message}</HelperText>}
@@ -133,6 +136,11 @@ export default function CompanyScreen() {
             onChange={setSecondaryCurrency}
             options={secondaryOptions}
           />
+          {/* Retour testeur du 25/09 : un pays/devise jamais enregistré (fiche créée avant
+              cette validation, ou par une voie qui l'a contournée) reste bloqué à vide dès
+              qu'une vente existe — le distinguer d'un simple oubli, pour ne pas laisser
+              croire à un bug d'affichage. */}
+          {locked && !countryCode && <HelperText type="error" visible>Aucun pays ni devise n’a été enregistré pour cette entreprise, alors que des ventes existent déjà. Contactez le support StockMaster pour une correction exceptionnelle.</HelperText>}
           {locked && <HelperText type="info" visible>Une vente existe. Seul un Super Administrateur peut effectuer un changement exceptionnel et audité.</HelperText>}
           {!!currencyMutation.error && <HelperText type="error" visible>{currencyMutation.error.message}</HelperText>}
           <AppButton

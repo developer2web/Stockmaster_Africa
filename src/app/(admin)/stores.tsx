@@ -71,7 +71,9 @@ export default function StoresScreen() {
   const requestClose=()=>{if(save.isPending)return;if(isDirty)setDiscard(true);else close()};
 
   return (
-    <AdminPage title="Boutiques" action={<AppButton icon={canAddStore?'plus':'lock-outline'} onPress={() => canAddStore ? show() : void openAccountPortal(companyId).catch(()=>undefined)}>{canAddStore?'Ajouter':'Forfait requis'}</AppButton>}>
+    // Retour testeur du 25/09 : même correctif que « Entreprise » — sans backTo, le retour
+    // renvoyait à l'Accueil au lieu de Paramètres.
+    <AdminPage title="Boutiques" backTo="/(settings)" action={<AppButton icon={canAddStore?'plus':'lock-outline'} onPress={() => canAddStore ? show() : void openAccountPortal(companyId).catch(()=>undefined)}>{canAddStore?'Ajouter':'Forfait requis'}</AppButton>}>
       <Card mode="contained" style={{ backgroundColor: theme.colors.primaryContainer }}>
         <Card.Content style={styles.intro}>
           <Icon source="receipt-text-edit-outline" size={30} color={theme.colors.primary} />

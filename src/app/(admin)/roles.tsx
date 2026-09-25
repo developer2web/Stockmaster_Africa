@@ -55,7 +55,11 @@ export default function RolesScreen() {
             <Text variant="labelLarge">Modèles rapides</Text>
             <View style={styles.presetRow}>{presets.map(preset=><AppButton key={preset.label} compact mode="outlined" onPress={()=>field.onChange(preset.codes.filter(code=>(permissions.data??[]).some(permission=>permission.code===code)))}>{preset.label}</AppButton>)}</View>
             <View style={styles.toolbar}><AppButton compact mode="text" onPress={()=>field.onChange([])}>Tout retirer</AppButton></View>
-            {(permissions.data??[]).filter(permission=>!permission.code.startsWith('categories.')).map(permission=>{const checked=field.value.includes(permission.code);return <Checkbox.Item style={styles.permission} key={permission.id} label={permission.description??permission.code} status={checked?'checked':'unchecked'} onPress={()=>{
+            {/* Retour testeur du 25/09 : la case est cochée visuellement mais exposée
+                décochée à l'accessibilité (déjà rencontré avec un Chip ailleurs dans
+                l'app — accessibilityState de react-native-paper pas fiable ici) —
+                accessibilityLabel explicite avec l'état en repli, comme pour les Chips. */}
+            {(permissions.data??[]).filter(permission=>!permission.code.startsWith('categories.')).map(permission=>{const checked=field.value.includes(permission.code);const label=permission.description??permission.code;return <Checkbox.Item style={styles.permission} key={permission.id} label={label} accessibilityLabel={`${label}${checked?', coché':', décoché'}`} status={checked?'checked':'unchecked'} onPress={()=>{
               if(checked){const linked=permission.code.endsWith('.read')?permission.code.replace(/\.read$/,'.write'):'';field.onChange(field.value.filter(code=>code!==permission.code&&code!==linked));return}
               const next=[...field.value,permission.code];const read=permission.code.endsWith('.write')?permission.code.replace(/\.write$/,'.read'):'';field.onChange(read&&(permissions.data??[]).some(item=>item.code===read)?[...new Set([...next,read])]:next);
             }}/>})}

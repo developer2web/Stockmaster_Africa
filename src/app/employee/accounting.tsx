@@ -59,7 +59,10 @@ export default function Accounting() {
           <Icon source="finance" size={34} color={theme.colors.secondary} />
           <View style={styles.copy}>
             <Text variant="titleLarge" style={styles.bold}>Vue financière</Text>
-            <Text style={{ color: theme.colors.onSecondaryContainer }}>Les montants disponibles selon vos permissions.</Text>
+            {/* Retour testeur du 25/09 : ces montants ne sont filtrés par aucune période
+                (total depuis toujours) — sans le dire, un chiffre différent de celui de
+                Rapports (qui a un sélecteur de période) pouvait sembler être une erreur. */}
+            <Text style={{ color: theme.colors.onSecondaryContainer }}>Totaux depuis le début, toutes dates confondues, selon vos permissions.</Text>
           </View>
         </View>
         {query.error && <ErrorState message={query.error.message} onRetry={() => query.refetch()} />}
@@ -74,7 +77,7 @@ export default function Accounting() {
               <Card.Content style={styles.cardContent}>
                 <View style={[styles.icon, { backgroundColor: `${item.color}1F` }]}><Icon source={item.icon} size={26} color={item.color} /></View>
                 <Text variant="headlineSmall" style={styles.bold}>{formatMoney(item.value)}</Text>
-                <Text style={{ color: theme.colors.onSurfaceVariant }}>{item.label}{item.action ? ' · toucher pour gérer' : ''}</Text>
+                <Text style={{ color: theme.colors.onSurfaceVariant }}>{item.label} · depuis le début{item.action ? ' · toucher pour gérer' : ''}</Text>
               </Card.Content>
             </Card>
           ))}

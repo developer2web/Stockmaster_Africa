@@ -35,7 +35,7 @@ export default function EmployeeProducts() {
   const debounced = useDebouncedValue(search);
   const query = useInfiniteQuery({ queryKey: ['employee-products', company, store, debounced, 'without-cost'], queryFn: ({pageParam}) => getProducts(company, store, debounced,pageParam),initialPageParam:null as PageCursor,getNextPageParam:(last)=>nextPageCursor(last,PRODUCT_PAGE_SIZE), enabled: !!company && !!store });
   const products=query.data?.pages.flat()??[];
-  return <PermissionGuard permission="products.read"><AdminPage title="Produits" action={canWrite ? <FAB size="small" icon="plus" onPress={() => router.push('/employee/products/new' as never)} /> : undefined}>
+  return <PermissionGuard permission="products.read"><AdminPage title="Produits" action={canWrite ? <FAB size="small" icon="plus" accessibilityLabel="Ajouter un produit" onPress={() => router.push('/employee/products/new' as never)} /> : undefined}>
     <AppSearchBar placeholder="Nom ou code-barres" value={search} onChangeText={value=>setSearch(listScope,value)} loading={search !== debounced} />
     {!!query.error&&<HelperText type="error" visible>{readableError(query.error)}</HelperText>}
     <View style={styles.grid}>
