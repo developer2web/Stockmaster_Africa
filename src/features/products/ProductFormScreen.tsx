@@ -22,7 +22,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { hasPermission } from '@/features/auth/permissions';
 import { getStockLevels } from '@/features/inventory/api';
 import { useStockRealtime } from '@/hooks/useStockRealtime';
-import { canAutofill, lotMargin, lotPriceFromUnit, unitPriceFromLot } from './bulkPricing';
+import { canAutofill, lotPriceFromUnit, unitPriceFromLot } from './bulkPricing';
 import { ProductFieldError, deleteProduct, deleteVariant, findSimilarProduct, getProduct, getSuppliers, saveProduct, saveVariant } from './api';
 import { updateProductImages, uploadPreparedImage } from './images';
 import { lookupOpenFoodFacts, type OpenFoodFactsMatch } from './openFoodFacts';
@@ -33,12 +33,12 @@ import { formatQuantity, numericFieldValue, parseWholeNumber } from '@/utils/num
 import { invalidateOperationalSummaries, invalidateProductCaches } from '@/utils/queryInvalidation';
 import { readableError } from '@/utils/errors';
 
-// bulkEnabled:true par défaut (retour du 24/09, pour toutes les entreprises) : la vente en
-// gros devient le point d'entrée principal d'un nouveau produit, le prix au détail restant
-// dérivé du prix du lot (÷ quantité) tant qu'il n'est pas saisi à la main — voir les effets
-// de calcul plus bas. La bascule reste modifiable : un produit qui ne se vend jamais par lot
-// (une quantité de lot suppose toujours plus d'une unité) doit pouvoir la désactiver.
-const defaults: ProductInput = { name:'', description:'', sku:'', barcode:'',  supplierId:null, unit:'piece', purchasePrice:'', salePrice:'', initialQuantity:'0', lowStockThreshold:'5', isActive:true, bulkEnabled:true, bulkUnitLabel:'', bulkQuantity:'', bulkPrice:'', bulkPurchasePrice:'' };
+// Retour testeur du 25/09 : la vente en gros est définitivement retirée du formulaire —
+// règle de base rétablie, un produit est simple et vendu au détail par défaut. bulkEnabled
+// reste à false pour toute nouvelle fiche (voir plus bas : les champs de lot restent dans le
+// schéma uniquement pour ne pas effacer les données déjà enregistrées sur un produit existant
+// qui en avait — ils ne sont plus jamais affichés ni modifiables ici).
+const defaults: ProductInput = { name:'', description:'', sku:'', barcode:'',  supplierId:null, unit:'piece', purchasePrice:'', salePrice:'', initialQuantity:'0', lowStockThreshold:'5', isActive:true, bulkEnabled:false, bulkUnitLabel:'', bulkQuantity:'', bulkPrice:'', bulkPurchasePrice:'' };
 const unitOptions = [
   { label:'Pièce', value:'piece' }, { label:'Carton', value:'carton' },
   { label:'Kilogramme', value:'kg' }, { label:'Litre', value:'litre' },
@@ -62,18 +62,16 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
   // plus bas. Comptent aussi comme une modification non enregistrée (voir hasUnsavedChanges).
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const hasUnsavedChanges = isDirty || pendingImages.length > 0;
-  // Prix par unité dans le lot, calculé en direct pour que le vendeur voie
-  // tout de suite s'il vend vraiment moins cher en gros — sans avoir à
-  // sortir une calculette.
+  // bulkEnabled/bulkUnitLabel/bulkQuantity/bulkPrice/bulkPurchasePrice restent surveillés
+  // uniquement pour préserver, au moment d'enregistrer, les données de lot déjà présentes
+  // sur une fiche existante qui en avait avant le retrait de la vente en gros du formulaire
+  // (voir le commentaire sur `defaults` plus haut) — plus aucun champ ne les affiche.
   const [bulkEnabledValue, bulkUnitLabelValue, bulkQuantityValue, bulkPriceValue, bulkPurchasePriceValue, salePriceValue, purchasePriceValue] = useWatch({ control, name: ['bulkEnabled', 'bulkUnitLabel', 'bulkQuantity', 'bulkPrice', 'bulkPurchasePrice', 'salePrice', 'purchasePrice'] });
   // Saisies strictes : une valeur vide, négative, décimale ou mal écrite vaut
   // null — le calcul est alors masqué au lieu d'afficher « NaN » ou un chiffre
   // faux calculé sur une valeur que le formulaire refuse de toute façon.
-  const bulkQuantityNumber = parseWholeNumber(bulkQuantityValue);
-  const bulkPriceNumber = parseWholeNumber(bulkPriceValue);
   const purchaseNumber = parseWholeNumber(purchasePriceValue);
   const saleNumber = parseWholeNumber(salePriceValue);
-  const perUnitBulkPrice = bulkQuantityNumber !== null && bulkQuantityNumber > 0 && bulkPriceNumber !== null ? bulkPriceNumber / bulkQuantityNumber : 0;
   // Marge en direct sous les prix : on veut que l'erreur de saisie (prix de
   // vente sous le prix d'achat) saute aux yeux tout de suite, pas seulement
   // après enregistrement sur la fiche complète.
@@ -130,10 +128,6 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
     if (current !== target) setValue('salePrice', target, { shouldDirty: false, shouldValidate: true });
     autoSale.current = target;
   }, [id, bulkEnabledValue, bulkPriceValue, bulkQuantityValue, getValues, setValue]);
-  // Coût d'achat du lot : le prix saisi, sinon prix à l'unité × quantité. Sert à prévenir d'une
-  // vente en gros à perte, comme pour la vente au détail.
-  const lotCost = (bulkPurchasePriceValue ?? '').trim() !== '' ? bulkPurchasePriceValue : lotPriceFromUnit(purchasePriceValue, bulkQuantityValue);
-  const lotResult = bulkEnabledValue ? lotMargin(bulkPriceValue, lotCost) : null;
 
   useEffect(() => { if (product.data) reset({ name:product.data.name, description:product.data.description??'', sku:product.data.sku ?? '', barcode:product.data.barcode??'', supplierId:product.data.supplier_id, unit:product.data.unit??'piece', purchasePrice:numericFieldValue(product.data.purchase_price), salePrice:numericFieldValue(product.data.sale_price), initialQuantity:'0', lowStockThreshold:numericFieldValue(product.data.low_stock_threshold), isActive:product.data.is_active, bulkEnabled:!!product.data.bulk_unit_label, bulkUnitLabel:product.data.bulk_unit_label??'', bulkQuantity:product.data.bulk_quantity!=null?String(product.data.bulk_quantity):'', bulkPrice:product.data.bulk_price!=null?numericFieldValue(product.data.bulk_price):'', bulkPurchasePrice:(product.data.bulk_quantity!=null&&product.data.purchase_price!=null)?String(Math.round(Number(product.data.purchase_price)*Number(product.data.bulk_quantity))):'' }); }, [product.data,reset]);
 
@@ -279,42 +273,11 @@ export function ProductFormScreen({ id,initialBarcode,basePath='/products',retur
           </View>}
         </Card.Content>
       </Card>
-      {/* Retour testeur du 24/09 : la vente en gros devient le point d'entrée principal, toujours
-          affiché et obligatoire (plus de bascule ici) ; le détail passe en option, avec sa propre
-          bascule sur sa carte plus bas (« Vendre uniquement au détail ») — c'est elle qui pilote
-          bulkEnabled, à l'envers (bascule cochée = bulkEnabled à false). Ordre demandé explicitement. */}
-      {!productVariants.length && bulkEnabledValue && <Card mode="outlined">
-        <Card.Title title="Vente en gros" subtitle="Ex : un carton de 24, un sac de 50 kg" left={props => <Icon {...props} source="package-variant-closed" />} />
-        <Card.Content style={styles.formContent}>
-          <Text variant="bodySmall">Le vendeur touchera deux boutons à la vente (détail / gros) avec le bon prix déjà calculé — aucun calcul à faire à chaque vente.</Text>
-          <ResponsiveFormGrid>
-            <FormField control={control} name="bulkUnitLabel" label="Nom de l’unité de gros (ex : Carton, Sac)" required />
-            <FormField control={control} name="bulkQuantity" label="Quantité par lot (ex : 24)" required keyboardType="number-pad" selectTextOnFocus />
-          </ResponsiveFormGrid>
-          {<Text variant="bodySmall" style={{ fontStyle: 'italic' }}>Astuce : si vous ne saisissez pas vous-même les prix à l’unité en dessous, ils se calculent tout seuls à partir des prix du lot (prix du lot ÷ quantité par lot) et suivent la quantité. Un prix que vous avez saisi n’est jamais remplacé. Sur une fiche existante, le prix d’achat à l’unité ne change que si vous modifiez vous-même le prix d’achat du lot.</Text>}
-          <ResponsiveFormGrid>
-            {<FormField control={control} name="bulkPurchasePrice" label={`Prix d’achat du lot (${primaryCode}, facultatif)`} keyboardType="number-pad" selectTextOnFocus />}
-            <FormField control={control} name="bulkPrice" label={`Prix de vente du lot (${primaryCode})`} required keyboardType="number-pad" selectTextOnFocus />
-          </ResponsiveFormGrid>
-          {perUnitBulkPrice > 0 && <HelperText type={perUnitBulkPrice > (saleNumber ?? 0) && (saleNumber ?? 0) > 0 ? 'error' : 'info'} visible>
-            {perUnitBulkPrice > (saleNumber ?? 0) && (saleNumber ?? 0) > 0
-              ? `Attention : ${formatMoney(perUnitBulkPrice)} par unité dans le lot, c’est plus cher que le prix au détail (${formatMoney(saleNumber ?? 0)}). Vérifiez le prix du lot.`
-              : `Soit ${formatMoney(perUnitBulkPrice)} par unité dans le lot, contre ${formatMoney(saleNumber ?? 0)} au détail.`}
-          </HelperText>}
-          {lotResult && <HelperText type={lotResult.kind === 'loss' ? 'error' : 'info'} visible>
-            {lotResult.kind === 'loss'
-              ? `Attention : le prix de vente du lot (${formatMoney(bulkPriceNumber ?? 0)}) est inférieur à son prix d’achat (${formatMoney(parseWholeNumber(lotCost) ?? 0)}). Vous vendriez à perte (${formatMoney(lotResult.amount)}).`
-              : lotResult.kind === 'none'
-                ? 'Aucune marge sur le lot : vente au prix d’achat.'
-                : `Marge sur le lot : ${formatMoney(lotResult.amount)}.`}
-          </HelperText>}
-        </Card.Content>
-      </Card>}
-      {!!productVariants.length && <HelperText type="info" visible>La vente en gros n’est pas disponible sur un produit à variantes.</HelperText>}
+      {/* Retour testeur du 25/09 : la vente en gros est définitivement retirée du
+          formulaire — règle de base rétablie, un produit est simple et vendu au détail. */}
       <Card mode="outlined">
-        <Card.Title title="Vente au détail" subtitle={bulkEnabledValue ? undefined : 'Ce produit ne se vend qu’à l’unité, sans lot'} right={() => !productVariants.length ? <Controller control={control} name="bulkEnabled" render={({ field: bulkField }) => <Switch value={!bulkField.value} onValueChange={(detailOnly) => bulkField.onChange(!detailOnly)} accessibilityLabel="Vendre uniquement au détail, sans lot" style={{ marginRight: 12 }} />} /> : null} />
+        <Card.Title title="Prix" />
         <Card.Content style={styles.formContent}>
-          {bulkEnabledValue && <Text variant="bodySmall" style={{ fontStyle: 'italic' }}>Calculé automatiquement à partir du prix du lot ci-dessus. Modifiez librement si le prix à l’unité doit être différent.</Text>}
           <ResponsiveFormGrid>
             <FormField control={control} name="purchasePrice" label={`Prix d’achat (${primaryCode})`} required keyboardType="number-pad" selectTextOnFocus />
             <FormField control={control} name="salePrice" label={`Prix de vente (${primaryCode})`} required keyboardType="number-pad" selectTextOnFocus />

@@ -40,10 +40,15 @@ export default function EmployeeProducts() {
     {!!query.error&&<HelperText type="error" visible>{readableError(query.error)}</HelperText>}
     <View style={styles.grid}>
       {products.map((product) => <Card key={product.id} mode="contained" style={styles.gridCard} onPress={canWrite ? () => router.push(`/employee/products/${product.id}` as never) : undefined}>
-        <View style={styles.gridImageWrap}><ProductThumbnail url={product.image_urls?.[0]} size={78}/></View>
+        <View style={styles.gridImageWrap}><ProductThumbnail url={product.image_urls?.[0]} size={54}/></View>
         <Card.Content style={styles.gridCopy}>
           <Text variant="titleSmall" numberOfLines={2} style={styles.gridName}>{product.name}</Text>
-          <Text variant="titleMedium" style={styles.bold}>{formatMoney(Number(product.sale_price))}</Text>
+          {/* Retour testeur du 25/09 : le prix débordait quand trop de cartes tenaient par
+              rangée — 3 par ligne sur téléphone (comme la grille de Nouvelle vente).
+              adjustsFontSizeToFit n'a aucun effet sur le web (non supporté par
+              react-native-web, vérifié en direct) : texte petit par défaut à la place,
+              numberOfLines en filet de sécurité pour un montant vraiment extrême. */}
+          <Text numberOfLines={1} style={styles.price}>{formatMoney(Number(product.sale_price))}</Text>
         </Card.Content>
       </Card>)}
     </View>
@@ -54,13 +59,16 @@ export default function EmployeeProducts() {
 }
 
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   // flexBasis en pixels fixes (pas en %) pour que le nombre de colonnes
-  // s'adapte tout seul à la largeur réelle : ~4 sur téléphone, davantage
-  // sur un écran plus large (tablette, ordinateur), sans logique à part.
-  gridCard: { flexBasis: 84, flexGrow: 1, minWidth: 80, maxWidth: 170, overflow: 'hidden' },
-  gridImageWrap: { alignItems: 'center', paddingTop: 12 },
-  gridCopy: { alignItems: 'center', gap: 2, paddingTop: 8 },
+  // s'adapte tout seul à la largeur réelle : 3 sur téléphone (comme la
+  // grille de Nouvelle vente), davantage sur un écran plus large. Cases
+  // plus compactes et carrées (retour testeur du 25/09), pas de grandes
+  // cartes rectangulaires.
+  gridCard: { flexBasis: 106, flexGrow: 1, minWidth: 100, maxWidth: 150, overflow: 'hidden' },
+  gridImageWrap: { alignItems: 'center', paddingTop: 8 },
+  gridCopy: { alignItems: 'center', gap: 2, paddingTop: 4, paddingBottom: 8 },
   gridName: { textAlign: 'center' },
+  price: { fontSize: 12, fontWeight: '800' },
   bold: { fontWeight: '800' },
 });

@@ -2,11 +2,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { ScrollView } from 'react-native';
-import { Card, Checkbox, Dialog, HelperText, Portal, Switch, Text } from 'react-native-paper';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Card, Checkbox, Dialog, HelperText, Portal, Switch, Text, useTheme } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
-import { plural } from '@/utils/plural';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FormField } from '@/components/forms/FormField';
 import { SelectField } from '@/components/forms/SelectField';
@@ -23,7 +22,10 @@ import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 const inviteDefaults: EmployeeInput = { fullName:'', email:'', roleId:'', storeIds:[], allStores:false };
 const EMPLOYEE_PAGE_SIZE = 20;
 
+const initials = (name: string) => name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]!.toUpperCase()).join('') || '?';
+
 export default function EmployeesScreen() {
+  const theme = useTheme();
   const { membership } = useAuth();
   const { getSubscriptionLimits, isLoading: subscriptionLoading } = useSubscription();
   const companyId = membership?.companyId ?? '';
@@ -67,12 +69,16 @@ export default function EmployeesScreen() {
   const openEmployee=(employee:Employee)=>{setEditRole(employee.roleId);setEditStores(employee.storeIds);setEditAllStores(employee.allStores);setEditActive(employee.isActive);update.reset();remove.reset();setEditing(employee)};
 
   return <AdminPage title="Employés" action={<AppButton icon={canInvite?'account-plus':'lock-outline'} onPress={()=>canInvite?openInvite():void openAccountPortal(companyId).catch(()=>undefined)}>{canInvite?'Ajouter':'Forfait requis'}</AppButton>}>
+    <View style={[styles.hero, { backgroundColor: theme.colors.primaryContainer }]}>
+      <Text style={{ color: theme.colors.onPrimaryContainer }}>Employés actifs</Text>
+      <Text variant="titleLarge" numberOfLines={1} style={[styles.heroValue, { color: theme.colors.onPrimaryContainer }]}>{subscriptionLoading ? '…' : `${activeEmployeeCount} / ${employeeLimit}`}</Text>
+      {!subscriptionLoading && !canInvite && <Text style={{ color: theme.colors.onPrimaryContainer }}>Limite du forfait atteinte</Text>}
+    </View>
     <Card mode="outlined"><Card.Content><Text variant="titleMedium">Accès temporaire sécurisé</Text><Text>StockMaster affiche le mot de passe provisoire une seule fois après la création. Transmettez-le directement à l’employé : il devra le remplacer à sa première connexion.</Text></Card.Content></Card>
     {!!successMessage&&<HelperText type="info" visible>{successMessage}</HelperText>}
-    {!subscriptionLoading&&<HelperText type={canInvite?'info':'error'} visible>{activeEmployeeCount}/{employeeLimit} employé{plural(employeeLimit)} actif{plural(employeeLimit)} autorisé{plural(employeeLimit)} par le forfait.</HelperText>}
     {!!roles.error&&<HelperText type="error" visible>Impossible de charger les rôles : {roles.error.message}</HelperText>}
     {!roles.isLoading&&!roleOptions.length&&<Card mode="outlined"><Card.Content><Text>Créez au moins un rôle employé avant d’envoyer une invitation.</Text></Card.Content></Card>}
-    {employees.data?.length?visibleEmployees.map(e=><Card key={e.id} onPress={()=>openEmployee(e)}><Card.Title title={e.fullName} subtitle={`${e.roleName} • ${e.allStores?'Toutes les boutiques':e.storeNames.join(', ')||'Aucune boutique'}`} right={()=><StatusChip style={{marginRight:12}} status={e.isActive?'active':'suspended'}/>} /></Card>):<EmptyState icon="account-multiple-plus" title="Aucun employé" message="Invitez votre équipe et attribuez précisément ses accès."/>}
+    {employees.data?.length?visibleEmployees.map(e=><Card key={e.id} onPress={()=>openEmployee(e)}><Card.Title title={e.fullName} subtitle={`${e.roleName} • ${e.allStores?'Toutes les boutiques':e.storeNames.join(', ')||'Aucune boutique'}`} left={()=><View style={[styles.avatar,{backgroundColor:theme.colors.secondaryContainer}]}><Text style={[styles.avatarText,{color:theme.colors.secondary}]}>{initials(e.fullName)}</Text></View>} right={()=><StatusChip style={{marginRight:12}} status={e.isActive?'active':'suspended'}/>} /></Card>):<EmptyState icon="account-multiple-plus" title="Aucun employé" message="Invitez votre équipe et attribuez précisément ses accès."/>}
     {(employees.data?.length??0)>visibleEmployees.length&&<AppButton mode="outlined" onPress={()=>setVisibleCount(count=>count+EMPLOYEE_PAGE_SIZE)}>Charger plus d’employés</AppButton>}
     <Portal><Dialog visible={inviteOpen} onDismiss={()=>setInviteOpen(false)}><Dialog.Title>Ajouter un employé</Dialog.Title><Dialog.ScrollArea style={{paddingHorizontal:0}}><ScrollView nestedScrollEnabled contentContainerStyle={{gap:12,paddingHorizontal:24,paddingBottom:12}} keyboardShouldPersistTaps="handled"><FormField control={control} name="fullName" label="Nom complet"/><FormField control={control} name="email" label="Email" keyboardType="email-address" autoCapitalize="none"/><Controller control={control} name="roleId" render={({field,fieldState})=><SelectField label="Rôle" value={field.value} options={roleOptions} onChange={v=>field.onChange(v??'')} error={fieldState.error?.message}/>}/><Controller control={control} name="allStores" render={({field})=><Checkbox.Item label="Accès à toutes les boutiques" status={field.value?'checked':'unchecked'} onPress={()=>field.onChange(!field.value)}/>}/>{!allStores&&<Controller control={control} name="storeIds" render={({field,fieldState})=><Card mode="outlined"><Card.Title title="Boutiques autorisées"/><Card.Content>{(stores.data??[]).filter(s=>s.is_active).map(store=><Checkbox.Item key={store.id} label={store.name} status={field.value.includes(store.id)?'checked':'unchecked'} onPress={()=>field.onChange(field.value.includes(store.id)?field.value.filter(id=>id!==store.id):[...field.value,store.id])}/>)}{!!fieldState.error&&<HelperText type="error" visible>{fieldState.error.message}</HelperText>}</Card.Content></Card>}/>}{!!invite.error&&<HelperText type="error" visible>{invite.error.message}</HelperText>}</ScrollView></Dialog.ScrollArea><Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setInviteOpen(false)}>Annuler</AppButton><AppButton disabled={!roleOptions.length} loading={invite.isPending} onPress={handleSubmit(v=>invite.mutate(v))}>Ajouter</AppButton></Dialog.Actions></Dialog></Portal>
     <Portal><Dialog visible={!!temporaryCredentials} dismissable={false}><Dialog.Title>Employé créé</Dialog.Title><Dialog.Content style={{gap:12}}><HelperText type="info" visible>Copiez maintenant ces informations. Le mot de passe ne sera plus affiché après fermeture.</HelperText><Text selectable>Email : {temporaryCredentials?.email}</Text>{temporaryCredentials?.temporaryPassword?<Card mode="contained"><Card.Content style={{gap:10}}><Text variant="labelMedium">Mot de passe temporaire</Text><Text variant="titleLarge" selectable>{temporaryCredentials.temporaryPassword}</Text><AppButton mode="outlined" icon={passwordCopied?'check':'content-copy'} onPress={async()=>{await Clipboard.setStringAsync(temporaryCredentials.temporaryPassword!);setPasswordCopied(true)}}>{passwordCopied?'✓ Copié':'Copier le mot de passe'}</AppButton></Card.Content></Card>:<Text>L’invitation a été envoyée par email.</Text>}</Dialog.Content><Dialog.Actions><AppButton onPress={()=>{setTemporaryCredentials(null);setPasswordCopied(false)}}>Fermer</AppButton></Dialog.Actions></Dialog></Portal>
@@ -87,3 +93,10 @@ export default function EmployeesScreen() {
     <ConfirmDialog visible={deleteAccountConfirm} title="Supprimer aussi le compte personnel ?" message="Contrairement à « Supprimer », ceci supprime définitivement le compte StockMaster de cette personne (plus aucune connexion possible avec cet email, aucune trace). Refusé automatiquement s’il a un paiement réussi à son nom, ou s’il travaille encore activement ailleurs (une autre entreprise). Ses ventes et opérations déjà enregistrées ici restent conservées, sans nom rattaché. Action irréversible." destructive loading={removeAccount.isPending} reason={deleteAccountReason} onReasonChange={setDeleteAccountReason} onCancel={()=>{setDeleteAccountConfirm(false);setDeleteAccountReason('')}} onConfirm={()=>removeAccount.mutate()}/>
   </AdminPage>;
 }
+
+const styles = StyleSheet.create({
+  hero: { padding: 20, borderRadius: 24, gap: 4 },
+  heroValue: { fontWeight: '800' },
+  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontWeight: '800', fontSize: 14 },
+});

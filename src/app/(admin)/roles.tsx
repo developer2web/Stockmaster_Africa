@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
-import { Card, Checkbox, Dialog, HelperText, Portal, Text } from 'react-native-paper';
+import { Card, Checkbox, Dialog, HelperText, Icon, Portal, Text, useTheme } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { plural } from '@/utils/plural';
@@ -17,6 +17,7 @@ import type { EmployeeRole } from '@/types/database';
 import { FeatureGate } from '@/components/subscriptions/FeatureGate';
 
 export default function RolesScreen() {
+  const theme = useTheme();
   const { membership } = useAuth();
   const companyId = membership?.companyId ?? '';
   const qc = useQueryClient();
@@ -41,8 +42,9 @@ export default function RolesScreen() {
   ];
 
   return <FeatureGate feature="advanced_permissions" label="Rôles et permissions avancés"><AdminPage title="Rôles et permissions" action={<AppButton icon="plus" onPress={()=>show()}>Ajouter</AppButton>}>
+    {!roles.isLoading&&<View style={[styles.hero,{backgroundColor:theme.colors.primaryContainer}]}><Text style={{color:theme.colors.onPrimaryContainer}}>Rôles créés</Text><Text variant="titleLarge" style={[styles.heroValue,{color:theme.colors.onPrimaryContainer}]}>{employeeRoles.length}</Text></View>}
     {!!roles.error&&<HelperText type="error" visible>Impossible de charger les rôles : {roles.error.message}</HelperText>}
-    {employeeRoles.length?employeeRoles.map(role=>{const permissionCount=role.permissions.filter(code=>!code.startsWith('categories.')).length;return <Card key={role.id} onPress={()=>show(role)}><Card.Title title={role.name} subtitle={`${permissionCount} permission${plural(permissionCount)}`}/><Card.Actions><AppButton mode="text" onPress={()=>show(role)}>Modifier</AppButton><AppButton mode="text" onPress={()=>setDeleting(role)}>Supprimer</AppButton></Card.Actions></Card>;}):!roles.isLoading&&<EmptyState icon="shield-plus" title="Aucun rôle employé" message="Créez un rôle avant d’inviter votre premier employé."/>}
+    {employeeRoles.length?employeeRoles.map(role=>{const permissionCount=role.permissions.filter(code=>!code.startsWith('categories.')).length;return <Card key={role.id} onPress={()=>show(role)}><Card.Title title={role.name} subtitle={`${permissionCount} permission${plural(permissionCount)}`} left={()=><View style={[styles.avatar,{backgroundColor:theme.colors.secondaryContainer}]}><Icon source="shield-account-outline" size={20} color={theme.colors.secondary}/></View>}/><Card.Actions><AppButton mode="text" onPress={()=>show(role)}>Modifier</AppButton><AppButton mode="text" onPress={()=>setDeleting(role)}>Supprimer</AppButton></Card.Actions></Card>;}):!roles.isLoading&&<EmptyState icon="shield-plus" title="Aucun rôle employé" message="Créez un rôle avant d’inviter votre premier employé."/>}
 
     <Portal><Dialog visible={open} onDismiss={()=>setOpen(false)} style={[styles.dialog,{width:Math.min(width-24,680)}]}>
       <Dialog.Title>{editing?'Modifier le rôle':'Nouveau rôle'}</Dialog.Title>
@@ -72,6 +74,9 @@ export default function RolesScreen() {
 }
 
 const styles=StyleSheet.create({
+  hero:{padding:20,borderRadius:24,gap:4},
+  heroValue:{fontWeight:'800'},
+  avatar:{width:40,height:40,borderRadius:20,alignItems:'center',justifyContent:'center'},
   dialog:{alignSelf:'center',maxWidth:680,maxHeight:'92%',marginHorizontal:12},
   presetRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:8,marginBottom:10},
   toolbar:{flexDirection:'row',justifyContent:'flex-end',marginBottom:4},

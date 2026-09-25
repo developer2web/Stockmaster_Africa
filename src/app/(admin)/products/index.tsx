@@ -66,12 +66,16 @@ export default function ProductsScreen() {
         {rows.map((product) => (
           <Card mode="contained" style={[styles.gridCard, { backgroundColor: theme.colors.surface }]} key={product.id} onPress={() => router.push(`/products/${product.id}` as never)}>
             <View style={styles.gridImageWrap}>
-              <ProductThumbnail url={product.image_urls?.[0]} size={78} />
+              <ProductThumbnail url={product.image_urls?.[0]} size={54} />
               {!product.is_active && <StatusChip status="inactive" style={styles.gridStatus}/>}
             </View>
             <Card.Content style={styles.gridCopy}>
               <Text variant="titleSmall" numberOfLines={2} style={styles.gridName}>{product.name}</Text>
-              <Text variant="titleMedium" style={styles.bold}>{formatMoney(Number(product.sale_price))}</Text>
+              {/* Retour testeur du 25/09 : le prix débordait avec trop de cartes par rangée —
+                  3 par ligne, cases carrées compactes. adjustsFontSizeToFit n'a aucun effet
+                  sur le web (non supporté par react-native-web, vérifié en direct) : texte
+                  petit par défaut à la place. */}
+              <Text numberOfLines={1} style={styles.price}>{formatMoney(Number(product.sale_price))}</Text>
             </Card.Content>
           </Card>
         ))}
@@ -102,20 +106,17 @@ export default function ProductsScreen() {
 
 const styles = StyleSheet.create({
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  price: { alignItems: 'flex-end', gap: 4, marginRight: 14 },
+  price: { fontSize: 12, fontWeight: '800' },
   bold: { fontWeight: '800' },
   actions:{flexDirection:'row',flexWrap:'wrap',gap:8},
-  // Grille à 3 colonnes façon Amazon, plutôt que la liste précédente : image
-  // beaucoup plus grande (112 au lieu de 52), nom et prix en dessous.
-  // flexBasis en pourcentage (plutôt qu'un nombre de pixels fixe) pour que 3
-  // cartes tiennent par ligne quelle que soit la largeur de l'écran.
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  // Grille à 3 colonnes, cases carrées compactes (retour testeur du 25/09) :
   // flexBasis en pixels fixes (pas en %) pour que le nombre de colonnes
-  // s'adapte tout seul à la largeur réelle : ~4 sur téléphone, davantage
-  // sur un écran plus large (tablette, ordinateur), sans logique à part.
-  gridCard: { flexBasis: 84, flexGrow: 1, minWidth: 80, maxWidth: 170, overflow: 'hidden' },
-  gridImageWrap: { alignItems: 'center', paddingTop: 12, position: 'relative' },
+  // s'adapte tout seul à la largeur réelle : 3 sur téléphone (comme la
+  // grille de Nouvelle vente), davantage sur un écran plus large.
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  gridCard: { flexBasis: 106, flexGrow: 1, minWidth: 100, maxWidth: 150, overflow: 'hidden' },
+  gridImageWrap: { alignItems: 'center', paddingTop: 8, position: 'relative' },
   gridStatus: { position: 'absolute', top: 4, left: 4 },
-  gridCopy: { alignItems: 'center', gap: 2, paddingTop: 8 },
+  gridCopy: { alignItems: 'center', gap: 2, paddingTop: 4, paddingBottom: 8 },
   gridName: { textAlign: 'center' },
 });

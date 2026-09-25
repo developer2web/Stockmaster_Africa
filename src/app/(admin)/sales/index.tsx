@@ -3,8 +3,8 @@ import { PendingSales } from '@/features/offline/PendingSales';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { View } from 'react-native';
-import { Card, HelperText, Searchbar, Text, useTheme } from 'react-native-paper';
+import { StyleSheet, View } from 'react-native';
+import { Card, Chip, HelperText, Icon, Searchbar, Text, useTheme } from 'react-native-paper';
 
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
@@ -94,6 +94,10 @@ export default function SalesScreen() {
       <PendingSales />
       <Searchbar placeholder="Rechercher une référence ou un client" value={search} onChangeText={setSearch} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        {/* Retour testeur du 25/09 : raccourcis rapides « Toutes/Aujourd'hui », en plus du
+            panneau Filtrer déjà existant (période, moyen de paiement, règlement). */}
+        <Chip selected={filters.period === 'all'} accessibilityLabel={`Toutes les ventes${filters.period === 'all' ? ', sélectionné' : ''}`} onPress={() => { setFilters(current => ({ ...current, period: 'all' })); setDraft(current => ({ ...current, period: 'all' })); }}>Toutes</Chip>
+        <Chip selected={filters.period === 'today'} accessibilityLabel={`Ventes d’aujourd’hui${filters.period === 'today' ? ', sélectionné' : ''}`} onPress={() => { setFilters(current => ({ ...current, period: 'today' })); setDraft(current => ({ ...current, period: 'today' })); }}>Aujourd’hui</Chip>
         <AppButton mode="outlined" icon="filter-variant" onPress={() => {
           setDraft(filters); setFilterError(''); setFiltersOpen(value => !value);
         }}>{filtersOpen ? 'Fermer les filtres' : `Filtrer${filterCount ? ` (${filterCount})` : ''}`}</AppButton>
@@ -119,14 +123,20 @@ export default function SalesScreen() {
       {filterCount > 0 && <Text style={{ color: theme.colors.onSurfaceVariant }}>
         {[filters.period !== 'all' && (filters.period === 'custom' ? `Du ${filters.startDate.split('-').reverse().join('/')} au ${filters.endDate.split('-').reverse().join('/')}` : periodOptions.find(option => option.value === filters.period)?.label), filters.payment && paymentOptions.find(option => option.value === filters.payment)?.label, filters.status !== 'all' && statusOptions.find(option => option.value === filters.status)?.label].filter(Boolean).join(' · ')}
       </Text>}
-      {!!rows.length && <Card><Card.Content style={{ gap: 4 }}><Text variant="headlineSmall">{formatMoney(revenue)}</Text><Text>{rows.length === 1 ? 'Total de la vente affichée' : `Total des ${rows.length} ventes affichées`}</Text>{sales.hasNextPage && <Text variant="bodySmall">Chargez la suite pour afficher davantage de résultats.</Text>}</Card.Content></Card>}
+      {!!rows.length && <View style={{ padding: 20, borderRadius: 24, gap: 4, backgroundColor: theme.colors.primaryContainer }}>
+        <Text style={{ color: theme.colors.onPrimaryContainer }}>Total des ventes</Text>
+        <Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontWeight: '800', color: theme.colors.onPrimaryContainer }}>{formatMoney(revenue)}</Text>
+        <Text style={{ color: theme.colors.onPrimaryContainer }}>{rows.length === 1 ? '1 vente affichée' : `${rows.length} ventes affichées`}</Text>
+        {sales.hasNextPage && <Text variant="bodySmall" style={{ color: theme.colors.onPrimaryContainer }}>Chargez la suite pour afficher davantage de résultats.</Text>}
+      </View>}
       {sales.isLoading && <Text accessibilityLiveRegion="polite">Chargement des ventes…</Text>}
       {canReadFinancials && !!profits.error && <View><HelperText type="error" visible>Les ventes sont chargées, mais leurs bénéfices sont indisponibles.</HelperText><AppButton mode="text" loading={profits.isFetching} onPress={() => void profits.refetch()}>Réessayer les bénéfices</AppButton></View>}
       {!!sales.error && <View><HelperText type="error" visible>{sales.error.message}</HelperText><AppButton mode="text" loading={sales.isFetching} onPress={() => void (sales.isFetchNextPageError ? sales.fetchNextPage() : sales.refetch())}>Réessayer</AppButton></View>}
       {rows.map((sale) => {
         const historicalMoney = (value: number) => formatForCurrency(value, sale.currency_code);
         const profit = profitsBySale.get(sale.id);
-        return <Card key={sale.id} mode="outlined" onPress={() => router.push((employee ? `/employee/sales/${sale.id}` : `/sales/${sale.id}`) as never)}><Card.Title title={sale.reference ?? 'Vente'} subtitle={`${sale.store_id !== store && sale.store?.name ? `${sale.store.name} · ` : ''}${paymentLabels[sale.payment_method ?? ''] ?? sale.payment_method ?? 'Paiement'}`} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{historicalMoney(Number(sale.total))}</Text>} /><Card.Content><Text>{formatDateTime(sale.created_at)}{canReadFinancials ? profit ? ` • Bénéfice : ${historicalMoney(Number(profit.gross_profit))}` : profits.isPending ? ' • Calcul du bénéfice…' : ' • Bénéfice indisponible' : ''}</Text>{sale.secondary_currency_code && sale.secondary_exchange_rate && <Text>Au taux historique : {formatForCurrency(Number(sale.total) * Number(sale.secondary_exchange_rate), sale.secondary_currency_code)}</Text>}</Card.Content></Card>;
+        const settled = Number(sale.amount_due) <= 0;
+        return <Card key={sale.id} mode="outlined" onPress={() => router.push((employee ? `/employee/sales/${sale.id}` : `/sales/${sale.id}`) as never)}><Card.Title title={sale.reference ?? 'Vente'} subtitle={`${sale.store_id !== store && sale.store?.name ? `${sale.store.name} · ` : ''}${paymentLabels[sale.payment_method ?? ''] ?? sale.payment_method ?? 'Paiement'}`} left={() => <View style={[styles.saleIcon, { backgroundColor: settled ? theme.colors.primaryContainer : theme.colors.errorContainer }]}><Icon source={settled ? 'check' : 'clock-outline'} size={18} color={settled ? theme.colors.primary : theme.colors.error} /></View>} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{historicalMoney(Number(sale.total))}</Text>} /><Card.Content><Text>{formatDateTime(sale.created_at)}{canReadFinancials ? profit ? ` • Bénéfice : ${historicalMoney(Number(profit.gross_profit))}` : profits.isPending ? ' • Calcul du bénéfice…' : ' • Bénéfice indisponible' : ''}</Text>{sale.secondary_currency_code && sale.secondary_exchange_rate && <Text>Au taux historique : {formatForCurrency(Number(sale.total) * Number(sale.secondary_exchange_rate), sale.secondary_currency_code)}</Text>}</Card.Content></Card>;
       })}
       {sales.hasNextPage && <AppButton mode="outlined" icon="chevron-down" loading={sales.isFetchingNextPage} disabled={sales.isFetchingNextPage} onPress={() => void sales.fetchNextPage()}>Charger plus de ventes</AppButton>}
       {!sales.isLoading && !sales.error && !rows.length && <EmptyState icon={filtering ? 'magnify' : 'cart-plus'} title={filtering ? 'Aucune vente trouvée' : 'Aucune vente'} message={filtering ? 'Modifiez les filtres ou la recherche.' : 'Enregistrez votre première vente.'} action={filtering ? <AppButton mode="outlined" onPress={resetFilters}>Effacer les filtres</AppButton> : (can('sales.write')) ? <AppButton icon="plus" onPress={() => router.push((employee ? '/employee/sales/new' : '/sales/new') as never)}>Nouvelle vente</AppButton> : undefined} />}
@@ -135,3 +145,7 @@ export default function SalesScreen() {
     </AdminPage>
   );
 }
+
+const styles = StyleSheet.create({
+  saleIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+});

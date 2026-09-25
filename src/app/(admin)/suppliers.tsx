@@ -112,6 +112,9 @@ export default function Suppliers() {
   });
   const cancellationMutation=useMutation({mutationFn:()=>cancelPurchase(purchaseToCancel!.id,cancellationReason,cancellationMethod,cancellationReference),onSuccess:async()=>{await Promise.all([cache.invalidateQueries({queryKey:['supplier-account',company,store,selected?.id]}),cache.invalidateQueries({queryKey:['supplier-stats',company,store]}),cache.invalidateQueries({queryKey:['stock-levels',company]}),cache.invalidateQueries({queryKey:['cash-summary',company,store]})]);setPurchaseToCancel(null);setCancellationReason('');setCancellationReference('')}});
 
+  const totalDue = Object.values(stats.data ?? {}).reduce((sum, row) => sum + row.due, 0);
+  const initials = (name: string) => name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]!.toUpperCase()).join('') || '?';
+
   const show = (item?: Supplier) => {
     mutation.reset();
     setEditing(item ?? null);
@@ -128,7 +131,11 @@ export default function Suppliers() {
   };
   const parsedAmount = parseDecimal(amount);
 
-  return <AdminPage title="Fournisseurs" action={<AppButton icon="plus" accessibilityLabel="Ajouter un fournisseur" onPress={() => show()}>Ajouter</AppButton>}>
+  return <AdminPage title="Fournisseurs" description="Comptes, dettes et livraisons" action={<AppButton icon="plus" accessibilityLabel="Ajouter un fournisseur" onPress={() => show()}>Ajouter</AppButton>}>
+    <View style={[styles.hero, { backgroundColor: theme.colors.primaryContainer }]}>
+      <Text style={{ color: theme.colors.onPrimaryContainer }}>Dettes fournisseurs</Text>
+      <Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={[styles.heroValue, { color: theme.colors.onPrimaryContainer }]}>{formatMoney(totalDue)}</Text>
+    </View>
     <AppSearchBar placeholder="Nom, email ou téléphone" value={search} onChangeText={setSearch} loading={search !== debouncedSearch} />
     {!!query.error && <HelperText type="error" visible>{(query.error as Error).message}</HelperText>}
     {!!stats.error && <HelperText type="error" visible>{stats.error.message}</HelperText>}
@@ -138,6 +145,9 @@ export default function Suppliers() {
       return <Card key={item.id} mode="outlined">
         <Card.Content style={styles.supplierContent}>
           <View style={styles.supplierHeader}>
+            <View style={[styles.avatar, { backgroundColor: due > 0 ? theme.colors.errorContainer : theme.colors.primaryContainer }]}>
+              <Text style={[styles.avatarText, { color: due > 0 ? theme.colors.error : theme.colors.primary }]}>{initials(item.name)}</Text>
+            </View>
             <Text variant="titleMedium" style={styles.supplierName}>{item.name}</Text>
             <StatusChip status={item.is_active ? 'active' : 'archived'} />
           </View>
@@ -165,6 +175,7 @@ export default function Suppliers() {
       </Card>;
     })}
     {query.hasNextPage && <AppButton mode="outlined" loading={query.isFetchingNextPage} onPress={() => void query.fetchNextPage()}>Charger plus de fournisseurs</AppButton>}
+    <Text variant="labelLarge" style={[styles.sectionLabel, { color: theme.colors.onSurfaceVariant }]}>ACTIONS RAPIDES</Text>
     <AppButton icon="truck-check-outline" onPress={() => router.push('/purchases' as never)}>Nouvel approvisionnement</AppButton>
     {!query.isLoading && !shown.length && <EmptyState icon={search ? 'magnify' : 'truck-plus'} title={search ? 'Aucun résultat' : 'Aucun fournisseur'} message={search ? 'Modifiez votre recherche.' : 'Ajoutez votre premier fournisseur.'} />}
     <Portal>
@@ -236,6 +247,11 @@ export default function Suppliers() {
 }
 
 const styles = StyleSheet.create({
+  hero: { padding: 20, borderRadius: 24, gap: 4 },
+  heroValue: { fontWeight: '800' },
+  sectionLabel: { fontWeight: '800', letterSpacing: 0.6 },
+  avatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontWeight: '800', fontSize: 13 },
   supplierContent: { gap: 6, paddingTop: 12, paddingBottom: 8 },
   supplierHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   supplierName: { flexGrow: 1, flexShrink: 1, flexBasis: 160, minWidth: 0, fontWeight: '800' },
