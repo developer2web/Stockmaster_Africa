@@ -111,7 +111,7 @@ export default function StockScreen() {
                 <Text variant="titleSmall" style={styles.bold} numberOfLines={2}>{movement.product?.name ?? 'Produit'}</Text>
                 <Text style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={2}>{movement.store?.name ?? 'Boutique'} · {formatDateTime(movement.created_at)}</Text>
               </View>
-              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.movementQuantity, styles.bold, { color: positive ? theme.colors.primary : theme.colors.error }]}>{positive ? '+' : ''}{formatQuantity(movement.quantity)}</Text>
+              <Text numberOfLines={1} style={[styles.movementQuantity, styles.bold, { color: positive ? theme.colors.primary : theme.colors.error }]}>{positive ? '+' : ''}{formatQuantity(movement.quantity)}</Text>
             </Card.Content>
           </Card>
         );
@@ -125,10 +125,12 @@ function Metric({ compact, label, value }: { compact: boolean; label: string; va
   return (
     <View style={[styles.metric, compact && styles.compactMetric]}>
       <Text style={{ color: theme.colors.onPrimaryContainer }}>{label}</Text>
-      {/* Retour testeur du 24/09 : un montant à 10+ chiffres (ex. valeur de stock à plus d'un
-          milliard de GNF) finissait tronqué par « … » même à l'échelle minimale précédente —
-          police plus petite par défaut (titleMedium) et davantage de marge pour rétrécir. */}
-      <Text variant="titleMedium" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={styles.bold}>{value}</Text>
+      {/* Retour testeur du 24/09 puis revue du 25/09 : adjustsFontSizeToFit n'a aucun
+          effet sur le web — un montant à 10+ chiffres (ex. valeur de stock à plus d'un
+          milliard de GNF) finissait quand même tronqué par « … », quelle que soit la
+          valeur de minimumFontScale. Police fixe assez petite pour tenir dans cette
+          case étroite jusqu'à ce genre de valeur. */}
+      <Text numberOfLines={1} style={[styles.bold, styles.metricValue]}>{value}</Text>
     </View>
   );
 }
@@ -154,6 +156,7 @@ const styles = StyleSheet.create({
   numberColumn: { flex: 1, minWidth: 65, textAlign: 'right' },
   movement: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   movementIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  movementQuantity: { maxWidth: '24%', textAlign: 'right' },
+  movementQuantity: { maxWidth: '24%', textAlign: 'right', fontSize: 13 },
+  metricValue: { fontSize: 11 },
   grow: { flex: 1, minWidth: 0 },
 });

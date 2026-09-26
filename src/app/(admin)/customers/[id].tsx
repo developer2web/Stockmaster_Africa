@@ -117,7 +117,9 @@ export default function CustomerDetails() {
           <Card testID="customer-balance-card" mode="contained" style={{ backgroundColor: owes ? theme.colors.errorContainer : theme.colors.primaryContainer }}>
             <Card.Content style={{ gap: 8 }}>
               <Text style={{ color: owes ? theme.colors.onErrorContainer : theme.colors.onPrimaryContainer }}>Montant dû</Text>
-              <Text variant="displaySmall" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={{ fontWeight: '900', color: owes ? theme.colors.error : theme.colors.primary }}>{formatMoney(balance)}</Text>
+              {/* adjustsFontSizeToFit n'a aucun effet sur le web : police fixe assez petite
+                  pour tenir sur une ligne même avec une dette à 12+ chiffres. */}
+              <Text numberOfLines={1} style={{ fontSize: 22, fontWeight: '900', color: owes ? theme.colors.error : theme.colors.primary }}>{formatMoney(balance)}</Text>
               <Text style={{ color: owes ? theme.colors.onErrorContainer : theme.colors.onPrimaryContainer }}>{owes ? 'Ce client a une dette en cours.' : 'Ce client est à jour.'}</Text>
               {canWrite && <AppButton testID="customer-add-payment" style={{ marginTop: 4 }} icon="cash-check" onPress={() => setEntryType('payment')}>Encaisser un paiement</AppButton>}
             </Card.Content>

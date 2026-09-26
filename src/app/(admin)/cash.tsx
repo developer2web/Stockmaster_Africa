@@ -123,14 +123,16 @@ export default function CashScreen() {
 
   return (
     <AdminPage title="Caisse" description="">
-      {/* Retour testeur du 24/09 : icône retirée (demande explicite) ; montant sur police plus
-          petite par défaut avec davantage de marge pour rétrécir, un solde à 10+ chiffres
-          finissait tronqué par « … » même à l'échelle minimale précédente. */}
+      {/* Retour testeur du 24/09 puis revue du 25/09 : adjustsFontSizeToFit n'a aucun
+          effet sur le web (non supporté par react-native-web) — abaisser
+          minimumFontScale ne réglait donc rien pour un solde à 10+ chiffres, qui
+          finissait quand même tronqué par « … ». Police fixe assez petite pour
+          rester lisible sur une ligne jusqu'à un solde à 12+ chiffres. */}
       <Card mode="contained" style={[styles.balance, { backgroundColor: theme.colors.primaryContainer }]}>
         <Card.Content style={styles.balanceContent}>
           <View style={styles.grow}>
             <Text style={{ color: theme.colors.onPrimaryContainer }}>Solde de {membership?.storeName ?? 'la boutique'}</Text>
-            <Text variant="headlineSmall" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.45} style={[styles.bold, { color: balance < 0 ? theme.colors.error : theme.colors.onPrimaryContainer }]}>{money(balance)}</Text>
+            <Text numberOfLines={1} style={[styles.bold, styles.heroAmount, { color: balance < 0 ? theme.colors.error : theme.colors.onPrimaryContainer }]}>{money(balance)}</Text>
           </View>
         </Card.Content>
       </Card>
@@ -171,7 +173,7 @@ export default function CashScreen() {
         const receipt={...receiptBranding,title:'Bordereau de clôture de caisse',party:membership?.storeName??receiptBranding.store??'Boutique',partyLabel:'Caisse',amount:Number(item.counted_amount),balanceBefore:0,balanceAfter:0,date:item.created_at,reference:`CLOTURE-${item.id.slice(0,8).toUpperCase()}`,issuedBy:item.closed_by_label,amountLabel:'Montant compté',note:`Montant attendu : ${money(Number(item.expected_amount))} • Écart : ${money(Number(item.difference))}${item.note?` • ${item.note}`:''}`,showBalances:false};
         const printKey=`closure-print-${item.id}`; const shareKey=`closure-share-${item.id}`;
         const difference=Number(item.difference);
-        return <Card key={item.id} mode="outlined" style={styles.closureCard}><Card.Content style={styles.closureContent}><View style={styles.closureHeader}><View style={styles.grow}><Text variant="titleMedium" style={styles.bold}>{formatLocalDate(item.closure_date)}</Text><Text style={{color:theme.colors.onSurfaceVariant}}>Attendu {money(Number(item.expected_amount))} • Compté {money(Number(item.counted_amount))}</Text></View><View style={[styles.differenceBadge,{backgroundColor:difference===0?theme.colors.primaryContainer:theme.colors.errorContainer}]}><Text style={[styles.differenceLabel,{color:difference===0?theme.colors.primary:theme.colors.error}]}>Écart</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[styles.differenceAmount,{color:difference===0?theme.colors.primary:theme.colors.error}]}>{difference>0?'+':''}{money(difference)}</Text></View></View><Text style={styles.bold}>Clôture effectuée par : {item.closed_by_label}</Text>{item.note&&<Text>{item.note}</Text>}</Card.Content><Card.Actions style={styles.closureActions}><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(receipt,money))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(receipt,money))}>Partager</AppButton></Card.Actions></Card>;
+        return <Card key={item.id} mode="outlined" style={styles.closureCard}><Card.Content style={styles.closureContent}><View style={styles.closureHeader}><View style={styles.grow}><Text variant="titleMedium" style={styles.bold}>{formatLocalDate(item.closure_date)}</Text><Text style={{color:theme.colors.onSurfaceVariant}}>Attendu {money(Number(item.expected_amount))} • Compté {money(Number(item.counted_amount))}</Text></View><View style={[styles.differenceBadge,{backgroundColor:difference===0?theme.colors.primaryContainer:theme.colors.errorContainer}]}><Text style={[styles.differenceLabel,{color:difference===0?theme.colors.primary:theme.colors.error}]}>Écart</Text><Text numberOfLines={1} style={[styles.differenceAmount,{color:difference===0?theme.colors.primary:theme.colors.error}]}>{difference>0?'+':''}{money(difference)}</Text></View></View><Text style={styles.bold}>Clôture effectuée par : {item.closed_by_label}</Text>{item.note&&<Text>{item.note}</Text>}</Card.Content><Card.Actions style={styles.closureActions}><AppButton mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(receipt,money))}>Imprimer</AppButton><AppButton mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(receipt,money))}>Partager</AppButton></Card.Actions></Card>;
       })}
       <Text variant="titleLarge" style={styles.bold}>Historique des mouvements</Text>
       {rows.map((item) => (
@@ -181,7 +183,7 @@ export default function CashScreen() {
               <Icon source={item.transaction_type === 'deposit' ? 'arrow-down-left' : 'arrow-up-right'} size={23} color={item.transaction_type === 'deposit' ? theme.colors.primary : theme.colors.error} />
             </View>
             <View style={styles.transactionCopy}><Text variant="titleMedium" style={styles.bold}>{item.designation}</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>{item.store?.name ?? 'Toutes les boutiques'} · {formatDateTime(item.created_at)}</Text></View>
-            <Text variant="titleMedium" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.amount, styles.bold, { color: item.transaction_type === 'deposit' ? theme.colors.primary : theme.colors.error }]}>{item.transaction_type === 'deposit' ? '+' : '−'}{formatForCurrency(Number(item.amount), item.currency_code)}</Text>
+            <Text numberOfLines={1} style={[styles.amount, styles.bold, styles.listAmount, { color: item.transaction_type === 'deposit' ? theme.colors.primary : theme.colors.error }]}>{item.transaction_type === 'deposit' ? '+' : '−'}{formatForCurrency(Number(item.amount), item.currency_code)}</Text>
           </Card.Content>
           <Card.Actions>{(()=>{const data={...receiptBranding,title:item.transaction_type==='deposit'?'Reçu d’entrée de caisse':'Reçu de sortie de caisse',party:item.designation,partyLabel:'Opération',amount:Number(item.amount),balanceBefore:0,balanceAfter:0,date:item.created_at,reference:`CAISSE-${item.id.slice(0,8).toUpperCase()}`,store:item.store?.name??receiptBranding.store,issuedBy:item.creator?.full_name||receiptBranding.issuedBy,amountLabel:item.transaction_type==='deposit'?'Montant encaissé':'Montant décaissé',showBalances:false};const printKey=`print-${item.id}`,shareKey=`share-${item.id}`;return [<AppButton key={printKey} mode="text" icon="printer" loading={receiptAction.runningKey===printKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(printKey,()=>printPaymentReceipt(data,value=>formatForCurrency(value,item.currency_code)))}>Imprimer</AppButton>,<AppButton key={shareKey} mode="text" icon="share-variant" loading={receiptAction.runningKey===shareKey} disabled={!!receiptAction.runningKey} onPress={()=>void receiptAction.run(shareKey,()=>sharePaymentReceipt(data,value=>formatForCurrency(value,item.currency_code)))}>Partager</AppButton>]})()}</Card.Actions>
         </Card>
@@ -227,6 +229,8 @@ const styles = StyleSheet.create({
   transaction: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   transactionCopy: { flexGrow: 1, flexShrink: 1, flexBasis: 160, minWidth: 0 },
   amount: { maxWidth: '100%', textAlign: 'right', flexShrink: 1 },
+  heroAmount: { fontSize: 20 },
+  listAmount: { fontSize: 13 },
   transactionIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   openingNotice: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, paddingVertical: 12 },
   openingNoticeCopy: { flexDirection: 'row', alignItems: 'center', gap: 10, flexGrow: 1, flexShrink: 1, flexBasis: 220, minWidth: 0 },
@@ -238,6 +242,6 @@ const styles = StyleSheet.create({
   closureHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 },
   differenceBadge: { minWidth: 116, maxWidth: '100%', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 8, alignItems: 'flex-end' },
   differenceLabel: { fontSize: 12, fontWeight: '700' },
-  differenceAmount: { fontWeight: '900', maxWidth: 180 },
+  differenceAmount: { fontWeight: '900', maxWidth: 180, fontSize: 13 },
   closureActions: { flexWrap: 'wrap', paddingHorizontal: 12, paddingBottom: 8 },
 });

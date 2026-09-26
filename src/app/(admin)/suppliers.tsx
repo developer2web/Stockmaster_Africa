@@ -134,7 +134,9 @@ export default function Suppliers() {
   return <AdminPage title="Fournisseurs" description="Comptes, dettes et livraisons" action={<AppButton icon="plus" accessibilityLabel="Ajouter un fournisseur" onPress={() => show()}>Ajouter</AppButton>}>
     <View style={[styles.hero, { backgroundColor: theme.colors.primaryContainer }]}>
       <Text style={{ color: theme.colors.onPrimaryContainer }}>Dettes fournisseurs</Text>
-      <Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={[styles.heroValue, { color: theme.colors.onPrimaryContainer }]}>{formatMoney(totalDue)}</Text>
+      {/* adjustsFontSizeToFit n'a aucun effet sur le web : police fixe assez petite
+          pour tenir sur une ligne même avec des dettes cumulées à 12+ chiffres. */}
+      <Text numberOfLines={1} style={[styles.heroValue, { color: theme.colors.onPrimaryContainer }]}>{formatMoney(totalDue)}</Text>
     </View>
     <AppSearchBar placeholder="Nom, email ou téléphone" value={search} onChangeText={setSearch} loading={search !== debouncedSearch} />
     {!!query.error && <HelperText type="error" visible>{(query.error as Error).message}</HelperText>}
@@ -251,7 +253,7 @@ export default function Suppliers() {
 
 const styles = StyleSheet.create({
   hero: { padding: 20, borderRadius: 24, gap: 4 },
-  heroValue: { fontWeight: '800' },
+  heroValue: { fontWeight: '800', fontSize: 18 },
   sectionLabel: { fontWeight: '800', letterSpacing: 0.6 },
   avatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontWeight: '800', fontSize: 13 },

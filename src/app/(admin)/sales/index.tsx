@@ -125,7 +125,9 @@ export default function SalesScreen() {
       </Text>}
       {!!rows.length && <View style={{ padding: 20, borderRadius: 24, gap: 4, backgroundColor: theme.colors.primaryContainer }}>
         <Text style={{ color: theme.colors.onPrimaryContainer }}>Total des ventes</Text>
-        <Text variant="titleLarge" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontWeight: '800', color: theme.colors.onPrimaryContainer }}>{formatMoney(revenue)}</Text>
+        {/* adjustsFontSizeToFit n'a aucun effet sur le web : police fixe assez petite
+            pour tenir sur une ligne même avec un total de ventes à 12+ chiffres. */}
+        <Text numberOfLines={1} style={{ fontSize: 18, fontWeight: '800', color: theme.colors.onPrimaryContainer }}>{formatMoney(revenue)}</Text>
         <Text style={{ color: theme.colors.onPrimaryContainer }}>{rows.length === 1 ? '1 vente affichée' : `${rows.length} ventes affichées`}</Text>
         {sales.hasNextPage && <Text variant="bodySmall" style={{ color: theme.colors.onPrimaryContainer }}>Chargez la suite pour afficher davantage de résultats.</Text>}
       </View>}
