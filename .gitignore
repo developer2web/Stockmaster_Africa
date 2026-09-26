@@ -55,3 +55,6 @@ supabase/.temp/
 tmp/
 .tmp/
 .node-install/
+
+# Réglages Claude Code personnels (permissions locales)
+.claude/settings.local.json
