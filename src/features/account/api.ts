@@ -20,6 +20,20 @@ export async function requestEmployeeAccessRemoval(companyId: string, reason: st
   if (error) throw new Error(userErrorMessage(error));
 }
 
+// Retour testeur du 26/09 : l'employé ne doit pas pouvoir renvoyer la demande
+// tant que l'administrateur n'a pas traité la précédente. Comme il n'existe
+// pas de table de statut dédiée (Option B : la notification EST la demande),
+// on vérifie via une RPC dédiée (get_my_employee_access_removal_request) —
+// un accès direct à `notifications` échouerait : RLS n'autorise la lecture
+// qu'au destinataire (user_id, ici l'administrateur), pas à l'auteur
+// (created_by, l'employé).
+export async function getMyEmployeeAccessRemovalRequest(companyId: string): Promise<{ id: string; createdAt: string } | null> {
+  const { data, error } = await supabase.rpc('get_my_employee_access_removal_request', { p_company_id: companyId });
+  if (error) throw new Error(userErrorMessage(error));
+  const row = (Array.isArray(data) ? data[0] : null) as { id: string; created_at: string } | null;
+  return row ? { id: row.id, createdAt: row.created_at } : null;
+}
+
 export type AccountDeletionRequest = {
   id: string;
   reason: string | null;
