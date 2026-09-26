@@ -35,6 +35,13 @@ export default function Root({ children }: PropsWithChildren) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
         <meta name="theme-color" content="#084B50" />
+        {/* Installation comme une application depuis Chrome, Edge ou Safari (PWA, demande du 26/09). */}
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="StockMaster" />
+        <meta name="application-name" content="StockMaster" />
         <title>StockMaster — Gestion de stock, ventes et caisse</title>
         <meta name="description" content="StockMaster : gestion de stock, ventes, caisse et rapports pour commerces en Afrique." />
         <ScrollViewStyleReset />
