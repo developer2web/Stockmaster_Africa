@@ -15,6 +15,8 @@ import { PageIntro } from './PageIntro';
 import { design } from '@/constants/design';
 import { openAccountPortal } from '@/features/subscriptions/accountPortal';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { EmployeeSidebar } from '@/components/navigation/EmployeeSidebar';
+import { EMPLOYEE_DESKTOP_MIN_WIDTH } from '@/components/navigation/employeeLinks';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 
 const scrollPositions = new Map<string, number>();
@@ -73,7 +75,10 @@ export function AdminPage({ title, description, onDescriptionPress, action, floa
   // panier côte à côte : sans lui, l'espace disponible sur un grand écran reste inutilisé
   // (retour testeur du 24/09, écran « Nouvelle vente »).
   const maxContentWidth = employee && !wide ? 1100 : design.contentMaxWidth;
-  return (
+  // Retour testeur du 26/09 : sur ordinateur, menu latéral comme côté administrateur ;
+  // sur téléphone, barre d'icônes du bas (seul chemin de navigation, toujours affichée).
+  const employeeDesktop = employee && !offlineAuthenticated && width >= EMPLOYEE_DESKTOP_MIN_WIDTH;
+  const page = (
     <KeyboardAvoidingView
       onLayout={event => onContentWidthChange?.(Math.max(0, Math.min(event.nativeEvent.layout.width, maxContentWidth) - (compact ? 24 : 40)))}
       style={[styles.flex, { backgroundColor: pageBackground }]}
@@ -172,9 +177,10 @@ export function AdminPage({ title, description, onDescriptionPress, action, floa
           Vente, Produits ou Caisse. Toujours affichée désormais, quelle que soit
           la largeur : c'est le seul chemin de navigation de tout l'espace
           employé, il ne peut pas dépendre de la taille de l'écran. */}
-      {employee && !offlineAuthenticated && <EmployeeBottomNavigation />}
+      {employee && !offlineAuthenticated && !employeeDesktop && <EmployeeBottomNavigation />}
     </KeyboardAvoidingView>
   );
+  return employeeDesktop ? <View style={styles.desktopRow}><EmployeeSidebar />{page}</View> : page;
 }
 
 export function EmployeeBottomNavigation() {
@@ -194,6 +200,7 @@ export function EmployeeBottomNavigation() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0, minHeight: 0 },
+  desktopRow: { flex: 1, flexDirection: 'row', minHeight: 0 },
   scroll: { flex: 1, minWidth: 0 },
   headerContent: { flex: 1, minWidth: 0 },
   // flexGrow:1 : sans lui, un écran dont le contenu tient en moins d'un

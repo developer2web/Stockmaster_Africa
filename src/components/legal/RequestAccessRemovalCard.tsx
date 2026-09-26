@@ -39,7 +39,10 @@ export function RequestAccessRemovalCard({ companyId }: { companyId: string }) {
     queryFn: () => getMyEmployeeAccessRemovalRequest(companyId),
     enabled: !!companyId,
   });
-  const activeRequest = requestQuery.data;
+  // Seule une demande en attente bloque un nouvel envoi ; après un refus, l'employé
+  // voit le motif et peut redemander.
+  const activeRequest = requestQuery.data?.status === 'pending' ? requestQuery.data : null;
+  const rejected = requestQuery.data?.status === 'rejected' ? requestQuery.data : null;
   const request = useMutation({
     mutationFn: () => requestEmployeeAccessRemoval(companyId, reason),
     onSuccess: async () => {
@@ -55,7 +58,7 @@ export function RequestAccessRemovalCard({ companyId }: { companyId: string }) {
       <ListRow
         icon="account-remove-outline"
         title={activeRequest ? 'Demande de retrait en cours' : 'Demande de retrait'}
-        subtitle={activeRequest ? 'L’administrateur a été notifié et doit encore la traiter' : 'Une notification sera envoyée à l’administrateur, qui retirera votre accès'}
+        subtitle={activeRequest ? 'L’administrateur a été notifié et doit encore la traiter' : rejected ? 'Votre dernière demande a été refusée' : 'Une notification sera envoyée à l’administrateur, qui retirera votre accès'}
         danger
         last
         onPress={() => setOpen(true)}
@@ -68,9 +71,10 @@ export function RequestAccessRemovalCard({ companyId }: { companyId: string }) {
         <Dialog.Title>Demande de retrait</Dialog.Title>
         <Dialog.Content style={{ gap: 10 }}>
           {activeRequest ? <>
-            <Text>Demande envoyée le {new Date(activeRequest.createdAt).toLocaleDateString('fr-FR')}. L’administrateur de l’entreprise a été notifié et retirera votre accès dès traitement.</Text>
+            <Text>Demande envoyée le {new Date(activeRequest.createdAt).toLocaleDateString('fr-FR')}. L’administrateur de l’entreprise a été notifié : il va approuver ou refuser votre demande.</Text>
           </> : <>
-            <Text>L’administrateur de l’entreprise recevra une notification et retirera votre accès à cette entreprise. Cela ne supprime pas votre identifiant StockMaster (utile si vous accédez à d’autres entreprises) — seul cet accès est concerné.</Text>
+            {!!rejected && <Text style={{ color: '#C92A2A' }}>Votre demande du {new Date(rejected.createdAt).toLocaleDateString('fr-FR')} a été refusée{rejected.reviewNote ? ` : ${rejected.reviewNote}` : '.'} Vous pouvez en envoyer une nouvelle.</Text>}
+            <Text>L’administrateur de l’entreprise recevra une notification et pourra approuver le retrait de votre accès à cette entreprise. Cela ne supprime pas votre identifiant StockMaster (utile si vous accédez à d’autres entreprises) — seul cet accès est concerné.</Text>
             <TextInput mode="outlined" label="Raison (facultatif)" accessibilityLabel="Raison (facultatif)" value={reason} onChangeText={setReason} multiline />
             {!!request.error && <HelperText type="error" visible>{request.error.message}</HelperText>}
           </>}

@@ -64,10 +64,11 @@ export default function SaleDetails() {
           <Text>{Number(sale.data.amount_due) > 0 ? 'Crédit à encaisser' : 'Paiement reçu'}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {canCreateSale && <AppButton icon="cart-plus" onPress={() => router.replace((employee ? '/employee/sales/new' : '/sales/new') as never)}>Nouvelle vente</AppButton>}
-            <AppButton mode="outlined" icon="share-variant" loading={receipt.runningKey === 'share'} disabled={!!receipt.runningKey} onPress={() => void receipt.run('share', () => shareReceipt(sale.data!, branding, money))}>Partager le reçu</AppButton>
+            {/* Retour testeur du 26/09 : Imprimer en bouton principal, Partager dans le menu « … » (positions inversées, mêmes actions). */}
+            <AppButton mode="outlined" icon="printer" loading={receipt.runningKey === 'print'} disabled={!!receipt.runningKey} onPress={() => void receipt.run('print', () => printReceipt(sale.data!, branding, money))}>Imprimer le reçu</AppButton>
             <AppButton mode="text" icon="receipt-text-outline" onPress={() => setShowDetails(value => !value)}>{showDetails ? 'Masquer le détail' : 'Voir le détail'}</AppButton>
-            <Menu theme={{ animation: { scale: 0 } }} visible={actionsOpen} onDismiss={() => setActionsOpen(false)} contentStyle={{ maxWidth: Math.min(300, width - 32) }} anchor={<IconButton icon="dots-horizontal" accessibilityLabel="Autres actions de la vente" loading={receipt.runningKey === 'print'} disabled={!!receipt.runningKey} style={{ margin: 0, width: 48, height: 48 }} onPress={() => setActionsOpen(true)} />}>
-              <Menu.Item leadingIcon="printer" title="Imprimer" onPress={() => { setActionsOpen(false); void receipt.run('print', () => printReceipt(sale.data!, branding, money)); }} />
+            <Menu theme={{ animation: { scale: 0 } }} visible={actionsOpen} onDismiss={() => setActionsOpen(false)} contentStyle={{ maxWidth: Math.min(300, width - 32) }} anchor={<IconButton icon="dots-horizontal" accessibilityLabel="Autres actions de la vente" loading={receipt.runningKey === 'share'} disabled={!!receipt.runningKey} style={{ margin: 0, width: 48, height: 48 }} onPress={() => setActionsOpen(true)} />}>
+              <Menu.Item leadingIcon="share-variant" title="Partager le reçu" onPress={() => { setActionsOpen(false); void receipt.run('share', () => shareReceipt(sale.data!, branding, money)); }} />
               {canReturn && <Menu.Item leadingIcon="cash-refund" title="Retour / remboursement" onPress={() => { setActionsOpen(false); router.push({ pathname: (employee ? '/employee/sales/refund' : '/sales/refund') as never, params: { id } }); }} />}
             </Menu>
           </View>

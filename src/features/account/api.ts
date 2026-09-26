@@ -20,18 +20,37 @@ export async function requestEmployeeAccessRemoval(companyId: string, reason: st
   if (error) throw new Error(userErrorMessage(error));
 }
 
-// Retour testeur du 26/09 : l'employé ne doit pas pouvoir renvoyer la demande
-// tant que l'administrateur n'a pas traité la précédente. Comme il n'existe
-// pas de table de statut dédiée (Option B : la notification EST la demande),
-// on vérifie via une RPC dédiée (get_my_employee_access_removal_request) —
-// un accès direct à `notifications` échouerait : RLS n'autorise la lecture
-// qu'au destinataire (user_id, ici l'administrateur), pas à l'auteur
-// (created_by, l'employé).
-export async function getMyEmployeeAccessRemovalRequest(companyId: string): Promise<{ id: string; createdAt: string } | null> {
+// Retour testeur du 26/09 : l'employé voit l'état de sa dernière demande (en cours /
+// refusée) et ne peut pas en déposer une seconde tant que la première est en attente.
+// Table employee_access_removal_requests lue uniquement via RPC (aucun accès direct).
+export type EmployeeAccessRemovalRequest = { id: string; createdAt: string; status: 'pending' | 'approved' | 'rejected'; reviewNote: string | null };
+export async function getMyEmployeeAccessRemovalRequest(companyId: string): Promise<EmployeeAccessRemovalRequest | null> {
   const { data, error } = await supabase.rpc('get_my_employee_access_removal_request', { p_company_id: companyId });
   if (error) throw new Error(userErrorMessage(error));
-  const row = (Array.isArray(data) ? data[0] : null) as { id: string; created_at: string } | null;
-  return row ? { id: row.id, createdAt: row.created_at } : null;
+  const row = (Array.isArray(data) ? data[0] : null) as { id: string; created_at: string; status: EmployeeAccessRemovalRequest['status']; review_note: string | null } | null;
+  return row ? { id: row.id, createdAt: row.created_at, status: row.status, reviewNote: row.review_note } : null;
+}
+
+// Côté administrateur : demandes en attente, affichées sur la fiche de l'employé concerné
+// (écran Employés), à approuver (retire l'accès) ou refuser (l'employé est notifié).
+export type PendingAccessRemovalRequest = { id: string; userId: string; reason: string | null; createdAt: string };
+export async function listEmployeeAccessRemovalRequests(companyId: string): Promise<PendingAccessRemovalRequest[]> {
+  const { data, error } = await supabase.rpc('list_employee_access_removal_requests', { p_company_id: companyId });
+  if (error) throw new Error(userErrorMessage(error));
+  return ((Array.isArray(data) ? data : []) as { id: string; user_id: string; reason: string | null; created_at: string }[])
+    .map(row => ({ id: row.id, userId: row.user_id, reason: row.reason, createdAt: row.created_at }));
+}
+export async function processEmployeeAccessRemovalRequest(requestId: string, approve: boolean, note: string) {
+  const { error } = await supabase.rpc('process_employee_access_removal_request', { p_request_id: requestId, p_approve: approve, p_note: note.trim() || null });
+  if (error) throw new Error(userErrorMessage(error));
+}
+
+// Décision du propriétaire (26/09) : « Mot de passe oublié » dit clairement si
+// l'adresse n'a pas de compte. Ne renvoie qu'un booléen.
+export async function authEmailExists(email: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('auth_email_exists', { p_email: email });
+  if (error) throw error;
+  return data === true;
 }
 
 export type AccountDeletionRequest = {

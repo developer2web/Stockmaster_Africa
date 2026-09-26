@@ -108,7 +108,9 @@ export default function SubscriptionScreen() {
               >
                 <Card.Title
                   title={plan.name}
-                  subtitle={plan.description}
+                  // Un forfait sans description ('') devenait un nœud texte vide nu dans une View
+                  // (avertissement sur le web, plantage possible sur mobile) : undefined à la place.
+                  subtitle={plan.description || undefined}
                   right={() => active ? <Chip style={styles.chip}>Actuel</Chip> : null}
                 />
                 <Card.Content style={styles.planContent}>

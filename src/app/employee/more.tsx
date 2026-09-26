@@ -5,8 +5,7 @@ import { AdminPage } from '@/components/ui/AdminPage';
 import { ListRow, ListSection } from '@/components/ui/ListSection';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useSignOutAction } from '@/features/auth/useSignOutAction';
-import { hasAnyPermission } from '@/features/auth/permissions';
-import { canUseNotifications } from '@/features/notifications/access';
+import { employeeToolLinks } from '@/components/navigation/employeeLinks';
 import { companyInitials } from '@/utils/initials';
 
 // Retour testeur du 25/09 : même liste divisée que Menu côté admin (au lieu de
@@ -17,17 +16,8 @@ export default function EmployeeMoreScreen() {
   const theme = useTheme();
   const { membership, stores } = useAuth();
   const { signOut, signingOut } = useSignOutAction();
-  const items = [
-    { label: 'Notifications', description: 'Vos alertes et messages', icon: 'bell-outline', path: '/employee/notifications', permissions: [] },
-    { label: 'Fournisseurs', description: 'Consulter les partenaires', icon: 'truck-outline', path: '/employee/suppliers', permissions: ['suppliers.read', 'suppliers.write'] },
-    { label: 'Catalogue', description: 'Produits et fournisseurs autorisés', icon: 'book-open-page-variant-outline', path: '/employee/catalog', permissions: ['products.read', 'suppliers.read'] },
-    { label: 'Comptabilité', description: 'Achats, dépenses et paiements', icon: 'calculator-variant-outline', path: '/employee/accounting', permissions: ['purchases.read', 'payments.read', 'expenses.read'] },
-    { label: 'Dépenses', description: 'Consulter ou enregistrer les charges', icon: 'cash-minus', path: '/employee/expenses', permissions: ['expenses.read', 'expenses.write'] },
-    { label: 'Rapports', description: 'Ventes et performances', icon: 'chart-box-outline', path: '/employee/reports', permissions: ['daily_reports.read', 'monthly_reports.read'] },
-    { label: 'Scanner', description: 'Lire un code-barres ou QR code', icon: 'barcode-scan', path: '/employee/scanner', permissions: ['products.read', 'sales.write'] },
-  ].filter(item => item.path === '/employee/notifications'
-    ? canUseNotifications(membership)
-    : hasAnyPermission(membership, item.permissions));
+  // Liste partagée avec le menu latéral (ordinateur), pour qu'elles ne divergent jamais.
+  const items = employeeToolLinks(membership);
   const canSwitchStore = stores.length > 1;
 
   return <AdminPage title="Plus">

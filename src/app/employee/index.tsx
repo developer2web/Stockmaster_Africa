@@ -7,6 +7,8 @@ import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppBackButton } from '@/components/ui/AppBackButton';
 import { EmployeeBottomNavigation } from '@/components/ui/AdminPage';
+import { EmployeeSidebar } from '@/components/navigation/EmployeeSidebar';
+import { EMPLOYEE_DESKTOP_MIN_WIDTH } from '@/components/navigation/employeeLinks';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { AuthScreen } from '@/features/auth/AuthScreen';
@@ -28,6 +30,7 @@ export default function EmployeeEntry() {
   const theme = useTheme();
   const { formatMoney } = useCurrency();
   const compact = width < 600;
+  const desktop = width >= EMPLOYEE_DESKTOP_MIN_WIDTH;
   const employeeName = String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
   // Hooks appelés avant tout retour anticipé ci-dessous (règle de React) : hasAnyPermission/
   // hasPermission tolèrent un membership encore nul, les requêtes restent désactivées tant
@@ -82,7 +85,7 @@ export default function EmployeeEntry() {
   if (!membership) return <LoadingScreen label="Chargement de votre espace…" />;
   if (membership.role !== 'employee') return <ErrorState title="Espace employé non autorisé" message="Ce compte ne possède pas d’accès employé. Utilisez l’espace qui vous a été attribué." retryLabel="Retour à mon espace" onRetry={() => router.replace('/')} onCancel={() => void signOut()} />;
 
-  return (
+  const content = (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header elevated style={{ backgroundColor: '#084B50' }}>
         {/* Retour testeur du 25/09 : après un changement de boutique (Sonfonia → T6), l'accueil
@@ -196,9 +199,11 @@ export default function EmployeeEntry() {
           Revue du 26/09 : affichée quelle que soit la largeur (plus seulement en
           compact) — sur un navigateur de bureau, c'était le seul chemin vers Plus/
           Outils, et il manquait entièrement (capture d'écran MacBook à l'appui). */}
-      <EmployeeBottomNavigation />
+      {!desktop && <EmployeeBottomNavigation />}
     </View>
   );
+  // Retour testeur du 26/09 : sur ordinateur, menu latéral comme côté administrateur.
+  return desktop ? <View style={styles.desktopRow}><EmployeeSidebar />{content}</View> : content;
 }
 
 function EmployeeLogin() {
@@ -276,7 +281,8 @@ function EmployeeLogin() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
+  screen: { flex: 1, minWidth: 0 },
+  desktopRow: { flex: 1, flexDirection: 'row' },
   scroll: { flex: 1, minWidth: 0 },
   page: { padding: 24, paddingBottom: 44, gap: 22, width: '100%', maxWidth: 1120, alignSelf: 'center' },
   pageCompact: { padding: 16, paddingBottom: 32, gap: 18 },

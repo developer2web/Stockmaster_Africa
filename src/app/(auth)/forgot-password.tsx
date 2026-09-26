@@ -1,5 +1,5 @@
 import * as Linking from 'expo-linking';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { HelperText } from 'react-native-paper';
@@ -9,15 +9,17 @@ import { AppButton } from '@/components/ui/AppButton';
 import { AppBackButton } from '@/components/ui/AppBackButton';
 import { AuthScreen } from '@/features/auth/AuthScreen';
 import { recoveryErrorMessage } from '@/features/auth/recoveryError';
+import { authEmailExists } from '@/features/account/api';
 import { supabase } from '@/services/supabase/client';
 
-// Revue sécurité du 25/09 : en plus de la limite côté serveur Supabase (par
-// email, indépendante de l'existence du compte), un délai local entre deux
-// envois freine les demandes répétées depuis l'app elle-même. Il démarre
-// pour TOUTE tentative envoyée (succès ou échec) et jamais pour un simple
-// format invalide (aucune requête réseau) : purement basé sur l'horloge
-// locale, il ne dépend d'aucun état lié au compte et ne peut donc pas, par
-// construction, révéler si l'adresse existe.
+// Revue sécurité du 25/09 : en plus de la limite côté serveur Supabase, un délai
+// local entre deux envois freine les demandes répétées depuis l'app elle-même. Il
+// démarre pour toute tentative envoyée et jamais pour un simple format invalide.
+//
+// Décision explicite du propriétaire (26/09) : l'écran indique maintenant si
+// l'adresse n'a pas de compte (auth_email_exists) et propose d'en créer un, au lieu
+// du message générique. Compromis accepté : un tiers peut tester si une adresse est
+// inscrite. Aucun email n'est envoyé pour une adresse inconnue.
 const RESEND_COOLDOWN_SECONDS = 30;
 
 export default function ForgotPassword() {
@@ -25,6 +27,8 @@ export default function ForgotPassword() {
   const [message, setMessage] = useState('');
   const [failed, setFailed] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [unknownEmail, setUnknownEmail] = useState(false);
+  const employeePortal = returnTo === '/employee';
   const { control, handleSubmit, formState } = useForm<{ email: string }>({
     defaultValues: { email: '' },
   });
@@ -41,12 +45,22 @@ export default function ForgotPassword() {
     const normalizedEmail = email.trim().toLowerCase();
     if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) { setFailed(true); setMessage('Saisissez une adresse email valide.'); return; }
     setCooldown(RESEND_COOLDOWN_SECONDS);
+    setUnknownEmail(false);
     try {
+      if (!(await authEmailExists(normalizedEmail))) {
+        setFailed(true);
+        setUnknownEmail(true);
+        // Un employé ne crée pas son compte lui-même : c'est son administrateur qui l'invite.
+        setMessage(employeePortal
+          ? 'Aucun compte n’est associé à cette adresse. Vérifiez l’email saisi ou demandez à votre administrateur de vous créer un accès.'
+          : 'Aucun compte n’est associé à cette adresse. Vérifiez l’email saisi ou créez un compte.');
+        return;
+      }
       const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo: Linking.createURL('/reset-password'),
       });
       if (error) throw error;
-      setMessage('Si un compte est associé à cette adresse, vous recevrez un lien de réinitialisation. Vérifiez votre boîte de réception et vos courriers indésirables.');
+      setMessage('Un lien de réinitialisation a été envoyé à cette adresse. Vérifiez votre boîte de réception et vos courriers indésirables.');
     } catch (error) {
       setFailed(true);
       setMessage(recoveryErrorMessage(error));
@@ -68,7 +82,8 @@ export default function ForgotPassword() {
       <AppButton onPress={submit} loading={formState.isSubmitting} disabled={formState.isSubmitting || cooldown > 0}>
         {cooldown > 0 ? `Réessayer dans ${cooldown}s` : 'Envoyer le lien'}
       </AppButton>
-      {!formState.isSubmitting && <AppBackButton fallback={returnTo === '/employee' ? '/employee' : '/(auth)/login'} />}
+      {unknownEmail && !employeePortal && <AppButton mode="outlined" icon="account-plus-outline" onPress={() => router.push('/(auth)/register')}>Créer un compte</AppButton>}
+      {!formState.isSubmitting && <AppBackButton fallback={employeePortal ? '/employee' : '/(auth)/login'} />}
     </AuthScreen>
   );
 }
