@@ -7,6 +7,7 @@ import { plural } from '@/utils/plural';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppBackButton } from '@/components/ui/AppBackButton';
+import { EmployeeBottomNavigation } from '@/components/ui/AdminPage';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { AuthScreen } from '@/features/auth/AuthScreen';
@@ -20,7 +21,7 @@ import { usePortalLoginState } from '@/features/auth/portalLoginState';
 export default function EmployeeEntry() {
   const portalLoginPending = usePortalLoginState(state => state.pending);
   const { session, membership, businesses, stores, isWorkspaceLoading } = useAuth();
-  const { signOut, signingOut } = useSignOutAction();
+  const { signOut } = useSignOutAction();
   const { width } = useWindowDimensions();
   const theme = useTheme();
   const compact = width < 600;
@@ -81,28 +82,21 @@ export default function EmployeeEntry() {
         <Appbar.Action color="#FFFFFF" icon="magnify" accessibilityLabel="Rechercher" onPress={() => router.push('/employee/search' as never)} />
         <NotificationBell color="#FFFFFF" />
         {/* Retour testeur du 25/09 : retiré d'ici — trop facile à toucher par erreur et se
-            déconnecter sans le vouloir. Le bouton « Se déconnecter » en bas de page suffit,
-            plus délibéré. */}
+            déconnecter sans le vouloir. Accessible depuis Plus désormais, plus délibéré. */}
       </Appbar.Header>
       <ScrollView
+        style={styles.scroll}
         contentContainerStyle={[styles.page, compact && styles.pageCompact]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Retour testeur du 25/09 : cadre trop grand, réduit (padding, icône et texte plus
-            petits). */}
-        <View style={[styles.hero, { backgroundColor: theme.colors.primaryContainer }, compact && styles.heroCompact]}>
-          <View style={[styles.heroIcon, { backgroundColor: '#084B50' }]}>
-            <Icon source="account-hard-hat-outline" size={compact ? 20 : 24} color="#FFFFFF" />
-          </View>
-          <View style={styles.heroCopy}>
-            <Text variant={compact ? 'titleMedium' : 'titleLarge'} style={{ color: theme.colors.onPrimaryContainer, fontWeight: '800' }}>
-              Bonjour {employeeName} 👋
-            </Text>
-            <Text variant="bodyMedium" style={{ color: theme.colors.onPrimaryContainer }}>
-              Retrouvez rapidement les outils utiles à votre travail.
-            </Text>
-          </View>
-          <Chip icon="account-key-outline" compact={compact}>{membership.roleName}</Chip>
+        {/* Retour testeur du 25/09 : cadre encore réduit à une simple bande — plus de
+            phrase descriptive, juste le nom et le rôle. */}
+        <View style={[styles.hero, { backgroundColor: theme.colors.primaryContainer }]}>
+          <Icon source="account-hard-hat-outline" size={18} color={theme.colors.onPrimaryContainer} />
+          <Text variant="titleSmall" numberOfLines={1} style={[styles.heroText, { color: theme.colors.onPrimaryContainer }]}>
+            Bonjour {employeeName}
+          </Text>
+          <Chip compact style={styles.heroChip}>{membership.roleName}</Chip>
         </View>
 
         <View style={styles.sectionHeading}>
@@ -153,8 +147,11 @@ export default function EmployeeEntry() {
           </Card>
         )}
 
-        <AppButton mode="outlined" icon="logout" loading={signingOut} disabled={signingOut} onPress={signOut}>Se déconnecter</AppButton>
       </ScrollView>
+      {/* Retour testeur du 25/09 : la même barre d'icônes que sur les autres écrans employé
+          (AdminPage), pour que l'Accueil ne soit pas la seule page sans elle — « Se
+          déconnecter » n'est plus ici, il est désormais dans Plus, comme demandé. */}
+      {compact && <EmployeeBottomNavigation />}
     </View>
   );
 }
@@ -235,12 +232,12 @@ function EmployeeLogin() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  scroll: { flex: 1, minWidth: 0 },
   page: { padding: 24, paddingBottom: 44, gap: 22, width: '100%', maxWidth: 1120, alignSelf: 'center' },
   pageCompact: { padding: 16, paddingBottom: 32, gap: 18 },
-  hero: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: 14, borderRadius: 20 },
-  heroCompact: { padding: 12, borderRadius: 18, alignItems: 'flex-start' },
-  heroIcon: { width: 44, height: 44, borderRadius: 16, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-4deg' }] },
-  heroCopy: { flexGrow: 1, flexBasis: 210, minWidth: 0, gap: 4 },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 14 },
+  heroText: { flex: 1, minWidth: 0, fontWeight: '700' },
+  heroChip: { height: 28 },
   sectionHeading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   sectionCopy: { flexGrow: 1, flexBasis: 230, minWidth: 0, gap: 3 },
   sectionTitle: { fontWeight: '800' },
