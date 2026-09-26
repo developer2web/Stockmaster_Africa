@@ -142,7 +142,7 @@ export default function EmployeeEntry() {
               <Card mode="contained" onPress={() => router.push('/employee/sales' as never)} style={[styles.statCard, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content style={styles.statContent}>
                   <View style={[styles.statIcon, { backgroundColor: '#084B501F' }]}>
-                    <Icon source="cart-check" size={20} color="#084B50" />
+                    <Icon source="cart-check" size={20} color={theme.dark ? theme.colors.primary : '#084B50'} />
                   </View>
                   <Text style={{ color: theme.colors.onSurfaceVariant }}>Mes ventes du jour</Text>
                   {/* Retour testeur du 25/09 : adjustsFontSizeToFit n'a aucun effet sur le web

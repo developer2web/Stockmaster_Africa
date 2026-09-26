@@ -46,7 +46,7 @@ export function EmployeeSidebar() {
       <View style={styles.brand}>
         <Image source={require('../../../assets/images/stockmaster-icon.png')} style={styles.logo} contentFit="cover" />
         {!collapsed && <View style={styles.brandCopy}>
-          <Text variant="titleLarge" style={styles.brandTitle}>StockMaster</Text>
+          <Text variant="titleLarge" style={[styles.brandTitle, theme.dark && { color: theme.colors.primary }]}>StockMaster</Text>
           <Text variant="bodySmall" numberOfLines={1}>{membership?.companyName}</Text>
           <Text variant="labelSmall" numberOfLines={1}>{membership?.storeName}</Text>
         </View>}

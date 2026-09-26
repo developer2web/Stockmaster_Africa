@@ -30,7 +30,7 @@ export function AuthScreen({ title, subtitle, children }: PropsWithChildren<{ ti
   const card = { opacity: reveal, transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }, { scale: reveal.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) }] };
 
   return (
-    <KeyboardAvoidingView style={[styles.flex, { backgroundColor: theme.dark ? '#06130F' : '#071A2F' }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[styles.flex, { backgroundColor: theme.dark ? '#1B2B28' : '#071A2F' }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.backdrop, styles.noPointerEvents]}>
         <Animated.View style={[styles.orb, styles.orbOne, orbOne]} />
         <Animated.View style={[styles.orb, styles.orbTwo, orbTwo]} />
