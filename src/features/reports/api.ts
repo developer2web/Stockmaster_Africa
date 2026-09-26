@@ -1,3 +1,4 @@
+import { businessRange } from '@/utils/businessTime';
 import { fetchAllRows } from '@/services/supabase/pagination';
 import { supabase } from '@/services/supabase/client';
 import type { BusinessReport, ReportFilters, ReportMetricRow } from '@/types/database';
@@ -33,10 +34,13 @@ export type FinancialDetails={
   cash:{designation:string;created_at:string;transaction_type:'deposit'|'withdrawal';amount:number;source:string;store:{name:string}|null}[];
 };
 export async function getFinancialDetails(companyId:string,startDate:string,endDate:string,storeId:string|null):Promise<FinancialDetails>{
-  const end=`${endDate}T23:59:59.999Z`;
-  const sales=supabase.rpc('get_financial_sales_safe',{p_company_id:companyId,p_start:`${startDate}T00:00:00.000Z`,p_end:end,p_store_id:storeId});
+  // Journées en heure de l'entreprise (utils/businessTime), bornes inclusives au ms près.
+  const bounds=businessRange(startDate,endDate);
+  const begin=bounds.after.toISOString();
+  const end=new Date(bounds.before.getTime()-1).toISOString();
+  const sales=supabase.rpc('get_financial_sales_safe',{p_company_id:companyId,p_start:begin,p_end:end,p_store_id:storeId});
   let expenses=supabase.from('expenses').select('label,expense_date,amount,store:stores(name)').eq('company_id',companyId).gte('expense_date',startDate).lte('expense_date',endDate).order('expense_date',{ascending:false}).order('id');
-  let cash=supabase.from('cash_transactions').select('designation,created_at,transaction_type,amount,source,store:stores(name)').eq('company_id',companyId).gte('created_at',`${startDate}T00:00:00.000Z`).lte('created_at',end).order('created_at',{ascending:false}).order('id');
+  let cash=supabase.from('cash_transactions').select('designation,created_at,transaction_type,amount,source,store:stores(name)').eq('company_id',companyId).gte('created_at',begin).lte('created_at',end).order('created_at',{ascending:false}).order('id');
   if(storeId){expenses=expenses.eq('store_id',storeId);cash=cash.eq('store_id',storeId)}
   const[salesResult,expensesResult,cashResult]=await Promise.all([sales,fetchAllRows((from, to) => expenses.range(from, to)),fetchAllRows((from, to) => cash.range(from, to))]);
   if(salesResult.error)throw new Error(salesResult.error.message);

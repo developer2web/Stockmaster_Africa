@@ -1,3 +1,4 @@
+import { saleItemName } from '@/utils/productLabel';
 import { usePermissions } from '@/features/auth/usePermissions';
 import { getSaleReturns } from '@/features/sales/returns';
 import { useWindowDimensions, View } from 'react-native';
@@ -91,7 +92,7 @@ export default function SaleDetails() {
           {canReadFinancials && (!!financials.error || !!financialItems.error || financials.isSuccess && !financials.data) && <AppButton mode="text" loading={financials.isFetching || financialItems.isFetching} onPress={() => { void financials.refetch(); void financialItems.refetch(); }}>Réessayer les bénéfices</AppButton>}
         </Card.Content></Card>
         <Text variant="headlineSmall">Articles</Text>
-        {(sale.data.sale_items ?? []).map((item) => <Card key={item.id} mode="outlined"><Card.Title title={item.variant ? `${item.product?.name} • ${item.variant.name}` : item.product?.name ?? 'Produit'} subtitle={`${formatQuantity(item.quantity)} × ${money(Number(item.sale_price))}`} /><Card.Content><Text>Total : {money(Number(item.line_total))}{canReadFinancials && itemFinancials.has(item.id) ? ` • Coût unitaire conservé : ${money(Number(itemFinancials.get(item.id)!.purchase_price_snapshot))}` : ''}</Text>{canReadFinancials && itemFinancials.has(item.id) && <Text style={{ color: theme.colors.primary }}>Bénéfice : {money(Number(itemFinancials.get(item.id)!.gross_profit))}</Text>}</Card.Content></Card>)}
+        {(sale.data.sale_items ?? []).map((item) => <Card key={item.id} mode="outlined"><Card.Title title={saleItemName(item)} subtitle={`${formatQuantity(item.quantity)} × ${money(Number(item.sale_price))}`} /><Card.Content><Text>Total : {money(Number(item.line_total))}{canReadFinancials && itemFinancials.has(item.id) ? ` • Coût unitaire conservé : ${money(Number(itemFinancials.get(item.id)!.purchase_price_snapshot))}` : ''}</Text>{canReadFinancials && itemFinancials.has(item.id) && <Text style={{ color: theme.colors.primary }}>Bénéfice : {money(Number(itemFinancials.get(item.id)!.gross_profit))}</Text>}</Card.Content></Card>)}
         {can('sales.read') && <Card mode="outlined"><Card.Content style={{ gap: 8 }}>
           <Text variant="titleMedium">Historique des retours</Text>
           <Text>Les retours conservent la vente d’origine.</Text>

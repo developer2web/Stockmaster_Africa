@@ -1,6 +1,6 @@
 import { usePermissions } from '@/features/auth/usePermissions';
 import { DateField } from '@/components/forms/DateField';
-import { localDateValue } from '@/utils/calendar';
+import { businessDateValue } from '@/utils/businessTime';
 import { plural } from '@/utils/plural';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -59,7 +59,7 @@ export default function CustomerDetails() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [message, setMessage] = useState(resolveNotice(notice));
   const [scheduleOpen,setScheduleOpen]=useState(false);
-  const [scheduleRows,setScheduleRows]=useState([{dueDate:localDateValue(new Date(Date.now()+30*86400000)),amount:''}]);
+  const [scheduleRows,setScheduleRows]=useState([{dueDate:businessDateValue(new Date(Date.now()+30*86400000)),amount:''}]);
 
   useEffect(() => { setDetailsOpen(false); }, [id]);
 
@@ -248,7 +248,7 @@ export default function CustomerDetails() {
                   <TextInput mode="outlined" dense label="Montant" accessibilityLabel={`Montant de l’échéance ${index + 1}`} keyboardType="decimal-pad" selectTextOnFocus style={{ flex: 1, minWidth: 0 }} value={row.amount} disabled={saveSchedule.isPending} onChangeText={amount => setScheduleRows(rows => rows.map((item, i) => i === index ? { ...item, amount } : item))} />
                 </View>
               </View>)}
-              <AppButton mode="text" icon="plus" disabled={saveSchedule.isPending} onPress={() => setScheduleRows(rows => [...rows, { dueDate: localDateValue(new Date(Date.now() + (rows.length + 1) * 30 * 86400000)), amount: '' }])}>Ajouter une échéance</AppButton>
+              <AppButton mode="text" icon="plus" disabled={saveSchedule.isPending} onPress={() => setScheduleRows(rows => [...rows, { dueDate: businessDateValue(new Date(Date.now() + (rows.length + 1) * 30 * 86400000)), amount: '' }])}>Ajouter une échéance</AppButton>
               <Text variant="bodySmall">Total requis : {formatMoney(balance)} · Saisi : {formatMoney(scheduleTotal)}</Text>
               {!!saveSchedule.error && <HelperText type="error" visible>{readableError(saveSchedule.error)}</HelperText>}
             </ScrollView>

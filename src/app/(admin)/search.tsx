@@ -1,3 +1,4 @@
+import { formatDate } from '@/utils/format';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -27,7 +28,7 @@ async function searchWorkspace(companyId: string, storeId: string, term: string)
     // fr-CA pour le montant (séparateur de milliers toujours visible,
     // contrairement à l'espace fine insécable de fr-FR) ; fr-FR reste correct
     // pour la date, seul le formatage des nombres est concerné.
-    ...(sales.data ?? []).map((item) => ({ id: item.id, title: item.reference ?? 'Vente', subtitle: `Vente · ${Number(item.total).toLocaleString('fr-CA')} · ${new Date(item.created_at).toLocaleDateString('fr-FR')}`, kind: 'Vente' as const, path: `/sales/${item.id}` })),
+    ...(sales.data ?? []).map((item) => ({ id: item.id, title: item.reference ?? 'Vente', subtitle: `Vente · ${Number(item.total).toLocaleString('fr-CA')} · ${formatDate(item.created_at)}`, kind: 'Vente' as const, path: `/sales/${item.id}` })),
   ];
 }
 

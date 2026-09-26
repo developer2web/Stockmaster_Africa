@@ -2,8 +2,9 @@ import { useCameraPermissions } from 'expo-camera';
 import { useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { Linking, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Linking, Platform, StyleSheet, useWindowDimensions, View, type TextInput as NativeTextInput } from 'react-native';
 import { Card, HelperText, Icon, IconButton, Text, TextInput } from 'react-native-paper';
+import { hasPermission } from '@/features/auth/permissions';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { BarcodeCameraView, type ScannedCode } from '@/components/scanner/BarcodeCameraView';
@@ -20,6 +21,11 @@ export default function ScannerScreen() {
   const { height, width } = useWindowDimensions();
   const cameraHeight = Math.max(240, Math.min(420, height * 0.52, width * 1.15));
   const employee=membership?.role==='employee';
+  // Retour testeur du 26/09 : un employé était renvoyé vers la fiche ADMINISTRATEUR du produit
+  // (« Espace non autorisé ») et on lui proposait de créer un produit sans en avoir le droit.
+  const productPath=useCallback((productId:string)=>employee?`/employee/products/${productId}`:`/products/${productId}`,[employee]);
+  const canCreateProduct=!employee||hasPermission(membership,'products.write');
+  const manualInput=useRef<NativeTextInput>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [locked, setLocked] = useState(false);
   const [torch, setTorch] = useState(false);
@@ -45,7 +51,9 @@ export default function ScannerScreen() {
     setError('');
     setSuccess('');
     lastScan.current = { code: '', at: 0 };
-    setTimeout(unlock, 250);
+    // « Scanner à nouveau » repart d'un champ vide, curseur dedans, prêt pour la saisie suivante.
+    setManual('');
+    setTimeout(() => { unlock(); manualInput.current?.focus(); }, 250);
   }, [unlock]);
 
   const find = useCallback(async (rawCode: string) => {
@@ -97,7 +105,7 @@ export default function ScannerScreen() {
           return;
         }
         else if(mode==='inventory')router.replace({pathname:'/inventory-count' as never,params:{inventoryId:inventoryId??'',productId:found.productId}});
-        else router.replace(`/products/${found.productId}` as never);
+        else router.replace(productPath(found.productId) as never);
         emitScanFeedback('success', 'Produit trouvé');
         return;
       }
@@ -107,13 +115,13 @@ export default function ScannerScreen() {
       setError(userErrorMessage(scanError, 'Recherche impossible. Réessayez.'));
       emitScanFeedback('error', 'Recherche impossible');
     }
-  }, [addToCart, inventoryId, membership?.companyId, membership?.storeId, mode, saleStock.data, saleStock.isLoading, unlock]);
+  }, [addToCart, inventoryId, membership?.companyId, membership?.storeId, mode, productPath, saleStock.data, saleStock.isLoading, unlock]);
 
   const openExisting = useCallback(async () => {
     if (!conflict) return;
     if (conflict.storeId !== membership?.storeId) await selectStore(conflict.storeId);
-    router.replace(`/products/${conflict.productId}` as never);
-  }, [conflict, membership?.storeId, selectStore]);
+    router.replace(productPath(conflict.productId) as never);
+  }, [conflict, membership?.storeId, selectStore, productPath]);
 
   const scanned = useCallback(({ data }: ScannedCode) => { void find(data); }, [find]);
   const cameraActive = permission?.granted && !locked;
@@ -147,7 +155,7 @@ export default function ScannerScreen() {
       />
       <View style={[styles.status, !!success && styles.statusSuccess, (!!error || !!missing) && styles.statusError]}><Text style={styles.statusText}>{success || (missing ? 'Produit introuvable' : error) || (locked ? 'Lecture en cours…' : 'Placez le code dans le cadre')}</Text></View>
     </View>}
-    <TextInput mode="outlined" label={Platform.OS === 'web' ? 'Scanner USB ou saisie du code-barres' : 'Saisir le code-barres'} accessibilityLabel={Platform.OS === 'web' ? 'Scanner USB ou saisie du code-barres' : 'Saisir le code-barres'} value={manual} onChangeText={setManual} autoCapitalize="characters" maxLength={160} autoFocus={Platform.OS === 'web'} blurOnSubmit={false} onSubmitEditing={() => void find(manual)} />
+    <TextInput mode="outlined" label={Platform.OS === 'web' ? 'Scanner USB ou saisie du code-barres' : 'Saisir le code-barres'} accessibilityLabel={Platform.OS === 'web' ? 'Scanner USB ou saisie du code-barres' : 'Saisir le code-barres'} ref={manualInput} value={manual} onChangeText={setManual} autoCapitalize="characters" maxLength={160} autoFocus={Platform.OS === 'web'} blurOnSubmit={false} onSubmitEditing={() => void find(manual)} />
     <AppButton mode="outlined" loading={locked && !missing && !error} disabled={!manual.trim() || locked} onPress={() => void find(manual)}>Rechercher</AppButton>
     {mode === 'sale' && <AppButton icon="cart-check" onPress={() => router.replace((employee ? '/employee/sales/new' : '/sales/new') as never)}>Retour au panier</AppButton>}
     {!!success && <HelperText type="info" visible>{success}</HelperText>}
@@ -158,15 +166,15 @@ export default function ScannerScreen() {
       <Text>Boutique : {conflict.storeName??(conflict.storeId===membership?.storeId?membership?.storeName:'Une autre boutique')}</Text>
       {!conflict.isActive&&<HelperText type="error" visible>Ce produit ou cette variante est actuellement inactif.</HelperText>}
       <Text>StockMaster conserve un seul produit par code-barres dans l’entreprise afin d’éviter les doublons.</Text>
-      {!employee&&<AppButton icon="open-in-new" onPress={()=>void openExisting()}>{conflict.isActive?'Ouvrir le produit':'Ouvrir et réactiver'}</AppButton>}
+      {(!employee||conflict.isActive)&&<AppButton icon="open-in-new" onPress={()=>void openExisting()}>{conflict.isActive?'Ouvrir le produit':'Ouvrir et réactiver'}</AppButton>}
       <AppButton mode="text" icon="refresh" onPress={reset}>Scanner un autre code</AppButton>
     </Card.Content></Card>}
     {!!missing && <Card mode="outlined"><Card.Content style={styles.unknown}>
       <Text variant="titleMedium">Code inconnu</Text><Text selectable>{missing}</Text>
       <Text>{mode === 'sale'
         ? employee?'Ce produit doit d’abord être créé par un administrateur avant de pouvoir être vendu.':'Créez ce produit maintenant. Son code-barres sera déjà rempli et il sera ajouté à la vente après l’enregistrement.'
-        : 'Vous pouvez recommencer ou créer un produit avec ce code.'}</Text>
-      {!employee&&<AppButton icon="plus" onPress={() => router.push({ pathname: '/products/new' as never, params: { barcode: missing, returnTo:mode==='sale'?'/sales/new':'' } })}>Créer le produit</AppButton>}
+        : canCreateProduct ? 'Vous pouvez recommencer ou créer un produit avec ce code.' : 'Aucun produit ne porte ce code. Vérifiez-le ou demandez à un administrateur de créer le produit.'}</Text>
+      {canCreateProduct&&(!employee||mode!=='sale')&&<AppButton icon="plus" onPress={() => router.push({ pathname: (employee?'/employee/products/new':'/products/new') as never, params: { barcode: missing, returnTo:mode==='sale'?'/sales/new':'' } })}>Créer le produit</AppButton>}
       <AppButton mode="text" icon="refresh" onPress={reset}>Scanner à nouveau</AppButton>
     </Card.Content></Card>}
   </AdminPage>;

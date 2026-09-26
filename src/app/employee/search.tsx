@@ -1,3 +1,4 @@
+import { formatDate } from '@/utils/format';
 import { usePermissions } from '@/features/auth/usePermissions';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
@@ -35,7 +36,7 @@ async function searchEmployeeWorkspace(companyId: string, storeId: string, term:
     supabase.from('sales').select('id,reference,total,created_at').eq('company_id', companyId).eq('store_id', storeId).ilike('reference', pattern).order('created_at', { ascending: false }).limit(12)
       .then(({ data, error }) => {
         if (error) throw new Error(error.message);
-        return (data ?? []).map((item) => ({ id: item.id, title: item.reference ?? 'Vente', subtitle: `Vente · ${Number(item.total).toLocaleString('fr-CA')} · ${new Date(item.created_at).toLocaleDateString('fr-FR')}`, kind: 'Vente' as const, path: `/employee/sales/${item.id}` }));
+        return (data ?? []).map((item) => ({ id: item.id, title: item.reference ?? 'Vente', subtitle: `Vente · ${Number(item.total).toLocaleString('fr-CA')} · ${formatDate(item.created_at)}`, kind: 'Vente' as const, path: `/employee/sales/${item.id}` }));
       }),
   );
   return (await Promise.all(tasks)).flat();

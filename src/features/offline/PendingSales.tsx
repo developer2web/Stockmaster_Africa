@@ -5,6 +5,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { getCurrentUserOfflineQueue, offlineErrorMessage } from './queue';
 import { useOffline } from './OfflineProvider';
+import { formatDateTime } from '@/utils/format';
 
 export function PendingSales() {
   const { session, membership } = useAuth();
@@ -19,7 +20,7 @@ export function PendingSales() {
   return <Card mode="outlined"><Card.Content style={{ gap: 8 }}>
     <Text variant="titleMedium">Ventes conservées sur cet appareil ({sales.length})</Text>
     {sales.slice(0, 5).map(operation => <Card key={operation.id} mode="contained"><Card.Content style={{ gap: 4 }}>
-      <Text>HORS-LIGNE-{operation.id.slice(-8).toUpperCase()} · {new Date(operation.createdAt).toLocaleString('fr-FR')}</Text>
+      <Text>HORS-LIGNE-{operation.id.slice(-8).toUpperCase()} · {formatDateTime(operation.createdAt)}</Text>
       <Text style={{ fontWeight: '700' }}>{operation.lastError ? 'À vérifier' : 'En attente de synchronisation'}</Text>
       <Text>{operation.lastError ? offlineErrorMessage(operation) : 'Conservée sur cet appareil ; confirmation du serveur en attente.'}</Text>
     </Card.Content></Card>)}

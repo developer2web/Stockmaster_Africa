@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Keyboard, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, HelperText, Icon, IconButton, Text, useTheme } from 'react-native-paper';
-import { calendarDateAllowed, calendarDays, localDateValue, parseCalendarDate } from '@/utils/calendar';
+import { calendarDateAllowed, calendarDays, parseCalendarDate } from '@/utils/calendar';
+import { businessDateValue } from '@/utils/businessTime';
 
 type Props = {
   label: string;
@@ -19,7 +20,8 @@ export function DateField({ label, value, onChange, onBlur, minDate, maxDate, er
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(() => new Date());
   const selected = parseCalendarDate(value);
-  const today = localDateValue();
+  // « Aujourd'hui » = journée de l'entreprise, pas celle de l'appareil.
+  const today = businessDateValue();
   const display = selected?.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) ?? 'Choisir une date';
   const close = () => { setOpen(false); onBlur?.(); };
   const choose = (date: string) => { onChange(date); close(); };

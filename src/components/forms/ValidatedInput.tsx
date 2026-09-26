@@ -4,9 +4,10 @@ import { HelperText, TextInput, TextInputProps } from 'react-native-paper';
 
 // Champ simple (hors react-hook-form) avec état d'erreur accessible : aria-required, aria-invalid,
 // et message d'erreur relié au champ par aria-describedby — lus par un lecteur d'écran avec le champ.
-type Props = TextInputProps & { errorText?: string; required?: boolean };
+// helperText : indication neutre affichée sous le champ quand il n'y a pas d'erreur.
+type Props = TextInputProps & { errorText?: string; helperText?: string; required?: boolean };
 
-export function ValidatedInput({ errorText, required = false, label, error, style, ...props }: Props) {
+export function ValidatedInput({ errorText, helperText, required = false, label, error, style, ...props }: Props) {
   const errorId = `${useId()}-error`;
   const invalid = !!errorText || !!error;
   return <View style={styles.field}>
@@ -16,12 +17,12 @@ export function ValidatedInput({ errorText, required = false, label, error, styl
       accessibilityLabel={typeof label === 'string' ? label : undefined}
       aria-required={required || undefined}
       aria-invalid={invalid ? true : undefined}
-      aria-describedby={errorText ? errorId : undefined}
+      aria-describedby={errorText || helperText ? errorId : undefined}
       error={invalid}
       style={style}
       {...props}
     />
-    {errorText ? <HelperText type="error" visible nativeID={errorId}>{errorText}</HelperText> : null}
+    {errorText ? <HelperText type="error" visible nativeID={errorId}>{errorText}</HelperText> : helperText ? <HelperText type="info" visible nativeID={errorId}>{helperText}</HelperText> : null}
   </View>;
 }
 

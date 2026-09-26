@@ -35,6 +35,10 @@ async function summary(companyId: string, storeId: string, membership: Membershi
   return { sales, purchases, expenses, payments, cash };
 }
 
+// Retour testeur du 26/09 : garde alignée sur le menu (Plus / barre latérale), qui n'affiche
+// Comptabilité qu'avec achats, paiements ou dépenses. La seule permission de vente ouvrait
+// sinon cette page par son adresse directe (total des ventes, solde de caisse) alors qu'elle
+// n'apparaît dans aucun menu : « Accès non attribué » désormais.
 export default function Accounting() {
   const { formatMoney } = useCurrency();
   const { membership } = useAuth();
@@ -53,7 +57,7 @@ export default function Accounting() {
   ].filter(Boolean) as { label: string; value: number; icon: string; color: string; action?: () => void }[];
 
   return (
-    <PermissionGuard permission={['sales.read', 'purchases.read', 'payments.read', 'expenses.read']}>
+    <PermissionGuard permission={['purchases.read', 'payments.read', 'expenses.read']}>
       <AdminPage title="Comptabilité">
         <View style={[styles.intro, { backgroundColor: theme.colors.secondaryContainer }]}>
           <Icon source="finance" size={34} color={theme.colors.secondary} />

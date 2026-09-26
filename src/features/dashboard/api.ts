@@ -1,3 +1,4 @@
+import { addCalendarDays, businessDateValue, businessDayStart } from '@/utils/businessTime';
 import { supabase } from '@/services/supabase/client';
 import { userErrorMessage } from '@/utils/errors';
 import { withOfflineCache } from '@/features/offline/storage';
@@ -19,14 +20,16 @@ export type DashboardTrends = {
 
 export async function getDashboardTrends(companyId:string,storeId:string):Promise<DashboardTrends>{
   return withOfflineCache(`dashboard-trends:${companyId}:${storeId}`, async () => {
-  const start=new Date();start.setHours(0,0,0,0);start.setDate(start.getDate()-6);
+  // 7 derniers jours en heure de l'entreprise (même découpage que le serveur), pas de l'appareil.
+  const startDate=addCalendarDays(businessDateValue(),-6);
+  const start=businessDayStart(startDate);
   const {data,error}=await supabase.rpc('get_dashboard_trends_safe',{p_company_id:companyId,p_store_id:storeId,p_start:start.toISOString()});
   if(error)throw new Error(userErrorMessage(error));
   const value=(data??{}) as {sales?:{id:string;total:number;created_at:string}[];topProducts?:{name:string;quantity:number}[]};
   const sales=value.sales??[];
-  const days=Array.from({length:7},(_,index)=>{const date=new Date(start);date.setDate(start.getDate()+index);return{date:date.toISOString().slice(0,10),revenue:0}});
+  const days=Array.from({length:7},(_,index)=>({date:addCalendarDays(startDate,index),revenue:0}));
   const dayMap=new Map(days.map(day=>[day.date,day]));
-  for(const sale of sales??[]){const day=dayMap.get(String(sale.created_at).slice(0,10));if(day)day.revenue+=Number(sale.total)}
+  for(const sale of sales??[]){const day=dayMap.get(businessDateValue(new Date(sale.created_at)));if(day)day.revenue+=Number(sale.total)}
   return{days,topProducts:(value.topProducts??[]).map(row=>({name:row.name,quantity:Number(row.quantity)}))};
   }, (value): value is DashboardTrends => !!value && typeof value === 'object' && 'days' in value && 'topProducts' in value);
 }

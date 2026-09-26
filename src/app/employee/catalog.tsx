@@ -1,3 +1,5 @@
+import { router } from 'expo-router';
+import { distinctProductName, homonymIndex } from '@/utils/productLabel';
 import { useQuery } from '@tanstack/react-query';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Card, Icon, Text, useTheme } from 'react-native-paper';
@@ -29,15 +31,17 @@ export default function EmployeeCatalog() {
   );
   const error = products.error ?? suppliers.error;
 
+  const homonyms = homonymIndex(products.data ?? []);
   return (
     <PermissionGuard permission={['products.read', 'suppliers.read']}>
       <AdminPage title="Catalogue">
         <View style={styles.stats}>
           {[
-            can('products.read') && ['Produits', products.data?.length ?? 0, 'package-variant-closed', '#084B50'],
-            can('suppliers.read') && ['Fournisseurs', suppliers.data?.length ?? 0, 'truck-outline', '#E67700'],
+            // Retour testeur du 26/09 : « … » pendant le chargement, pas un 0 qui ressemble à un résultat.
+            can('products.read') && ['Produits', products.data ? products.data.length : '…', 'package-variant-closed', '#084B50'],
+            can('suppliers.read') && ['Fournisseurs', suppliers.data ? suppliers.data.filter(supplier => can('suppliers.write') || supplier.is_active).length : '…', 'truck-outline', '#E67700'],
           ].filter(Boolean).map((item) => {
-            const [label, value, icon, color] = item as [string, number, string, string];
+            const [label, value, icon, color] = item as [string, number | string, string, string];
             return (
               <Card key={label} mode="contained" style={[styles.stat, { backgroundColor: theme.colors.surface }, width < 520 && styles.statFull]}>
                 <Card.Content style={styles.statContent}>
@@ -57,11 +61,12 @@ export default function EmployeeCatalog() {
         )}
         <View style={styles.productGrid}>
           {visibleProducts.map((product) => (
-            <Card key={product.id} mode="contained" style={[styles.product, { backgroundColor: theme.colors.surface }, width < 620 && styles.productFull]}>
+            <Card key={product.id} mode="contained" onPress={() => router.push(`/employee/products/${product.id}` as never)} style={[styles.product, { backgroundColor: theme.colors.surface }, width < 620 && styles.productFull]}>
               <Card.Content style={styles.productContent}>
                 <ProductThumbnail url={product.image_urls?.[0]} size={44} />
                 <View style={styles.productCopy}>
-                  <Text variant="titleMedium" numberOfLines={1} style={styles.bold}>{product.name}</Text>
+                  <Text variant="titleMedium" numberOfLines={2} style={styles.bold}>{distinctProductName(product, homonyms)}</Text>
+                  {!!(product.barcode || product.sku) && <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Code : {product.barcode || product.sku}</Text>}
                 </View>
                 <Text variant="titleMedium" style={{ color: theme.colors.primary, fontWeight: '800' }}>{formatMoney(Number(product.sale_price))}</Text>
               </Card.Content>

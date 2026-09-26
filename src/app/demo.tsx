@@ -123,7 +123,7 @@ export default function DemoScreen() {
             <Card.Title title={`Panier (${cartLines.reduce((n, l) => n + l.qty, 0)})`} right={() => cartLines.length > 0 ? <AppButton mode="text" onPress={clearCart}>Vider</AppButton> : null} />
             <Card.Content style={styles.list}>
               {cartLines.length === 0 && !justSold && <Text style={styles.muted}>Panier vide. Touchez un produit ci-dessus.</Text>}
-              {justSold && <View style={styles.successBanner}><Icon source="check-circle" size={22} color="#0B7A4B" /><Text style={styles.successText}>Vente enregistrée · Reçu envoyé au client</Text></View>}
+              {justSold && <View style={styles.successBanner}><Icon source="check-circle" size={22} color="#0B7A4B" /><Text style={styles.successText}>Vente simulée · Aucun reçu réel n’a été envoyé.</Text></View>}
               {cartLines.map((line) => (
                 <View key={line.product.id} style={styles.row}>
                   <Text style={styles.rowText}>{line.qty} × {line.product.name}</Text>

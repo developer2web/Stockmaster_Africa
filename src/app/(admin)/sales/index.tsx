@@ -18,7 +18,7 @@ import { emptySalesFilters, paymentOptions, periodOptions, salesDateBounds, sale
 import { DateField } from '@/components/forms/DateField';
 import { SelectField } from '@/components/forms/SelectField';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { localDateValue } from '@/utils/calendar';
+import { businessDateValue } from '@/utils/businessTime';
 import { useSalesRealtime } from '@/hooks/useSalesRealtime';
 import { AppFeedback } from '@/components/ui/AppFeedback';
 import { formatDateTime } from '@/utils/format';
@@ -45,7 +45,7 @@ export default function SalesScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterError, setFilterError] = useState('');
   const searchTerm = useDebouncedValue(search.trim());
-  const today = localDateValue();
+  const today = businessDateValue();
   const bounds = salesDateBounds(filters);
   const criteria = { search: searchTerm, ...bounds, payment: filters.payment, status: filters.status };
   const filterCount = salesFilterCount(filters);

@@ -1,8 +1,9 @@
+import { distinctProductName, homonymIndex } from '@/utils/productLabel';
 import { usePermissions } from '@/features/auth/usePermissions';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Card, FAB, HelperText, Text } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { resolveNotice } from '@/constants/notices';
@@ -35,14 +36,16 @@ export default function EmployeeProducts() {
   const debounced = useDebouncedValue(search);
   const query = useInfiniteQuery({ queryKey: ['employee-products', company, store, debounced, 'without-cost'], queryFn: ({pageParam}) => getProducts(company, store, debounced,pageParam),initialPageParam:null as PageCursor,getNextPageParam:(last)=>nextPageCursor(last,PRODUCT_PAGE_SIZE), enabled: !!company && !!store });
   const products=query.data?.pages.flat()??[];
+  const homonyms=homonymIndex(products);
+  const wide=useWindowDimensions().width>=960;
   return <PermissionGuard permission="products.read"><AdminPage title="Produits" action={canWrite ? <FAB size="small" icon="plus" accessibilityLabel="Ajouter un produit" onPress={() => router.push('/employee/products/new' as never)} /> : undefined}>
     <AppSearchBar placeholder="Nom ou code-barres" value={search} onChangeText={value=>setSearch(listScope,value)} loading={search !== debounced} />
     {!!query.error&&<HelperText type="error" visible>{readableError(query.error)}</HelperText>}
     <View style={styles.grid}>
-      {products.map((product) => <Card key={product.id} mode="contained" style={styles.gridCard} onPress={canWrite ? () => router.push(`/employee/products/${product.id}` as never) : undefined}>
+      {products.map((product) => <Card key={product.id} mode="contained" style={[styles.gridCard, wide && styles.gridCardWide]} onPress={() => router.push(`/employee/products/${product.id}` as never)}>
         <View style={styles.gridImageWrap}><ProductThumbnail url={product.image_urls?.[0]} size={54}/></View>
         <Card.Content style={styles.gridCopy}>
-          <Text variant="titleSmall" numberOfLines={2} style={styles.gridName}>{product.name}</Text>
+          <Text variant="titleSmall" numberOfLines={2} style={styles.gridName}>{distinctProductName(product, homonyms)}</Text>
           {/* Retour testeur du 25/09 : le prix débordait quand trop de cartes tenaient par
               rangée — 3 par ligne sur téléphone (comme la grille de Nouvelle vente).
               adjustsFontSizeToFit n'a aucun effet sur le web (non supporté par
@@ -66,6 +69,8 @@ const styles = StyleSheet.create({
   // plus compactes et carrées (retour testeur du 25/09), pas de grandes
   // cartes rectangulaires.
   gridCard: { flexBasis: 106, flexGrow: 1, minWidth: 100, maxWidth: 150, overflow: 'hidden' },
+  // Sur ordinateur, cartes plus larges : les noms longs ne sont plus tronqués (retour du 26/09).
+  gridCardWide: { flexBasis: 200, minWidth: 180, maxWidth: 260 },
   gridImageWrap: { alignItems: 'center', paddingTop: 8 },
   gridCopy: { alignItems: 'center', gap: 2, paddingTop: 4, paddingBottom: 8 },
   gridName: { textAlign: 'center' },

@@ -12,21 +12,23 @@ beforeEach(() => {
   cache.mockImplementation((_key: string, fetch: () => Promise<unknown>) => fetch());
 });
 describe('sales filtering', () => {
-  it('includes all of the selected local day with an exclusive next midnight', () => {
-    const bounds = salesDateBounds({ ...emptySalesFilters, period: 'today' }, new Date(2026, 8, 9, 23, 50));
-    expect(bounds).toEqual({ after: new Date(2026, 8, 9).toISOString(), before: new Date(2026, 8, 10).toISOString() });
+  // Journées de l'ENTREPRISE (Conakry, UTC+0), plus celles de l'appareil — voir
+  // tests/business-time.test.ts et le retour testeur du 26/09 (vente de 02:59).
+  it('includes all of the business day with an exclusive next midnight', () => {
+    const bounds = salesDateBounds({ ...emptySalesFilters, period: 'today' }, new Date('2026-09-09T23:50:00Z'));
+    expect(bounds).toEqual({ after: '2026-09-09T00:00:00.000Z', before: '2026-09-10T00:00:00.000Z' });
   });
-  it('counts seven calendar days including today, across a month boundary', () => {
-    expect(salesDateBounds({ ...emptySalesFilters, period: '7' }, new Date(2026, 8, 2, 15))).toEqual({
-      after: new Date(2026, 7, 27).toISOString(), before: new Date(2026, 8, 3).toISOString(),
+  it('counts seven business days including today, across a month boundary', () => {
+    expect(salesDateBounds({ ...emptySalesFilters, period: '7' }, new Date('2026-09-02T15:00:00Z'))).toEqual({
+      after: '2026-08-27T00:00:00.000Z', before: '2026-09-03T00:00:00.000Z',
     });
   });
-  it('handles DST and includes the entire last custom day', () => {
+  it('ignores the device time zone (and its DST) for a custom day', () => {
     const previous = process.env.TZ;
     process.env.TZ = 'America/New_York';
     try {
       const bounds = salesDateBounds({ ...emptySalesFilters, period: 'custom', startDate: '2026-03-08', endDate: '2026-03-08' });
-      expect(bounds).toEqual({ after: '2026-03-08T05:00:00.000Z', before: '2026-03-09T04:00:00.000Z' });
+      expect(bounds).toEqual({ after: '2026-03-08T00:00:00.000Z', before: '2026-03-09T00:00:00.000Z' });
     } finally { if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous; }
   });
   it('rejects invalid or reversed dates before requesting history', () => {

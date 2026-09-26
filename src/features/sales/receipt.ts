@@ -1,3 +1,4 @@
+import { saleItemName } from '@/utils/productLabel';
 import type { Sale } from '@/types/database';
 import { formatQuantity } from '@/utils/number';
 import type { ReceiptBranding } from '@/features/payments/branding';
@@ -8,7 +9,7 @@ const escape=(value:unknown)=>String(value??'').replace(/[&<>"']/g,(character)=>
 
 function receiptHtml(sale:Sale,branding:ReceiptBranding,money:(value:number)=>string){
   const accent=/^#[0-9A-Fa-f]{6}$/.test(branding.accentColor)?branding.accentColor:'#084B50';
-  const rows=(sale.sale_items??[]).map(item=>`<tr><td>${escape(item.variant?`${item.product?.name} - ${item.variant.name}`:item.product?.name??'Produit')}</td><td>${formatQuantity(item.quantity)}</td><td>${escape(money(Number(item.sale_price)))}</td><td>${escape(money(Number(item.line_total)))}</td></tr>`).join('');
+  const rows=(sale.sale_items??[]).map(item=>`<tr><td>${escape(saleItemName(item))}</td><td>${formatQuantity(item.quantity)}</td><td>${escape(money(Number(item.sale_price)))}</td><td>${escape(money(Number(item.line_total)))}</td></tr>`).join('');
   const customer=sale.customer?.name??'Client de passage';
   const seller=sale.creator?.full_name?.trim()||'Administrateur';
   const discount=Number(sale.discount_total)>0?`<div class="line"><span>Remise</span><b>-${escape(money(Number(sale.discount_total)))}</b></div>`:'';
@@ -24,7 +25,7 @@ const paymentLabels:Record<string,string>={cash:'Espèces',mobile_money:'Mobile 
 /** Résumé lisible du reçu en texte brut, utilisé par le partage web (e-mail, WhatsApp…) qui ne sait pas joindre le PDF généré nativement. */
 function receiptText(sale:Sale,branding:ReceiptBranding,money:(value:number)=>string){
   const customer=sale.customer?.name??'Client de passage';
-  const lines=(sale.sale_items??[]).map(item=>`${item.variant?`${item.product?.name} - ${item.variant.name}`:item.product?.name??'Produit'} x${formatQuantity(item.quantity)} : ${money(Number(item.line_total))}`);
+  const lines=(sale.sale_items??[]).map(item=>`${saleItemName(item)} x${formatQuantity(item.quantity)} : ${money(Number(item.line_total))}`);
   return [
     `${branding.company} — Reçu ${sale.reference??sale.id}`,
     branding.store??sale.store?.name??'',

@@ -1,4 +1,6 @@
 import { DateField } from '@/components/forms/DateField';
+import { parseCalendarDate } from '@/utils/calendar';
+import { businessDateValue } from '@/utils/businessTime';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -24,7 +26,8 @@ type Preset = 'today' | 'week' | 'month' | 'year' | 'custom';
 type ReportView = 'global' | 'sales' | 'expenses';
 const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 function range(preset: Preset) {
-  const now = new Date();
+  // Date du jour de l'entreprise (pas de l'appareil), puis arithmétique calendaire locale.
+  const now = parseCalendarDate(businessDateValue())!;
   const start = new Date(now);
   if (preset === 'week') start.setDate(now.getDate() - ((now.getDay() + 6) % 7));
   if (preset === 'month') start.setDate(1);

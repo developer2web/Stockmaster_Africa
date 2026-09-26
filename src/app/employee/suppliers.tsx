@@ -34,7 +34,10 @@ export default function EmployeeSuppliers() {
   const show = (supplier?: Supplier) => { setEditing(supplier ?? null); setOpen(true); };
   const mutation = useMutation({ mutationFn: (value: SupplierInput) => saveSupplier(company, store, value, editing?.id), onSuccess: async () => { await cache.invalidateQueries({ queryKey: ['suppliers', company, store] }); setOpen(false); setEditing(null); reset(); } });
   const needle = search.trim().toLowerCase();
-  const shown = (query.data ?? []).filter((item) => !needle || `${item.name} ${item.email ?? ''} ${item.phone ?? ''}`.toLowerCase().includes(needle));
+  // Retour testeur du 26/09 : un employé en simple consultation (« Consulter les
+  // fournisseurs ») ne voit que les fournisseurs actifs — coordonnées comprises, c'est
+  // l'objet même de cette permission. Les archivés restent visibles pour qui peut les gérer.
+  const shown = (query.data ?? []).filter((item) => (canWrite || item.is_active) && (!needle || `${item.name} ${item.email ?? ''} ${item.phone ?? ''}`.toLowerCase().includes(needle)));
   return <PermissionGuard permission="suppliers.read"><AdminPage title="Fournisseurs" action={canWrite ? <FAB size="small" icon="plus" onPress={() => show()} /> : undefined}>
     <AppSearchBar placeholder="Nom, email ou téléphone" value={search} onChangeText={setSearch} />
     {shown.map((item) => <Card key={item.id} mode="contained" onPress={canWrite ? () => show(item) : undefined}><Card.Title title={item.name} subtitle={[item.email, item.phone].filter(Boolean).join(' • ') || 'Aucun contact'} right={() => <Text style={{ marginRight: 16 }}>{item.is_active ? 'Actif' : 'Archivé'}</Text>} /></Card>)}

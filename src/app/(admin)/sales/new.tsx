@@ -1,5 +1,6 @@
 import { SaleCustomerPicker } from '@/components/customers/SaleCustomerPicker';
-import { checkoutIssue } from '@/features/sales/checkout';
+import { checkoutIssue, maxLineDiscount } from '@/features/sales/checkout';
+import { distinctProductName, homonymIndex, unitLabel } from '@/utils/productLabel';
 import { PendingSales } from '@/features/offline/PendingSales';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -32,8 +33,6 @@ import { readableError } from '@/utils/errors';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { plural } from '@/utils/plural';
 
-const unitLabels: Record<string, string> = { piece: 'Pièce', carton: 'Carton', kg: 'kg', litre: 'Litre', sac: 'Sac', paquet: 'Paquet' };
-const unitLabel = (unit: string) => unitLabels[unit] ?? unit;
 
 export default function NewSale() {
   const { formatMoney } = useCurrency();
@@ -128,6 +127,9 @@ export default function NewSale() {
     return (stock.data ?? []).filter(item=>(!term||item.name.toLocaleLowerCase('fr').includes(term)||item.lookupCodes?.some(code=>code.toLocaleLowerCase('fr').includes(term))));
   },[debouncedSearch,stock.data]);
   const shown = matchingProducts.slice(0, visibleCount);
+  // Noms en double (ex. « Coca cola » paquet / pièce) : distinction affichée partout (grille, panier).
+  const homonyms = useMemo(() => homonymIndex(stock.data ?? []), [stock.data]);
+  const displayName = (item: { name: string; unit: string; sku: string }) => distinctProductName(item, homonyms);
   useEffect(() => { setVisibleCount(30); }, [debouncedSearch]);
   const totals = useMemo(() => {
     const subtotal=items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
@@ -146,7 +148,8 @@ export default function NewSale() {
   // même règle : ce contrôle évite seulement de découvrir le refus au moment d'encaisser.
   const canOverrideDiscount = hasPermission(membership, 'sales.discount_override');
   const discountLimit = Number(companySettings.data?.max_discount_percent ?? 100);
-  const discountTooHigh = !canOverrideDiscount && items.some(item => item.discount > item.salePrice * item.quantity * discountLimit / 100);
+  const lineMaxDiscount = (item: { salePrice: number; quantity: number }) => maxLineDiscount(item.salePrice * item.quantity, discountLimit, canOverrideDiscount);
+  const discountTooHigh = items.some(item => item.discount > lineMaxDiscount(item));
   const zeroTotal = !canOverrideDiscount && totals.subtotal > 0 && totals.total <= 0;
   const save = useMutation({
     mutationFn: () => createSale(company, storeId, payment, items, customerId, payment==='credit'?0:payment==='partial'?parseDecimal(amountPaid):totals.total,operationId.current,!!companySettings.data?.allow_negative_stock,totals.total),
@@ -249,7 +252,7 @@ export default function NewSale() {
               <Card key={cartKey(item)} mode="contained" style={[styles.gridCardBulk, { backgroundColor: theme.colors.surface }, !available && styles.unavailable, anyInCart && { borderColor: theme.colors.primary, borderWidth: 1.5 }]}>
                 <Card.Content style={styles.productRow}>
                   <ProductThumbnail url={item.imageUrl} />
-                  <View style={styles.productCopy}><Text variant="titleMedium">{item.name}</Text><Text>{formatMoney(item.salePrice)} ({unitLabel(item.unit)})</Text>
+                  <View style={styles.productCopy}><Text variant="titleMedium">{displayName(item)}</Text><Text>{formatMoney(item.salePrice)} ({unitLabel(item.unit)})</Text>
                     <Text style={{ color: available ? theme.colors.onSurfaceVariant : theme.colors.error }}>{available ? `Stock : ${formatQuantity(item.available)}` : 'Stock épuisé'}</Text>
                   </View>
                 </Card.Content>
@@ -271,19 +274,19 @@ export default function NewSale() {
                 <ProductThumbnail url={item.imageUrl} size={94} />
               </View>
               <Card.Content style={styles.gridCopy}>
-                <Text variant="bodyMedium" numberOfLines={2} style={styles.gridName}>{item.name}</Text>
+                <Text variant="bodyMedium" numberOfLines={2} style={styles.gridName}>{displayName(item)}</Text>
                 <Text variant="titleMedium" style={styles.bold}>{formatMoney(item.salePrice)}</Text>
                 {!available && <Text variant="labelSmall" style={{ color: theme.colors.error }}>Épuisé</Text>}
               </Card.Content>
               <View style={styles.gridActions}>
                 {inCartUnit ? (
                   <View style={styles.gridStepper}>
-                    <IconButton mode="outlined" icon="minus" size={16} disabled={save.isPending} accessibilityLabel={`Retirer un ${item.name}`} onPress={(event) => { event.stopPropagation(); setQuantity(cartKey(inCartUnit), inCartUnit.quantity - 1, !!companySettings.data?.allow_negative_stock); }} />
+                    <IconButton mode="outlined" icon="minus" size={16} disabled={save.isPending} accessibilityLabel={`Retirer un ${displayName(item)}`} onPress={(event) => { event.stopPropagation(); setQuantity(cartKey(inCartUnit), inCartUnit.quantity - 1, !!companySettings.data?.allow_negative_stock); }} />
                     <Text variant="titleSmall" style={styles.bold}>{formatQuantity(inCartUnit.quantity)}</Text>
-                    <IconButton mode="contained" icon="plus" size={16} disabled={!available || save.isPending} accessibilityLabel={`Ajouter encore un ${item.name}`} onPress={(event) => { event.stopPropagation(); addOne('unit'); }} />
+                    <IconButton mode="contained" icon="plus" size={16} disabled={!available || save.isPending} accessibilityLabel={`Ajouter encore un ${displayName(item)}`} onPress={(event) => { event.stopPropagation(); addOne('unit'); }} />
                   </View>
                 ) : (
-                  <IconButton mode="contained" icon="plus" size={18} disabled={!available || save.isPending} accessibilityLabel={`Ajouter ${item.name}`} onPress={(event) => { event.stopPropagation(); addOne('unit'); }} />
+                  <IconButton mode="contained" icon="plus" size={18} disabled={!available || save.isPending} accessibilityLabel={`Ajouter ${displayName(item)}`} onPress={(event) => { event.stopPropagation(); addOne('unit'); }} />
                 )}
               </View>
             </Card>
@@ -323,11 +326,11 @@ export default function NewSale() {
             <Card.Content style={styles.productRow}>
               <ProductThumbnail url={item.imageUrl} />
               <View style={styles.productCopy}>
-                <Text variant="titleMedium">{item.name}{isBulk ? ` · ${item.bulkUnitLabel}` : ''}</Text>
+                <Text variant="titleMedium">{displayName(item)}{isBulk ? ` · ${item.bulkUnitLabel}` : ''}</Text>
                 <Text>{formatMoney(item.salePrice)} {isBulk ? `par ${unitLabel(item.unit)}` : ''}</Text>
                 <Text>Disponible : {formatQuantity(item.available)} {unitLabel(item.unit)}{plural(item.available)}</Text>
               </View>
-              <IconButton icon="delete" accessibilityLabel={`Retirer ${item.name} du panier`} onPress={() => { remove(id); setQuantityDrafts(current => { const next = { ...current }; delete next[id]; return next; }); }} />
+              <IconButton icon="delete" accessibilityLabel={`Retirer ${displayName(item)} du panier`} onPress={() => { remove(id); setQuantityDrafts(current => { const next = { ...current }; delete next[id]; return next; }); }} />
             </Card.Content>
             <Card.Content style={styles.list}>
               {isBulk ? (
@@ -340,7 +343,7 @@ export default function NewSale() {
                 <View style={styles.quantityRow}><IconButton mode="outlined" icon="minus" accessibilityLabel="Diminuer la quantité" disabled={item.quantity<=1} onPress={()=>changeQuantity(id,String(item.quantity-1),item.available)}/><TextInput style={styles.quantityInput} mode="outlined" label="Quantité" accessibilityLabel="Quantité" keyboardType="number-pad" selectTextOnFocus value={quantityDrafts[id] ?? String(item.quantity)} onChangeText={(value) => changeQuantity(id, value, item.available)} error={quantityDrafts[id] !== undefined && wholeNumberError(quantityDrafts[id]) !== null && quantityDrafts[id].trim() !== ''} aria-invalid={quantityDrafts[id] !== undefined && quantityDrafts[id].trim() !== '' && wholeNumberError(quantityDrafts[id]) !== null ? true : undefined} aria-describedby={quantityDrafts[id] !== undefined && quantityDrafts[id].trim() !== '' && wholeNumberError(quantityDrafts[id]) !== null ? `quantity-error-${id}` : undefined} /><IconButton mode="contained" icon="plus" accessibilityLabel="Augmenter la quantité" disabled={!allowNegative&&item.quantity>=item.available-reservedElsewhere(items,item,'unit')} onPress={()=>changeQuantity(id,String(item.quantity+1),item.available)}/></View>
               )}
               {quantityDrafts[id]!==undefined&&quantityDrafts[id].trim()!==''&&wholeNumberError(quantityDrafts[id])!==null&&<HelperText type="error" visible nativeID={`quantity-error-${id}`}>{wholeNumberError(quantityDrafts[id])}</HelperText>}
-              {companySettings.data?.allow_discounts&&showDiscounts&&<ValidatedInput style={styles.field} label="Remise sur cette ligne" errorText={discountTooHigh && item.discount > item.salePrice * item.quantity * discountLimit / 100 ? `Au-delà de ${discountLimit} % : autorisation d’un responsable requise.` : undefined} keyboardType="decimal-pad" selectTextOnFocus value={String(item.discount)} onChangeText={value=>setDiscount(id,parseDecimal(value)||0)}/>}<Text>Total ligne : {formatMoney(item.salePrice * item.quantity-item.discount)}</Text>
+              {companySettings.data?.allow_discounts&&showDiscounts&&<ValidatedInput style={styles.field} label="Remise sur cette ligne" errorText={item.discount > lineMaxDiscount(item) ? `Remise maximale autorisée : ${formatMoney(lineMaxDiscount(item))}${canOverrideDiscount ? '' : ` (${discountLimit} % du prix, jamais le prix entier)`}.` : undefined} helperText={item.discount <= lineMaxDiscount(item) ? `Maximum autorisé : ${formatMoney(lineMaxDiscount(item))}` : undefined} keyboardType="decimal-pad" selectTextOnFocus value={String(item.discount)} onChangeText={value=>setDiscount(id,parseDecimal(value)||0)}/>}<Text>Total ligne : {formatMoney(item.salePrice * item.quantity-item.discount)}</Text>
             </Card.Content>
           </Card>
         );
@@ -370,7 +373,7 @@ export default function NewSale() {
         </Card.Content>
       </Card>
       {!!save.error && <HelperText type="error" visible>{readableError(save.error)}</HelperText>}
-      {discountTooHigh&&<HelperText type="error" visible>Une remise dépasse la limite de {discountLimit} % définie par l’administrateur. L’autorisation d’un responsable est requise au-delà.</HelperText>}
+      {discountTooHigh&&<HelperText type="error" visible>Une remise dépasse le maximum autorisé : {discountLimit} % du prix de la ligne, et toujours moins que son prix. L’autorisation d’un responsable est requise au-delà.</HelperText>}
       {zeroTotal&&<HelperText type="error" visible>Une vente à 0 nécessite l’autorisation d’un responsable : réduisez la remise ou demandez-lui de valider la vente.</HelperText>}
       </View>}
       </View>

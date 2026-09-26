@@ -1,7 +1,8 @@
+import { distinctProductName, homonymIndex } from '@/utils/productLabel';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Card, Chip, HelperText, Menu, Text, useTheme } from 'react-native-paper';
 
 import { ProductThumbnail } from '@/components/products/ProductThumbnail';
@@ -44,6 +45,8 @@ export default function ProductsScreen() {
     enabled: !!company && !!store,
   });
   const rows = products.data?.pages.flat() ?? [];
+  const homonyms = homonymIndex(rows);
+  const wide = useWindowDimensions().width >= 960;
   const runAction=async(action:()=>Promise<void>)=>{setActionsOpen(false);setActionError('');try{await action()}catch(error){setActionError(readableError(error,'Action impossible. Réessayez.'))}};
 
   return (
@@ -64,13 +67,13 @@ export default function ProductsScreen() {
       </View>
       <View style={styles.grid}>
         {rows.map((product) => (
-          <Card mode="contained" style={[styles.gridCard, { backgroundColor: theme.colors.surface }]} key={product.id} onPress={() => router.push(`/products/${product.id}` as never)}>
+          <Card mode="contained" style={[styles.gridCard, wide && styles.gridCardWide, { backgroundColor: theme.colors.surface }]} key={product.id} onPress={() => router.push(`/products/${product.id}` as never)}>
             <View style={styles.gridImageWrap}>
               <ProductThumbnail url={product.image_urls?.[0]} size={54} />
               {!product.is_active && <StatusChip status="inactive" style={styles.gridStatus}/>}
             </View>
             <Card.Content style={styles.gridCopy}>
-              <Text variant="titleSmall" numberOfLines={2} style={styles.gridName}>{product.name}</Text>
+              <Text variant="titleSmall" numberOfLines={2} style={styles.gridName}>{distinctProductName(product, homonyms)}</Text>
               {/* Retour testeur du 25/09 : le prix débordait avec trop de cartes par rangée —
                   3 par ligne, cases carrées compactes. adjustsFontSizeToFit n'a aucun effet
                   sur le web (non supporté par react-native-web, vérifié en direct) : texte
@@ -115,6 +118,8 @@ const styles = StyleSheet.create({
   // grille de Nouvelle vente), davantage sur un écran plus large.
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   gridCard: { flexBasis: 106, flexGrow: 1, minWidth: 100, maxWidth: 150, overflow: 'hidden' },
+  // Sur ordinateur, cartes plus larges : les noms longs ne sont plus tronqués (retour du 26/09).
+  gridCardWide: { flexBasis: 200, minWidth: 180, maxWidth: 260 },
   gridImageWrap: { alignItems: 'center', paddingTop: 8, position: 'relative' },
   gridStatus: { position: 'absolute', top: 4, left: 4 },
   gridCopy: { alignItems: 'center', gap: 2, paddingTop: 4, paddingBottom: 8 },

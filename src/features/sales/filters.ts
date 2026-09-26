@@ -1,4 +1,5 @@
 import { parseCalendarDate } from '@/utils/calendar';
+import { addCalendarDays, businessDateValue, businessRange } from '@/utils/businessTime';
 
 export type SalesFilters = {
   period: 'all' | 'today' | '7' | '30' | 'custom';
@@ -22,25 +23,22 @@ export const statusOptions = [
   { value: 'all', label: 'Tous les règlements' }, { value: 'paid', label: 'Payées' },
   { value: 'due', label: 'Reste à payer' },
 ];
+// Limites de journée en heure de l'entreprise (même règle que l'accueil, les rapports et
+// les références de vente côté serveur), jamais selon le fuseau de l'appareil.
 export function salesDateBounds(filters: SalesFilters, now = new Date()) {
   if (filters.period === 'all') return { after: null, before: null };
-  let start: Date;
-  let end: Date;
+  let startDate: string;
+  let endDate: string;
   if (filters.period === 'custom') {
-    const from = parseCalendarDate(filters.startDate);
-    const to = parseCalendarDate(filters.endDate);
-    if (!from || !to || filters.startDate > filters.endDate) throw new Error('Choisissez une date de début antérieure ou égale à la date de fin.');
-    start = from;
-    end = to;
+    if (!parseCalendarDate(filters.startDate) || !parseCalendarDate(filters.endDate) || filters.startDate > filters.endDate) throw new Error('Choisissez une date de début antérieure ou égale à la date de fin.');
+    startDate = filters.startDate;
+    endDate = filters.endDate;
   } else {
-    start = new Date(now);
-    end = new Date(now);
-    start.setDate(start.getDate() - (filters.period === 'today' ? 0 : Number(filters.period) - 1));
+    endDate = businessDateValue(now);
+    startDate = addCalendarDays(endDate, -(filters.period === 'today' ? 0 : Number(filters.period) - 1));
   }
-  start.setHours(0, 0, 0, 0);
-  end.setHours(0, 0, 0, 0);
-  end.setDate(end.getDate() + 1);
-  return { after: start.toISOString(), before: end.toISOString() };
+  const range = businessRange(startDate, endDate);
+  return { after: range.after.toISOString(), before: range.before.toISOString() };
 }
 export function salesFilterCount(filters: SalesFilters) {
   return Number(filters.period !== 'all') + Number(!!filters.payment) + Number(filters.status !== 'all');

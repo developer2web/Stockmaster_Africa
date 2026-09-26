@@ -1,5 +1,5 @@
 import { DateField } from '@/components/forms/DateField';
-import { localDateValue } from '@/utils/calendar';
+import { businessDateValue } from '@/utils/businessTime';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -22,7 +22,7 @@ import { parseDecimal } from '@/utils/number';
 import { formatLocalDate } from '@/utils/format';
 import { useOffline } from '@/features/offline/OfflineProvider';
 
-const today = () => localDateValue();
+const today = () => businessDateValue();
 
 export default function ExpensesScreen() {
   const { membership } = useAuth();

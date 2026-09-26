@@ -21,6 +21,7 @@ import { usePortalLoginState } from '@/features/auth/portalLoginState';
 import { getCashSummary } from '@/features/cash/api';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { supabase } from '@/services/supabase/client';
+import { businessDateValue, businessRange } from '@/utils/businessTime';
 
 export default function EmployeeEntry() {
   const portalLoginPending = usePortalLoginState(state => state.pending);
@@ -55,8 +56,8 @@ export default function EmployeeEntry() {
   const mySales = useQuery({
     queryKey: ['employee-home-my-sales-today', companyId, storeId, userId],
     queryFn: async () => {
-      const start = new Date(); start.setHours(0, 0, 0, 0);
-      const end = new Date(start); end.setDate(end.getDate() + 1);
+      // Journée en heure de l'entreprise, comme l'accueil admin et les rapports.
+      const { after: start, before: end } = businessRange(businessDateValue(), businessDateValue());
       const { data, error } = await supabase.from('sales').select('total').eq('company_id', companyId).eq('store_id', storeId).eq('created_by', userId).gte('created_at', start.toISOString()).lt('created_at', end.toISOString());
       if (error) throw new Error(error.message);
       return (data ?? []).reduce((sum, row) => sum + Number(row.total), 0);
