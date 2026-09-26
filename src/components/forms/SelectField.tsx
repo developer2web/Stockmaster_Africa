@@ -15,7 +15,18 @@ export function SelectField({ label, value, options, error, required = false, di
 }) {
   const { width, height } = useWindowDimensions();
   const [open, setOpen] = useState(false);
+  const [anchorWidth, setAnchorWidth] = useState(0);
   const selected = options.find((option) => option.value === value);
+  // Le menu ne doit jamais être plus large que son bouton-ancre : si son
+  // contenu déborde le bouton (ex. un champ étroit dans une Dialog au
+  // padding serré), l'algorithme de positionnement de react-native-paper
+  // le réaligne à droite de l'ancre puis, comme il est plus large qu'elle,
+  // ce réalignement le pousse en négatif à gauche — sans aucun clamp côté
+  // gauche. Contraindre la largeur du menu à celle de l'ancre (mesurée via
+  // onLayout, jamais 0 au premier rendu) élimine la condition qui déclenche
+  // ce recalage. Retour testeur du 25/09 : « Rôle » débordait dans Ajouter
+  // un employé.
+  const menuWidth = anchorWidth ? Math.min(anchorWidth, width - 32) : Math.min(360, width - 32);
   return (
     <View style={styles.field}>
       <Text variant="labelMedium" style={styles.label}>{label}{required ? ' *' : ''}</Text>
@@ -24,7 +35,7 @@ export function SelectField({ label, value, options, error, required = false, di
         onDismiss={() => setOpen(false)}
         // Avoid an initial close animation cancelling a quick first selection.
         theme={{ animation: { scale: 0 } }}
-        contentStyle={[styles.menu, { width: Math.min(360, width - 32), minWidth: Math.min(240, width - 32), maxHeight: Math.min(360, height * 0.6) }]}
+        contentStyle={[styles.menu, { width: menuWidth, minWidth: Math.min(240, menuWidth), maxHeight: Math.min(360, height * 0.6) }]}
         anchor={
           // Améliore l'accessibilité (demande explicite du 17/09) : le
           // bouton n'avait aucun accessibilityLabel, seul un <Text> visuel
@@ -39,6 +50,7 @@ export function SelectField({ label, value, options, error, required = false, di
             contentStyle={styles.buttonContent}
             labelStyle={styles.buttonLabel}
             accessibilityLabel={`${label}${required ? ' (obligatoire)' : ''} : ${selected?.label ?? 'aucune sélection'}`}
+            onLayout={(e) => setAnchorWidth(e.nativeEvent.layout.width)}
             onPress={() => setOpen(true)}
           >
             {selected?.label ?? 'Sélectionner'}

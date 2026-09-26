@@ -8,6 +8,18 @@ export async function requestAccountDeletion(reason: string) {
   if (error) throw new Error(userErrorMessage(error));
 }
 
+// Option B pour le départ d'un employé : pas de nouveau workflow d'approbation,
+// juste une notification (in-app + email, via l'infrastructure existante) aux
+// admin(s) de l'entreprise, qui retirent ensuite l'accès avec l'outil déjà en
+// place ("Retirer l'accès" dans (admin)/employees.tsx).
+export async function requestEmployeeAccessRemoval(companyId: string, reason: string) {
+  const { error } = await supabase.rpc('request_employee_access_removal', {
+    p_company_id: companyId,
+    p_reason: reason.trim() || null,
+  });
+  if (error) throw new Error(userErrorMessage(error));
+}
+
 export type AccountDeletionRequest = {
   id: string;
   reason: string | null;
