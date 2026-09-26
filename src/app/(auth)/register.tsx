@@ -59,10 +59,11 @@ export default function RegisterScreen() {
       });
 
       if (authError) {
+        // Quand l'email de confirmation ne part pas, Supabase annule l'inscription :
+        // aucun compte n'existe, « Renvoyer l'email » ne pourrait donc pas aboutir
+        // (constaté en production le 26/09 avec une adresse sans boîte mail).
         if (authError.status === 500 || /sending confirmation email/i.test(authError.message)) {
-          setCreatedEmail(normalizedEmail);
-          setMessage('Le compte a été enregistré, mais le premier email n’a pas pu être envoyé.');
-          setError('Utilisez « Renvoyer l’email ». Si l’erreur continue, la configuration SMTP Supabase doit être corrigée.');
+          setError('Le compte n’a pas été créé : l’email de confirmation n’a pas pu être envoyé à cette adresse. Vérifiez l’adresse email et réessayez.');
           return;
         }
         if (
