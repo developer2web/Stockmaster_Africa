@@ -161,13 +161,29 @@ export default function EmployeeEntry() {
           </View>
         )}
 
-        {!canCatalog && !canSales && !canAccounting && !canReports && !canCash && (
+        {/* Retour testeur du 25/09 : cette carte ne s'affichait que si l'employé n'avait
+            STRICTEMENT aucune permission — mais le contenu réel de cet écran (vente,
+            statistiques) ne dépend que de sales/cash. Un employé avec uniquement
+            catalogue, comptabilité ou rapports (ex. suppliers.read seul) avait donc un
+            écran d'accueil vide, sans carte ET sans ce message, aucun repère vers
+            l'onglet Plus où ses outils se trouvent réellement. */}
+        {!canCreateSale && !canSales && !canCash && (
           <Card mode="outlined" style={{ backgroundColor: theme.colors.surface }}>
             <Card.Content style={styles.notice}>
               <Icon source="information-outline" size={28} color={theme.colors.secondary} />
               <View style={styles.noticeCopy}>
-                <Text variant="titleMedium">Aucun module métier attribué</Text>
-                <Text style={{ color: theme.colors.onSurfaceVariant }}>Contactez votre administrateur pour obtenir des permissions.</Text>
+                {canCatalog || canAccounting || canReports ? (
+                  <>
+                    <Text variant="titleMedium">Vos outils sont dans l’onglet Plus</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant }}>Aucun raccourci de vente ou de caisse ne vous est attribué ici, mais vos accès restent disponibles depuis Plus.</Text>
+                    <AppButton mode="text" onPress={() => router.push('/employee/more' as never)}>Ouvrir Plus</AppButton>
+                  </>
+                ) : (
+                  <>
+                    <Text variant="titleMedium">Aucun module métier attribué</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant }}>Contactez votre administrateur pour obtenir des permissions.</Text>
+                  </>
+                )}
               </View>
             </Card.Content>
           </Card>
