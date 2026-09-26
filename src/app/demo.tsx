@@ -41,11 +41,11 @@ const catalog: Product[] = [
 const initialStock: Record<string, number> = { riz: 34, huile: 6, sucre: 52, lait: 14, tomate: 3, savon: 18 };
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3600_000).toISOString();
 const initialSales: SaleRow[] = [
-  { id: 's41', reference: 'SM-DEMO-0041', total: 80000, payment: 'Espèces', createdAt: hoursAgo(3) },
-  { id: 's40', reference: 'SM-DEMO-0040', total: 30000, payment: 'Mobile Money', createdAt: hoursAgo(5) },
+  { id: 's41', reference: 'V-00041', total: 80000, payment: 'Espèces', createdAt: hoursAgo(3) },
+  { id: 's40', reference: 'V-00040', total: 30000, payment: 'Mobile Money', createdAt: hoursAgo(5) },
 ];
 const initialCash: CashRow[] = [
-  { id: 'c3', designation: 'Vente SM-DEMO-0041', amount: 80000, type: 'deposit', createdAt: hoursAgo(3) },
+  { id: 'c3', designation: 'Vente V-00041', amount: 80000, type: 'deposit', createdAt: hoursAgo(3) },
   { id: 'c2', designation: 'Approvisionnement fournisseur', amount: 120000, type: 'withdrawal', createdAt: hoursAgo(4) },
   { id: 'c1', designation: 'Fonds de caisse', amount: 175000, type: 'deposit', createdAt: hoursAgo(9) },
 ];
@@ -83,7 +83,7 @@ export default function DemoScreen() {
   const setQuantity = (id: string, quantity: number) => setCart(current => ({ ...current, [id]: Math.max(0, Math.min(quantity, stock[id])) }));
   const validate = () => {
     const number = 42 + sales.length - initialSales.length;
-    const sale: SaleRow = { id: `s${number}`, reference: `SM-DEMO-00${number}`, total, payment: payments.find(([value]) => value === payment)![1], createdAt: new Date().toISOString() };
+    const sale: SaleRow = { id: `s${number}`, reference: `V-${String(number).padStart(5, '0')}`, total, payment: payments.find(([value]) => value === payment)![1], createdAt: new Date().toISOString() };
     setStock(current => { const next = { ...current }; for (const item of items) next[item.product.id] -= item.quantity; return next; });
     setMovements(current => [...items.map(item => ({ id: `${sale.id}-${item.product.id}`, name: item.product.name, quantity: -item.quantity, createdAt: sale.createdAt })), ...current]);
     setSales(current => [sale, ...current]);
