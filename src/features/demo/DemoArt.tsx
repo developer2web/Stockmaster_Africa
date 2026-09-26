@@ -1,23 +1,23 @@
 import { View } from 'react-native';
-import Svg, { Circle, ClipPath, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 
-// Illustrations vectorielles de la démo (aucune photo récupérée ailleurs : pas de droits
-// à gérer, rendu net à toutes les tailles, identique sur web, Android et iPhone).
-// Chaque produit est dessiné dans une boîte de 100 × 100 pour être réutilisé partout :
-// vignette de vente, jauge de stock, ligne de caisse et scène d'étagère.
+// Images des produits fictifs de la démo, affichées UNIQUEMENT dans le cadre de vignette
+// produit de l'application (là où apparaissent les photos des vrais produits) — la démo
+// ne doit montrer aucun design qui n'existe pas dans l'app (retour du 26/09). Dessins
+// vectoriels : pas de photo tierce ni de droits, nets à toute taille.
 
 export type DemoProductKind = 'riz' | 'huile' | 'sucre' | 'savon' | 'tomate' | 'lait';
 
-export const demoPalette = {
+// Couleurs des emballages dessinés (pas des couleurs d'interface).
+const demoPalette = {
   brand: '#084B50',
   ochre: '#E3A23B',
   leaf: '#1E9E6A',
   tomato: '#C8412E',
-  mist: '#F3F7F6',
   ink: '#12292D',
 };
 
-// Formes seules (sans <Svg>), pour pouvoir les composer dans la scène d'étagère.
+// Formes dessinées dans une boîte de 100 × 100.
 function ProductShapes({ kind, id }: { kind: DemoProductKind; id: string }) {
   switch (kind) {
     case 'riz':
@@ -83,75 +83,13 @@ function ProductShapes({ kind, id }: { kind: DemoProductKind; id: string }) {
   }
 }
 
-export function ProductArt({ kind, size = 72 }: { kind: DemoProductKind; size?: number }) {
-  // Décoratif : le nom du produit est toujours écrit à côté (masqué des lecteurs d'écran).
-  return <View aria-hidden accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: size, height: size }}>
-    <Svg width={size} height={size} viewBox="0 0 100 100"><ProductShapes kind={kind} id={`p-${kind}`} /></Svg>
+// Même cadre que ProductThumbnail (taille, arrondi à 25 %, fond surfaceVariant) : la
+// démo affiche ces images exactement là où l'app affiche la photo d'un produit.
+// Décoratif : le nom du produit est toujours écrit à côté (masqué des lecteurs d'écran).
+export function DemoThumbnail({ kind, size = 52, background }: { kind: DemoProductKind; size?: number; background: string }) {
+  return <View aria-hidden accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: size, height: size, borderRadius: Math.round(size * 0.25), backgroundColor: background, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+    <Svg width={size * 0.9} height={size * 0.9} viewBox="0 0 100 100"><ProductShapes kind={kind} id={`p-${kind}-${size}`} /></Svg>
   </View>;
 }
 
-// Scène d'ouverture : une étagère de boutique garnie, et le téléphone qui encaisse.
-export function ShopShelfScene() {
-  const shelf: { kind: DemoProductKind; x: number; y: number; s: number }[] = [
-    { kind: 'riz', x: 18, y: 26, s: 0.72 },
-    { kind: 'huile', x: 84, y: 30, s: 0.66 },
-    { kind: 'sucre', x: 136, y: 32, s: 0.62 },
-    { kind: 'lait', x: 22, y: 104, s: 0.6 },
-    { kind: 'tomate', x: 74, y: 108, s: 0.56 },
-    { kind: 'savon', x: 122, y: 112, s: 0.56 },
-  ];
-  return <View accessible accessibilityRole="image" accessibilityLabel="Étagère de boutique avec du riz, de l’huile, du sucre, du lait, de la tomate et du savon, et un téléphone qui encaisse une vente" style={{ width: '100%', height: '100%' }}><Svg width="100%" height="100%" viewBox="0 0 340 190" preserveAspectRatio="xMidYMid meet">
-    <Defs>
-      <LinearGradient id="scene-sky" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#0C5E64" /><Stop offset="1" stopColor={demoPalette.brand} /></LinearGradient>
-      <LinearGradient id="scene-wood" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#B87A3E" /><Stop offset="1" stopColor="#8E5A2B" /></LinearGradient>
-      <ClipPath id="scene-frame"><Rect x="0" y="0" width="340" height="190" rx="22" /></ClipPath>
-    </Defs>
-    <G clipPath="url(#scene-frame)">
-    <Rect x="0" y="0" width="340" height="190" fill="url(#scene-sky)" />
-    <Circle cx="292" cy="38" r="54" fill={demoPalette.ochre} fillOpacity="0.2" />
-    <Circle cx="292" cy="38" r="30" fill={demoPalette.ochre} fillOpacity="0.35" />
-    {/* Étagère */}
-    <Rect x="12" y="84" width="186" height="9" rx="3" fill="url(#scene-wood)" />
-    <Rect x="12" y="160" width="186" height="9" rx="3" fill="url(#scene-wood)" />
-    <Rect x="12" y="20" width="6" height="150" rx="2" fill="#7A4C24" />
-    <Rect x="192" y="20" width="6" height="150" rx="2" fill="#7A4C24" />
-    {shelf.map(item => <G key={item.kind} transform={`translate(${item.x} ${item.y}) scale(${item.s})`}><ProductShapes kind={item.kind} id={`scene-${item.kind}`} /></G>)}
-    {/* Téléphone qui encaisse */}
-    <G transform="translate(222 34) rotate(6)">
-      <Rect x="0" y="0" width="92" height="146" rx="16" fill="#0E2226" />
-      <Rect x="6" y="10" width="80" height="126" rx="10" fill="#FFFFFF" />
-      <Rect x="6" y="10" width="80" height="26" rx="10" fill={demoPalette.brand} />
-      <SvgText fontFamily="sans-serif" x="46" y="27" fontSize="8.5" fontWeight="bold" fill="#FFFFFF" textAnchor="middle">Nouvelle vente</SvgText>
-      <Rect x="14" y="44" width="64" height="7" rx="3.5" fill="#E4ECEA" />
-      <Rect x="14" y="56" width="46" height="7" rx="3.5" fill="#E4ECEA" />
-      <Rect x="14" y="68" width="54" height="7" rx="3.5" fill="#E4ECEA" />
-      <SvgText fontFamily="sans-serif" x="14" y="88" fontSize="7" fill="#5C6E6B">Total</SvgText>
-      <SvgText fontFamily="sans-serif" x="78" y="99" fontSize="9.5" fontWeight="bold" fill={demoPalette.ink} textAnchor="end">55 000 GNF</SvgText>
-      <Rect x="14" y="106" width="64" height="20" rx="10" fill={demoPalette.leaf} />
-      <Path d="M36 116 L42 122 L54 110" stroke="#FFFFFF" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    </G>
-    </G>
-  </Svg></View>;
-}
 
-// Recettes des 7 derniers jours ; la dernière barre (aujourd'hui) est mise en avant.
-export function WeekChart({ values, labels, height = 150, highlightColor = demoPalette.ochre }: { values: number[]; labels: string[]; height?: number; highlightColor?: string }) {
-  const max = Math.max(...values, 1);
-  const barWidth = 34;
-  const gap = 22;
-  const plot = 120;
-  const width = values.length * barWidth + (values.length - 1) * gap;
-  return <View accessible accessibilityRole="image" accessibilityLabel="Recettes des 7 derniers jours, en hausse aujourd’hui" style={{ width: '100%', height }}>
-    <Svg width="100%" height={height} viewBox={`0 0 ${width} 150`} preserveAspectRatio="xMidYMid meet">
-      {values.map((value, index) => {
-        const barHeight = Math.max(6, (value / max) * plot);
-        const x = index * (barWidth + gap);
-        const today = index === values.length - 1;
-        return <G key={labels[index]}>
-          <Rect x={x} y={plot - barHeight + 4} width={barWidth} height={barHeight} rx="8" fill={today ? highlightColor : '#CFE3E1'} />
-          <SvgText fontFamily="sans-serif" x={x + barWidth / 2} y={144} fontSize="12" fontWeight={today ? 'bold' : 'normal'} fill={today ? demoPalette.ink : '#6B7F7C'} textAnchor="middle">{labels[index]}</SvgText>
-        </G>;
-      })}
-    </Svg>
-  </View>;
-}

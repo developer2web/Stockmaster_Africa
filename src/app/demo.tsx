@@ -1,275 +1,429 @@
 import { useMemo, useState } from 'react';
+import { Image } from 'expo-image';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Icon, Text, useTheme } from 'react-native-paper';
+import { Appbar, Card, Chip, Divider, Icon, IconButton, SegmentedButtons, Text, useTheme } from 'react-native-paper';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
-import { demoPalette, ProductArt, ShopShelfScene, WeekChart, type DemoProductKind } from '@/features/demo/DemoArt';
+import { AppSearchBar } from '@/components/ui/AppSearchBar';
+import { PageIntro } from '@/components/ui/PageIntro';
+import { design } from '@/constants/design';
+import { DemoThumbnail, type DemoProductKind } from '@/features/demo/DemoArt';
+import { formatDateTime } from '@/utils/format';
 
-// Démo publique (sans compte) : tout est fictif et local à cet écran. Refonte du 26/09 :
-// produits illustrés, graphique de la semaine, et une démo cohérente de bout en bout —
-// une vente simulée fait baisser le stock et apparaît dans la caisse, comme dans l'app.
+// Démo publique, sans compte : données fictives, rien n'est enregistré.
+//
+// Retour du 26/09 : la démo ne doit montrer AUCUN design qui n'existe pas dans l'app.
+// Chaque écran ci-dessous reproduit l'écran réel correspondant — mêmes composants
+// (PageIntro, AppButton, AppSearchBar, cartes Paper), mêmes textes et mêmes styles,
+// recopiés de (admin)/index, sales/new, sales/index, stock et cash, ainsi que la barre
+// de navigation réelle (en bas sur téléphone, à gauche sur ordinateur). Seules les images
+// des produits fictifs sont dessinées, affichées dans le cadre de vignette produit réel.
+// Une vente simulée met à jour le stock, l'historique des ventes et la caisse, comme dans
+// l'application.
 
-type DemoProduct = { id: DemoProductKind; name: string; price: number; stock: number; threshold: number; capacity: number };
+type Tab = 'home' | 'sale' | 'sales' | 'stock' | 'cash';
+type Product = { id: DemoProductKind; name: string; price: number; threshold: number };
+type SaleRow = { id: string; reference: string; total: number; payment: string; createdAt: string };
+type CashRow = { id: string; designation: string; amount: number; type: 'deposit' | 'withdrawal'; createdAt: string };
+type MovementRow = { id: string; name: string; quantity: number; createdAt: string };
 
-const catalog: DemoProduct[] = [
-  { id: 'riz', name: 'Riz 5 kg', price: 40000, stock: 34, threshold: 10, capacity: 60 },
-  { id: 'huile', name: 'Huile 1 L', price: 15000, stock: 6, threshold: 8, capacity: 40 },
-  { id: 'sucre', name: 'Sucre 1 kg', price: 8000, stock: 52, threshold: 12, capacity: 80 },
-  { id: 'lait', name: 'Lait en poudre', price: 22000, stock: 14, threshold: 6, capacity: 30 },
-  { id: 'tomate', name: 'Concentré de tomate', price: 5000, stock: 3, threshold: 10, capacity: 50 },
-  { id: 'savon', name: 'Savon', price: 3000, stock: 18, threshold: 8, capacity: 40 },
+const STORE = 'Boutique Madina';
+const COMPANY = 'Diallo & Fils';
+const catalog: Product[] = [
+  { id: 'riz', name: 'Riz 5 kg', price: 40000, threshold: 10 },
+  { id: 'huile', name: 'Huile 1 L', price: 15000, threshold: 8 },
+  { id: 'sucre', name: 'Sucre 1 kg', price: 8000, threshold: 12 },
+  { id: 'lait', name: 'Lait en poudre', price: 22000, threshold: 6 },
+  { id: 'tomate', name: 'Concentré de tomate', price: 5000, threshold: 10 },
+  { id: 'savon', name: 'Savon', price: 3000, threshold: 8 },
 ];
-
-const week = { labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Auj.'], values: [1250000, 980000, 1420000, 1180000, 1650000, 1890000, 2006000] };
-const openingBalance = 175000;
-type Movement = { id: string; label: string; detail: string; amount: number; icon: string };
-const initialMovements: Movement[] = [
-  { id: 'm1', label: 'Ouverture de caisse', detail: '08:02 · Aminata', amount: openingBalance, icon: 'lock-open-variant-outline' },
-  { id: 'm2', label: 'Vente SM-DEMO-0041', detail: '09:15 · 2 articles', amount: 40000, icon: 'cart-check' },
-  { id: 'm3', label: 'Approvisionnement fournisseur', detail: '10:40 · Huile 1 L × 12', amount: -120000, icon: 'truck-delivery-outline' },
-  { id: 'm4', label: 'Paiement d’un crédit client', detail: '11:05 · Mamadou B.', amount: 15000, icon: 'account-cash-outline' },
+const initialStock: Record<string, number> = { riz: 34, huile: 6, sucre: 52, lait: 14, tomate: 3, savon: 18 };
+const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3600_000).toISOString();
+const initialSales: SaleRow[] = [
+  { id: 's41', reference: 'SM-DEMO-0041', total: 80000, payment: 'Espèces', createdAt: hoursAgo(3) },
+  { id: 's40', reference: 'SM-DEMO-0040', total: 30000, payment: 'Mobile Money', createdAt: hoursAgo(5) },
 ];
+const initialCash: CashRow[] = [
+  { id: 'c3', designation: 'Vente SM-DEMO-0041', amount: 80000, type: 'deposit', createdAt: hoursAgo(3) },
+  { id: 'c2', designation: 'Approvisionnement fournisseur', amount: 120000, type: 'withdrawal', createdAt: hoursAgo(4) },
+  { id: 'c1', designation: 'Fonds de caisse', amount: 175000, type: 'deposit', createdAt: hoursAgo(9) },
+];
+const payments = [['cash', 'Espèces'], ['mobile_money', 'Mobile Money']] as const;
 
-// fr-CA (pas fr-FR) : même séparateur de milliers que CurrencyProvider, lisible partout.
+// fr-CA : même format que CurrencyProvider (formatMoney) dans l'application.
 const money = (value: number) => `${value.toLocaleString('fr-CA')} GNF`;
-const steps = ['Tableau de bord', 'Vente', 'Stock', 'Caisse'] as const;
+const format = (value: number) => value.toLocaleString('fr-CA');
 
 export default function DemoScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const wide = width >= 760;
-  const [step, setStep] = useState(0);
-  const [stock, setStock] = useState<Record<string, number>>(() => Object.fromEntries(catalog.map(p => [p.id, p.stock])));
+  const desktop = width >= 960;
+  const compact = width < 600;
+  const [tab, setTab] = useState<Tab>('home');
+  const [saleStep, setSaleStep] = useState<'products' | 'checkout'>('products');
+  const [stock, setStock] = useState(initialStock);
   const [cart, setCart] = useState<Record<string, number>>({});
-  const [movements, setMovements] = useState<Movement[]>(initialMovements);
-  const [lastSale, setLastSale] = useState<{ reference: string; total: number } | null>(null);
-  const [saleCount, setSaleCount] = useState(42);
+  const [payment, setPayment] = useState<(typeof payments)[number][0]>('cash');
+  const [sales, setSales] = useState(initialSales);
+  const [cash, setCash] = useState(initialCash);
+  const [movements, setMovements] = useState<MovementRow[]>([]);
+  const [lastSale, setLastSale] = useState<SaleRow | null>(null);
+  const [search, setSearch] = useState('');
+  const [saleSearch, setSaleSearch] = useState('');
 
-  const cartLines = useMemo(() => catalog.filter(p => (cart[p.id] ?? 0) > 0).map(product => ({ product, qty: cart[product.id] })), [cart]);
-  const cartTotal = cartLines.reduce((sum, line) => sum + line.qty * line.product.price, 0);
-  const cartCount = cartLines.reduce((sum, line) => sum + line.qty, 0);
-  const balance = movements.reduce((sum, m) => sum + m.amount, 0);
-  const todaySales = week.values[week.values.length - 1] + movements.filter(m => m.id.startsWith('sale-')).reduce((sum, m) => sum + m.amount, 0);
-  const lowCount = catalog.filter(p => stock[p.id] <= p.threshold).length;
+  const items = useMemo(() => catalog.filter(p => (cart[p.id] ?? 0) > 0).map(product => ({ product, quantity: cart[product.id] })), [cart]);
+  const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const balance = cash.reduce((sum, row) => sum + (row.type === 'deposit' ? row.amount : -row.amount), 0);
+  const todaySales = sales.reduce((sum, sale) => sum + sale.total, 0);
+  const lowStock = catalog.filter(p => stock[p.id] <= p.threshold).length;
 
-  const add = (product: DemoProduct) => {
-    setLastSale(null);
-    setCart(current => ((current[product.id] ?? 0) >= stock[product.id] ? current : { ...current, [product.id]: (current[product.id] ?? 0) + 1 }));
-  };
-  const removeOne = (id: string) => setCart(current => ({ ...current, [id]: Math.max(0, (current[id] ?? 0) - 1) }));
+  const go = (next: Tab) => { setTab(next); if (next === 'sale') { setSaleStep('products'); setLastSale(null); } };
+  const setQuantity = (id: string, quantity: number) => setCart(current => ({ ...current, [id]: Math.max(0, Math.min(quantity, stock[id])) }));
   const validate = () => {
-    const reference = `SM-DEMO-00${saleCount}`;
-    setStock(current => { const next = { ...current }; for (const line of cartLines) next[line.product.id] -= line.qty; return next; });
-    setMovements(current => [...current, { id: `sale-${saleCount}`, label: `Vente ${reference}`, detail: `À l’instant · ${cartCount} article${cartCount > 1 ? 's' : ''}`, amount: cartTotal, icon: 'cart-check' }]);
-    setLastSale({ reference, total: cartTotal });
-    setSaleCount(n => n + 1);
+    const number = 42 + sales.length - initialSales.length;
+    const sale: SaleRow = { id: `s${number}`, reference: `SM-DEMO-00${number}`, total, payment: payments.find(([value]) => value === payment)![1], createdAt: new Date().toISOString() };
+    setStock(current => { const next = { ...current }; for (const item of items) next[item.product.id] -= item.quantity; return next; });
+    setMovements(current => [...items.map(item => ({ id: `${sale.id}-${item.product.id}`, name: item.product.name, quantity: -item.quantity, createdAt: sale.createdAt })), ...current]);
+    setSales(current => [sale, ...current]);
+    setCash(current => [{ id: `c-${sale.id}`, designation: `Vente ${sale.reference}`, amount: sale.total, type: 'deposit', createdAt: sale.createdAt }, ...current]);
+    setLastSale(sale);
     setCart({});
   };
 
-  const surface = theme.colors.surface;
-  const muted = theme.colors.onSurfaceVariant;
-  const last = step === steps.length - 1;
+  const thumb = (kind: DemoProductKind, size = 52) => <DemoThumbnail kind={kind} size={size} background={theme.colors.surfaceVariant} />;
 
-  return (
-    // Fond du thème actif posé ici : cet écran n'utilise pas AuthScreen (voir audit SM-03).
-    <ScrollView style={{ backgroundColor: theme.colors.background }} contentContainerStyle={styles.page}>
-      <View style={[styles.hero, wide && styles.heroWide]}>
-        <View style={[styles.heroCopy, wide && styles.heroCopyWide]}>
-          <Text variant="displaySmall" style={[styles.heroTitle, { color: theme.colors.onBackground }]}>Votre boutique, du rayon à la caisse</Text>
-          <Text variant="bodyLarge" style={{ color: muted, lineHeight: 24 }}>Vendez, suivez votre stock et comptez votre caisse au même endroit. Essayez librement : les données sont fictives et rien n’est enregistré.</Text>
-          <View style={styles.heroActions}>
-            <AppButton icon="play" onPress={() => setStep(1)}>Essayer une vente</AppButton>
-            <AppButton mode="outlined" icon="arrow-left" onPress={() => router.back()}>Retour</AppButton>
+  const home = <>
+    <PageIntro title="Votre boutique aujourd’hui" description={STORE} />
+    <AppButton icon="cart-plus" onPress={() => go('sale')}>Nouvelle vente</AppButton>
+    <View style={styles.metrics}>
+      <Metric title="Ventes du jour" value={money(todaySales)} hint="Montant des ventes, crédits compris" onPress={() => go('sales')} />
+      <Metric title="Solde de caisse" value={money(balance)} hint="Entrées moins sorties enregistrées" onPress={() => go('cash')} />
+      {lowStock > 0 && <Metric title="À réapprovisionner" value={String(lowStock)} hint="Produits dont le stock est faible" onPress={() => go('stock')} />}
+    </View>
+    {lowStock > 0 && <Card mode="outlined"><Card.Content style={styles.list}>
+      <Text variant="titleMedium" style={styles.bold}>À suivre</Text>
+      <AppButton mode="text" icon="package-variant" onPress={() => go('stock')}>Voir les stocks à vérifier ({lowStock})</AppButton>
+    </Card.Content></Card>}
+  </>;
+
+  const catalogPane = <View style={styles.catalogPane}>
+    <Text style={{ color: theme.colors.onSurfaceVariant }}>Touchez un article pour l’ajouter au panier, ou scannez son code-barres.</Text>
+    <AppSearchBar placeholder="Nom ou code-barres" value={saleSearch} onChangeText={setSaleSearch} />
+    <View style={styles.grid}>
+      {catalog.filter(p => !saleSearch.trim() || p.name.toLocaleLowerCase('fr').includes(saleSearch.trim().toLocaleLowerCase('fr'))).map(product => {
+        const inCart = cart[product.id] ?? 0;
+        const available = stock[product.id] > 0;
+        return <Card key={product.id} mode="contained" style={[styles.gridCard, { backgroundColor: theme.colors.surface }, !available && styles.unavailable, inCart > 0 && { borderColor: theme.colors.primary, borderWidth: 1.5 }]} onPress={available && !inCart ? () => setQuantity(product.id, 1) : undefined}>
+          <View style={styles.gridImageWrap}>{thumb(product.id, 94)}</View>
+          <Card.Content style={styles.gridCopy}>
+            <Text variant="bodyMedium" numberOfLines={2} style={styles.center}>{product.name}</Text>
+            <Text variant="titleMedium" style={styles.bold}>{money(product.price)}</Text>
+            {!available && <Text variant="labelSmall" style={{ color: theme.colors.error }}>Épuisé</Text>}
+          </Card.Content>
+          <View style={styles.gridActions}>
+            {inCart > 0 ? <View style={styles.gridStepper}>
+              <IconButton mode="outlined" icon="minus" size={16} accessibilityLabel={`Retirer un ${product.name}`} onPress={() => setQuantity(product.id, inCart - 1)} />
+              <Text variant="titleSmall" style={styles.bold}>{format(inCart)}</Text>
+              <IconButton mode="contained" icon="plus" size={16} disabled={inCart >= stock[product.id]} accessibilityLabel={`Ajouter encore un ${product.name}`} onPress={() => setQuantity(product.id, inCart + 1)} />
+            </View> : <IconButton mode="contained" icon="plus" size={18} disabled={!available} accessibilityLabel={`Ajouter ${product.name}`} onPress={() => setQuantity(product.id, 1)} />}
           </View>
+        </Card>;
+      })}
+    </View>
+  </View>;
+
+  const cartPane = <View style={[styles.cartPane, desktop && styles.cartPaneDesktop]}>
+    <Text variant="headlineSmall">Panier ({items.length})</Text>
+    {!!items.length && <AppButton mode="text" icon="cart-remove" onPress={() => setCart({})}>Vider le panier</AppButton>}
+    {!desktop && <AppButton mode="text" icon="plus" onPress={() => setSaleStep('products')}>Ajouter des articles</AppButton>}
+    {!items.length && <Card mode="outlined"><Card.Content style={styles.emptyCart}>
+      <Icon source="cart-outline" size={34} color={theme.colors.onSurfaceVariant} />
+      <Text variant="titleMedium">Votre panier est vide</Text>
+      <Text style={{ color: theme.colors.onSurfaceVariant }}>Touchez un produit du catalogue pour l’ajouter.</Text>
+    </Card.Content></Card>}
+    {items.map(({ product, quantity }) => <Card key={product.id} mode="contained" style={{ backgroundColor: theme.colors.surface }}>
+      <Card.Content style={styles.productRow}>
+        {thumb(product.id)}
+        <View style={styles.productCopy}>
+          <Text variant="titleMedium">{product.name}</Text>
+          <Text>{money(product.price)}</Text>
+          <Text>Disponible : {format(stock[product.id])}</Text>
         </View>
-        <View style={[styles.scene, wide && styles.sceneWide]}><ShopShelfScene /></View>
+        <IconButton icon="delete" accessibilityLabel={`Retirer ${product.name} du panier`} onPress={() => setQuantity(product.id, 0)} />
+      </Card.Content>
+      <Card.Content style={styles.quantityRow}>
+        <IconButton mode="outlined" icon="minus" accessibilityLabel="Diminuer la quantité" disabled={quantity <= 1} onPress={() => setQuantity(product.id, quantity - 1)} />
+        <Text variant="titleMedium" style={styles.quantityValue}>{format(quantity)}</Text>
+        <IconButton mode="contained" icon="plus" accessibilityLabel="Augmenter la quantité" disabled={quantity >= stock[product.id]} onPress={() => setQuantity(product.id, quantity + 1)} />
+      </Card.Content>
+    </Card>)}
+    <Text variant="titleMedium">Paiement</Text>
+    <View style={styles.paymentGrid}>{payments.map(([value, label]) => <Chip key={value} selected={payment === value} onPress={() => setPayment(value)}>{label}</Chip>)}</View>
+    <Card mode="contained" style={[styles.checkout, { backgroundColor: theme.colors.primaryContainer }]}>
+      <Card.Content style={styles.checkoutContent}>
+        <Icon source="cart-check" size={32} color={theme.colors.primary} />
+        <View style={styles.grow}><Text variant="headlineSmall">Total : {money(total)}</Text></View>
+      </Card.Content>
+    </Card>
+    {desktop && <AppButton icon="check" disabled={!items.length} onPress={validate}>Valider · {money(total)}</AppButton>}
+  </View>;
+
+  // Après validation : même carte que le haut du détail de vente réel ((admin)/sales/[id]).
+  const saleDone = lastSale && <Card mode="contained"><Card.Content style={styles.list}>
+    <Text variant="labelLarge">Vente simulée · Aucun reçu réel n’a été envoyé.</Text>
+    <Text variant="headlineMedium">{money(lastSale.total)}</Text>
+    <Text>{formatDateTime(lastSale.createdAt)} · {lastSale.reference}</Text>
+    <Text>Paiement reçu</Text>
+    <View style={styles.row}>
+      <AppButton icon="cart-plus" onPress={() => { setLastSale(null); setSaleStep('products'); }}>Nouvelle vente</AppButton>
+      <AppButton mode="outlined" icon="warehouse" onPress={() => go('stock')}>Voir le stock</AppButton>
+      <AppButton mode="text" icon="wallet-outline" onPress={() => go('cash')}>Voir la caisse</AppButton>
+    </View>
+  </Card.Content></Card>;
+
+  const sale = <>
+    <PageIntro title="Nouvelle vente" description="Choisissez les articles, puis vérifiez le panier et le paiement." />
+    {saleDone}
+    {!lastSale && <>
+      {!desktop && <SegmentedButtons value={saleStep} onValueChange={value => setSaleStep(value as typeof saleStep)} buttons={[
+        { value: 'products', label: 'Articles', icon: 'package-variant' },
+        { value: 'checkout', label: `Panier (${items.length})`, icon: 'cart-outline' },
+      ]} />}
+      <View style={[styles.workspace, desktop && styles.workspaceDesktop]}>
+        {(desktop || saleStep === 'products') && catalogPane}
+        {(desktop || saleStep === 'checkout') && cartPane}
       </View>
+    </>}
+  </>;
 
-      {/* Les 4 étapes forment une vraie séquence : numérotées, et cliquables pour y revenir. */}
-      <View style={styles.tabs} accessibilityRole="tablist">
-        {steps.map((label, index) => {
-          const active = index === step;
-          return <Pressable key={label} accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={() => setStep(index)} style={({ pressed }) => [styles.tab, { backgroundColor: active ? demoPalette.brand : surface, borderColor: active ? demoPalette.brand : theme.colors.outlineVariant }, pressed && styles.pressed]}>
-            <View style={[styles.tabNumber, { backgroundColor: active ? demoPalette.ochre : theme.colors.surfaceVariant }]}><Text style={[styles.tabNumberText, { color: active ? demoPalette.ink : muted }]}>{index + 1}</Text></View>
-            <Text style={[styles.tabLabel, { color: active ? '#FFFFFF' : theme.colors.onSurface }]}>{label}</Text>
-            {index === 1 && cartCount > 0 && <View style={styles.badge}><Text style={styles.badgeText}>{cartCount}</Text></View>}
-          </Pressable>;
-        })}
+  const salesList = <>
+    <PageIntro title="Ventes" action={<AppButton icon="plus" onPress={() => go('sale')}>Ajouter</AppButton>} />
+    <View style={[styles.hero, { backgroundColor: theme.colors.primaryContainer }]}>
+      <Text style={{ color: theme.colors.onPrimaryContainer }}>Total des ventes</Text>
+      <Text numberOfLines={1} style={[styles.heroAmount, { color: theme.colors.onPrimaryContainer }]}>{money(todaySales)}</Text>
+      <Text style={{ color: theme.colors.onPrimaryContainer }}>{sales.length === 1 ? '1 vente affichée' : `${sales.length} ventes affichées`}</Text>
+    </View>
+    {sales.map(row => <Card key={row.id} mode="outlined"><Card.Title title={row.reference} subtitle={`${row.payment} · ${formatDateTime(row.createdAt)}`}
+      left={() => <View style={[styles.saleIcon, { backgroundColor: theme.colors.primaryContainer }]}><Icon source="check" size={20} color={theme.colors.primary} /></View>}
+      right={() => <Text style={[styles.bold, styles.rightValue]}>{money(row.total)}</Text>} /></Card>)}
+  </>;
+
+  const needle = search.trim().toLocaleLowerCase('fr');
+  const stockRows = catalog.filter(p => !needle || p.name.toLocaleLowerCase('fr').includes(needle));
+  const stockScreen = <>
+    <PageIntro title="Stock" description="Consultez les quantités disponibles. Pour vérifier les quantités réelles, utilisez Compter le stock." />
+    <View style={[styles.summary, compact && styles.compactSummary, { backgroundColor: theme.colors.primaryContainer }]}>
+      <View style={styles.summaryMetrics}>
+        {[['Produits référencés', String(catalog.length)], ['Quantité totale', format(catalog.reduce((s, p) => s + stock[p.id], 0))], ['Valeur de vente du stock', money(catalog.reduce((s, p) => s + stock[p.id] * p.price, 0))]].map(([label, value]) =>
+          <View key={label} style={[styles.summaryMetric, compact && styles.compactMetric]}>
+            <Text style={{ color: theme.colors.onPrimaryContainer }}>{label}</Text>
+            <Text numberOfLines={1} style={[styles.bold, styles.summaryValue, { color: theme.colors.onPrimaryContainer }]}>{value}</Text>
+          </View>)}
       </View>
-
-      {step === 0 && <View style={styles.stack}>
-        <View style={styles.kpis}>
-          {[
-            { label: 'Ventes du jour', value: money(todaySales), icon: 'trending-up', tint: demoPalette.leaf },
-            { label: 'Solde de caisse', value: money(balance), icon: 'wallet-outline', tint: demoPalette.brand },
-            { label: 'Stock faible', value: `${lowCount} produit${lowCount > 1 ? 's' : ''}`, icon: 'alert-outline', tint: demoPalette.tomato },
-          ].map(kpi => <View key={kpi.label} style={[styles.kpi, { backgroundColor: surface }]}>
-            <View style={[styles.kpiIcon, { backgroundColor: `${kpi.tint}1F` }]}><Icon source={kpi.icon} size={22} color={kpi.tint} /></View>
-            <Text style={{ color: muted }}>{kpi.label}</Text>
-            <Text variant="titleLarge" numberOfLines={1} style={[styles.bold, { color: theme.colors.onSurface, fontSize: 20 }]}>{kpi.value}</Text>
-          </View>)}
-        </View>
-        <View style={[styles.panel, { backgroundColor: surface }]}>
-          <Text variant="titleMedium" style={[styles.bold, { color: theme.colors.onSurface }]}>Recettes des 7 derniers jours</Text>
-          <Text style={{ color: muted }}>Meilleure journée de la semaine, avec {money(todaySales)} encaissés.</Text>
-          <WeekChart values={[...week.values.slice(0, -1), todaySales]} labels={week.labels} height={wide ? 190 : 160} />
-        </View>
-        <View style={[styles.panel, { backgroundColor: surface }]}>
-          <Text variant="titleMedium" style={[styles.bold, { color: theme.colors.onSurface }]}>Les plus vendus aujourd’hui</Text>
-          {catalog.slice(0, 3).map((product, index) => <View key={product.id} style={styles.bestRow}>
-            <ProductArt kind={product.id} size={44} />
-            <View style={styles.grow}><Text style={[styles.bold, { color: theme.colors.onSurface }]}>{product.name}</Text><Text style={{ color: muted }}>{[18, 11, 9][index]} vendus</Text></View>
-            <Text style={[styles.bold, { color: theme.colors.onSurface }]}>{money(product.price * [18, 11, 9][index])}</Text>
-          </View>)}
-        </View>
-      </View>}
-
-      {step === 1 && <View style={[styles.saleLayout, wide && styles.saleLayoutWide]}>
-        <View style={[styles.grow, styles.stack]}>
-          <Text style={{ color: muted }}>Touchez un produit pour l’ajouter au panier, comme au comptoir.</Text>
-          <View style={styles.products}>
-            {catalog.map(product => {
-              const left = stock[product.id] - (cart[product.id] ?? 0);
-              return <Pressable key={product.id} accessibilityRole="button" accessibilityLabel={`Ajouter ${product.name}, ${money(product.price)}`} disabled={left <= 0} onPress={() => add(product)} style={({ pressed }) => [styles.productTile, pressed && styles.pressed, left <= 0 && styles.disabled]}>
-                <View style={styles.productArt}><ProductArt kind={product.id} size={wide ? 84 : 72} /></View>
-                <Text numberOfLines={2} style={styles.productName}>{product.name}</Text>
-                <Text style={styles.productPrice}>{money(product.price)}</Text>
-                <Text style={[styles.productStock, left <= product.threshold && { color: demoPalette.tomato }]}>{left > 0 ? `${left} en stock` : 'Rupture'}</Text>
-                {(cart[product.id] ?? 0) > 0 && <View style={styles.tileBadge}><Text style={styles.badgeText}>{cart[product.id]}</Text></View>}
-              </Pressable>;
-            })}
+    </View>
+    <AppSearchBar placeholder="Produit ou boutique" value={search} onChangeText={setSearch} />
+    {!compact && <View style={[styles.tableHeader, { borderColor: theme.colors.outlineVariant }]}>
+      <Text style={[styles.productColumn, styles.bold]}>Produit</Text>
+      <Text style={[styles.storeColumn, styles.bold]}>Boutique</Text>
+      <Text style={[styles.numberColumn, styles.bold]}>Quantité</Text>
+      <Text style={[styles.numberColumn, styles.bold]}>Prix de vente</Text>
+    </View>}
+    {stockRows.map(product => {
+      const quantityColor = stock[product.id] <= product.threshold ? theme.colors.error : theme.colors.primary;
+      return <Card key={product.id} mode="contained" style={{ backgroundColor: theme.colors.surface }}>
+        <Card.Content style={[styles.tableRow, compact && styles.compactTableRow]}>
+          <View style={[styles.productColumn, compact && styles.fullWidth]}><Text variant="titleSmall" style={styles.bold} numberOfLines={2}>{product.name}</Text></View>
+          <Text style={[styles.storeColumn, compact && styles.compactValue]}>{compact ? `Boutique : ${STORE}` : STORE}</Text>
+          <Text style={[styles.numberColumn, compact && styles.compactValue, styles.bold, { color: quantityColor }]}>{compact ? `Quantité : ${format(stock[product.id])}` : format(stock[product.id])}</Text>
+          <Text style={[styles.numberColumn, compact && styles.compactValue, styles.bold]}>{compact ? `Prix : ${money(product.price)}` : money(product.price)}</Text>
+        </Card.Content>
+      </Card>;
+    })}
+    {movements.length > 0 && <>
+      <Text variant="titleLarge" style={styles.bold}>Derniers mouvements</Text>
+      {movements.map(movement => <Card key={movement.id} mode="contained" style={{ backgroundColor: theme.colors.surface }}>
+        <Card.Content style={styles.movement}>
+          <View style={[styles.movementIcon, { backgroundColor: theme.colors.errorContainer }]}><Icon source="arrow-up-right" size={22} color={theme.colors.error} /></View>
+          <View style={styles.grow}>
+            <Text variant="titleSmall" style={styles.bold} numberOfLines={2}>{movement.name}</Text>
+            <Text style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={2}>{STORE} · {formatDateTime(movement.createdAt)}</Text>
           </View>
-        </View>
-        <View style={[styles.cart, { backgroundColor: surface, borderColor: theme.colors.outlineVariant }, wide && styles.cartWide]}>
-          <Text variant="titleMedium" style={[styles.bold, { color: theme.colors.onSurface }]}>Panier{cartCount ? ` (${cartCount})` : ''}</Text>
-          {lastSale && <View style={styles.success}>
-            <Icon source="check-circle" size={22} color={demoPalette.leaf} />
-            <View style={styles.grow}>
-              <Text style={styles.successText}>Vente simulée · Aucun reçu réel n’a été envoyé.</Text>
-              <Text style={styles.successDetail}>{lastSale.reference} · {money(lastSale.total)} — le stock et la caisse ont été mis à jour.</Text>
-            </View>
-          </View>}
-          {!cartLines.length && !lastSale && <Text style={{ color: muted }}>Le panier est vide. Choisissez un produit.</Text>}
-          {cartLines.map(line => <View key={line.product.id} style={styles.cartLine}>
-            <ProductArt kind={line.product.id} size={36} />
-            <View style={styles.grow}><Text style={{ color: theme.colors.onSurface }} numberOfLines={1}>{line.product.name}</Text><Text style={{ color: muted }}>{line.qty} × {money(line.product.price)}</Text></View>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Retirer un ${line.product.name}`} onPress={() => removeOne(line.product.id)} style={styles.minus}><Icon source="minus" size={16} color={theme.colors.onSurface} /></Pressable>
-          </View>)}
-          {cartLines.length > 0 && <>
-            <View style={[styles.totalRow, { borderTopColor: theme.colors.outlineVariant }]}>
-              <Text variant="titleMedium" style={[styles.bold, { color: theme.colors.onSurface }]}>Total</Text>
-              <Text variant="titleMedium" style={[styles.bold, { color: theme.colors.onSurface }]}>{money(cartTotal)}</Text>
-            </View>
-            <AppButton icon="cash-register" onPress={validate}>Encaisser {money(cartTotal)}</AppButton>
-            <AppButton mode="text" onPress={() => setCart({})}>Vider le panier</AppButton>
-          </>}
-        </View>
-      </View>}
+          <Text style={[styles.bold, { color: theme.colors.error }]}>{format(movement.quantity)}</Text>
+        </Card.Content>
+      </Card>)}
+    </>}
+  </>;
 
-      {step === 2 && <View style={[styles.panel, { backgroundColor: surface }]}>
-        <Text variant="titleMedium" style={[styles.bold, { color: theme.colors.onSurface }]}>Stock de la boutique</Text>
-        <Text style={{ color: muted }}>Une alerte vous prévient dès qu’un produit passe sous son seuil.{lastSale ? ' Les quantités tiennent compte de votre vente.' : ''}</Text>
-        {catalog.map(product => {
-          const qty = stock[product.id];
-          const low = qty <= product.threshold;
-          const ratio = Math.max(0.03, Math.min(1, qty / product.capacity));
-          return <View key={product.id} style={styles.stockRow}>
-            <ProductArt kind={product.id} size={46} />
-            <View style={styles.grow}>
-              <View style={styles.stockHead}>
-                <Text numberOfLines={1} style={[styles.bold, styles.grow, { color: theme.colors.onSurface }]}>{product.name}</Text>
-                <Text style={[styles.bold, { color: low ? demoPalette.tomato : theme.colors.onSurface }]}>{qty}</Text>
-              </View>
-              <View style={[styles.gauge, { backgroundColor: theme.colors.surfaceVariant }]}><View style={[styles.gaugeFill, { width: `${ratio * 100}%`, backgroundColor: low ? demoPalette.tomato : demoPalette.leaf }]} /></View>
-              <Text style={{ color: low ? demoPalette.tomato : muted, fontSize: 12 }}>{low ? `Stock faible · seuil ${product.threshold}` : `Seuil d’alerte : ${product.threshold}`}</Text>
-            </View>
-          </View>;
-        })}
-      </View>}
+  const cashScreen = <>
+    <PageIntro title="Caisse" />
+    <Card mode="contained" style={[styles.balance, { backgroundColor: theme.colors.primaryContainer }]}>
+      <Card.Content>
+        <Text style={{ color: theme.colors.onPrimaryContainer }}>Solde de {STORE}</Text>
+        <Text numberOfLines={1} style={[styles.bold, styles.heroAmountLarge, { color: theme.colors.onPrimaryContainer }]}>{money(balance)}</Text>
+      </Card.Content>
+    </Card>
+    <Text variant="titleLarge" style={styles.bold}>Historique des mouvements</Text>
+    {cash.map(row => {
+      const deposit = row.type === 'deposit';
+      return <Card key={row.id} mode="contained" style={{ backgroundColor: theme.colors.surface }}>
+        <Card.Content style={styles.transaction}>
+          <View style={[styles.transactionIcon, { backgroundColor: deposit ? theme.colors.primaryContainer : theme.colors.errorContainer }]}><Icon source={deposit ? 'arrow-down-left' : 'arrow-up-right'} size={23} color={deposit ? theme.colors.primary : theme.colors.error} /></View>
+          <View style={styles.transactionCopy}><Text variant="titleMedium" style={styles.bold}>{row.designation}</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>{STORE} · {formatDateTime(row.createdAt)}</Text></View>
+          <Text numberOfLines={1} style={[styles.bold, { fontSize: 13, color: deposit ? theme.colors.primary : theme.colors.error }]}>{deposit ? '+' : '−'}{money(row.amount)}</Text>
+        </Card.Content>
+      </Card>;
+    })}
+  </>;
 
-      {step === 3 && <View style={styles.stack}>
-        <View style={[styles.balance, { backgroundColor: demoPalette.brand }]}>
-          <Text style={styles.balanceLabel}>Solde de caisse, boutique principale</Text>
-          <Text variant="displaySmall" numberOfLines={1} style={styles.balanceValue}>{money(balance)}</Text>
-          <Text style={styles.balanceLabel}>{movements.length} mouvements aujourd’hui</Text>
-        </View>
-        <View style={[styles.panel, { backgroundColor: surface }]}>
-          <Text variant="titleMedium" style={[styles.bold, { color: theme.colors.onSurface }]}>Mouvements du jour</Text>
-          {[...movements].reverse().map(movement => {
-            const positive = movement.amount >= 0;
-            return <View key={movement.id} style={styles.movement}>
-              <View style={[styles.movementIcon, { backgroundColor: positive ? `${demoPalette.leaf}1F` : `${demoPalette.tomato}1F` }]}><Icon source={movement.icon} size={20} color={positive ? demoPalette.leaf : demoPalette.tomato} /></View>
-              <View style={styles.grow}><Text style={[styles.bold, { color: theme.colors.onSurface }]}>{movement.label}</Text><Text style={{ color: muted, fontSize: 12 }}>{movement.detail}</Text></View>
-              <Text style={[styles.bold, { color: positive ? demoPalette.leaf : demoPalette.tomato }]}>{positive ? '+' : '−'}{money(Math.abs(movement.amount))}</Text>
-            </View>;
-          })}
-        </View>
-      </View>}
+  const links: { tab: Tab; label: string; icon: string }[] = [
+    { tab: 'home', label: 'Accueil', icon: desktop ? 'view-dashboard-outline' : 'home-outline' },
+    { tab: 'sales', label: 'Ventes', icon: 'cart-outline' },
+    { tab: 'stock', label: 'Stock', icon: 'warehouse' },
+    { tab: 'cash', label: 'Caisse', icon: 'wallet-outline' },
+  ];
+  const activeTab: Tab = tab === 'sale' ? 'sales' : tab;
+  const floatingAction = !desktop && tab === 'sale' && !lastSale
+    ? saleStep === 'products'
+      ? <AppButton icon="cart-outline" style={styles.stretch} disabled={!items.length} onPress={() => setSaleStep('checkout')}>Panier · {money(total)}</AppButton>
+      : <AppButton icon="check" style={styles.stretch} disabled={!items.length} onPress={validate}>Valider · {money(total)}</AppButton>
+    : null;
 
-      <View style={styles.nav}>
-        <AppButton mode="outlined" disabled={step === 0} onPress={() => setStep(s => Math.max(0, s - 1))}>Précédent</AppButton>
-        {last
-          ? <AppButton icon="account-plus" onPress={() => router.push('/(auth)/register')}>Créer mon espace</AppButton>
-          : <AppButton icon="arrow-right" contentStyle={styles.reverse} onPress={() => setStep(s => Math.min(steps.length - 1, s + 1))}>{steps[step + 1]}</AppButton>}
+  return <View style={[styles.flex, desktop && styles.row0, { backgroundColor: theme.colors.background }]}>
+    {/* Menu latéral : reproduction de AdminNavigation (ordinateur). */}
+    {desktop && <View style={[styles.sidebar, { backgroundColor: theme.colors.surface, borderRightColor: theme.colors.outlineVariant }]}>
+      <View style={styles.brand}>
+        <Image source={require('../../assets/images/stockmaster-icon.png')} style={styles.logo} contentFit="cover" />
+        <View style={styles.grow}><Text variant="titleLarge" style={styles.brandTitle}>StockMaster</Text><Text variant="bodySmall" numberOfLines={1}>{COMPANY}</Text><Text variant="labelSmall" numberOfLines={1}>{STORE}</Text></View>
       </View>
-    </ScrollView>
-  );
+      <Divider />
+      <View style={styles.group}>
+        <Text variant="labelSmall" style={styles.groupLabel}>PRINCIPAL</Text>
+        {links.map(link => <Pressable key={link.tab} accessibilityRole="button" accessibilityLabel={link.label} accessibilityState={{ selected: activeTab === link.tab }} onPress={() => go(link.tab)} style={({ pressed }) => [styles.navItem, activeTab === link.tab && styles.navItemActive, pressed && styles.pressed]}>
+          <Icon source={link.icon} size={23} color={activeTab === link.tab ? design.colors.brand : theme.colors.onSurfaceVariant} />
+          <Text style={[styles.navText, activeTab === link.tab && { color: design.colors.brand }]}>{link.label}</Text>
+        </Pressable>)}
+      </View>
+    </View>}
+    <View style={styles.flex}>
+      <Appbar.Header elevated style={{ backgroundColor: theme.colors.surface }}>
+        <Appbar.BackAction accessibilityLabel="Quitter la démo" onPress={() => (router.canGoBack() ? router.back() : router.replace('/(auth)/login'))} />
+        <Appbar.Content title={STORE} subtitle={COMPANY} titleStyle={compact ? styles.compactTitle : undefined} subtitleStyle={styles.bold} />
+      </Appbar.Header>
+      <ScrollView style={styles.flex} contentContainerStyle={[styles.page, compact && styles.compactPage]}>
+        {/* Seul ajout propre à la démo : l'avertissement, présenté comme les autres encadrés de l'app. */}
+        <Card mode="outlined"><Card.Content style={styles.notice}>
+          <Icon source="information-outline" size={24} color={theme.colors.primary} />
+          <Text style={styles.noticeText}>Démonstration : données fictives, rien n’est enregistré.</Text>
+          <AppButton mode="text" icon="account-plus" onPress={() => router.push('/(auth)/register')}>Créer mon espace</AppButton>
+        </Card.Content></Card>
+        {tab === 'home' && home}
+        {tab === 'sale' && sale}
+        {tab === 'sales' && salesList}
+        {tab === 'stock' && stockScreen}
+        {tab === 'cash' && cashScreen}
+      </ScrollView>
+      {!!floatingAction && <View style={[styles.actionFooter, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.outlineVariant }]}>{floatingAction}</View>}
+      {/* Barre du bas : reproduction de AdminNavigation (téléphone). */}
+      {!desktop && <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 6), backgroundColor: theme.colors.surface, borderTopColor: theme.colors.outlineVariant }]}>
+        {links.map(link => <Pressable key={link.tab} accessibilityRole="button" accessibilityLabel={link.label} accessibilityState={{ selected: activeTab === link.tab }} onPress={() => go(link.tab)} style={({ pressed }) => [styles.bottomItem, activeTab === link.tab && styles.bottomItemActive, pressed && styles.pressed]}>
+          <Icon source={link.icon} size={22} color={activeTab === link.tab ? design.colors.brand : theme.colors.onSurfaceVariant} />
+          <Text numberOfLines={1} style={[styles.bottomLabel, activeTab === link.tab && { color: design.colors.brand }]}>{link.label}</Text>
+        </Pressable>)}
+      </View>}
+    </View>
+  </View>;
 }
 
+// Même carte que Metric de l'accueil réel ((admin)/index.tsx).
+function Metric({ title, value, hint, onPress }: { title: string; value: string; hint: string; onPress: () => void }) {
+  const theme = useTheme();
+  return <Card mode="contained" style={[styles.metric, { backgroundColor: theme.colors.surface }]} onPress={onPress}>
+    <Card.Content style={styles.list}>
+      <Text variant="titleSmall">{title}</Text>
+      <Text variant="headlineSmall" style={styles.bold}>{value}</Text>
+      <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>{hint}</Text>
+    </Card.Content>
+  </Card>;
+}
+
+// Styles recopiés des écrans réels (AdminPage, AdminNavigation, (admin)/index, sales/new,
+// sales/index, stock, cash) pour que la démo leur soit identique.
 const styles = StyleSheet.create({
-  page: { padding: 20, paddingBottom: 40, gap: 20, maxWidth: 1080, width: '100%', alignSelf: 'center' },
-  hero: { gap: 18 },
-  heroWide: { flexDirection: 'row', alignItems: 'center' },
-  heroCopy: { gap: 14 },
-  heroCopyWide: { flex: 1, paddingRight: 12 },
-  heroTitle: { fontWeight: '900', letterSpacing: -0.8, lineHeight: 46 },
-  heroActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  scene: { width: '100%', aspectRatio: 340 / 190, maxWidth: 560, alignSelf: 'center' },
-  sceneWide: { flex: 1.1 },
-  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingLeft: 8, paddingRight: 14, borderRadius: 999, borderWidth: 1 },
-  tabNumber: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  tabNumberText: { fontWeight: '900', fontSize: 12 },
-  tabLabel: { fontWeight: '700' },
-  badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: demoPalette.ochre, alignItems: 'center', justifyContent: 'center' },
-  badgeText: { color: demoPalette.ink, fontWeight: '900', fontSize: 11 },
-  pressed: { opacity: 0.75 },
-  disabled: { opacity: 0.45 },
-  stack: { gap: 14 },
+  flex: { flex: 1, minWidth: 0, minHeight: 0 },
+  row0: { flexDirection: 'row' },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   grow: { flex: 1, minWidth: 0 },
   bold: { fontWeight: '800' },
-  kpis: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  kpi: { flexGrow: 1, flexBasis: 200, minWidth: 0, padding: 16, borderRadius: 18, gap: 4 },
-  kpiIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  panel: { padding: 18, borderRadius: 20, gap: 12 },
-  bestRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  saleLayout: { gap: 16 },
-  saleLayoutWide: { flexDirection: 'row', alignItems: 'flex-start' },
-  products: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  // Tuiles « étiquette de rayon » : fond clair fixe, texte encre — lisibles dans les deux thèmes.
-  productTile: { flexGrow: 1, flexBasis: 140, maxWidth: 220, minWidth: 0, padding: 12, borderRadius: 16, backgroundColor: demoPalette.mist, borderWidth: 1, borderColor: '#DCE7E5', gap: 2 },
-  productArt: { alignItems: 'center', marginBottom: 6 },
-  productName: { color: demoPalette.ink, fontWeight: '700' },
-  productPrice: { color: demoPalette.brand, fontWeight: '900', fontSize: 16 },
-  productStock: { color: '#5C6E6B', fontSize: 12 },
-  tileBadge: { position: 'absolute', top: 8, right: 8, minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 6, backgroundColor: demoPalette.ochre, alignItems: 'center', justifyContent: 'center' },
-  cart: { padding: 16, borderRadius: 20, borderWidth: 1, gap: 10 },
-  cartWide: { width: 320, flexShrink: 0 },
-  cartLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  minus: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(8,75,80,0.10)' },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 10 },
-  success: { flexDirection: 'row', gap: 10, padding: 12, borderRadius: 14, backgroundColor: '#E5F5EC' },
-  successText: { color: '#0B7A4B', fontWeight: '800' },
-  successDetail: { color: '#2D6B4F', fontSize: 12, marginTop: 2 },
-  stockRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
-  stockHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  gauge: { height: 8, borderRadius: 4, overflow: 'hidden', marginVertical: 5 },
-  gaugeFill: { height: '100%', borderRadius: 4 },
-  balance: { padding: 22, borderRadius: 24, gap: 4 },
-  balanceLabel: { color: '#CDE6E4' },
-  balanceValue: { color: '#FFFFFF', fontWeight: '900', fontSize: 34 },
-  movement: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  movementIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  nav: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginTop: 4 },
-  reverse: { flexDirection: 'row-reverse' },
+  center: { textAlign: 'center' },
+  stretch: { alignSelf: 'stretch' },
+  pressed: { opacity: 0.72 },
+  page: { flexGrow: 1, padding: 20, paddingBottom: 40, gap: 16, width: '100%', maxWidth: design.contentMaxWidth, alignSelf: 'center' },
+  compactPage: { padding: 12, paddingBottom: 28, gap: 12 },
+  compactTitle: { fontSize: 18 },
+  notice: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
+  noticeText: { flexGrow: 1, flexShrink: 1, flexBasis: 220, minWidth: 0 },
+  list: { gap: 8 },
+  metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  metric: { flexGrow: 1, flexBasis: 240, minWidth: 0 },
+  workspace: { gap: 16 },
+  workspaceDesktop: { flexDirection: 'row', alignItems: 'flex-start' },
+  catalogPane: { flex: 1, gap: 12, minWidth: 0 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  gridCard: { flexBasis: 111, flexGrow: 1, minWidth: 106, maxWidth: 210, overflow: 'hidden' },
+  gridImageWrap: { alignItems: 'center', paddingTop: 14, paddingBottom: 4 },
+  gridCopy: { alignItems: 'center', gap: 3, paddingTop: 2, paddingHorizontal: 10 },
+  gridActions: { alignItems: 'center', justifyContent: 'center', paddingBottom: 8, paddingTop: 4 },
+  gridStepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingHorizontal: 2 },
+  unavailable: { opacity: 0.72 },
+  cartPane: { gap: 12 },
+  cartPaneDesktop: { width: 400, flexShrink: 0 },
+  emptyCart: { alignItems: 'center', gap: 6, paddingVertical: 20 },
+  productRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  productCopy: { flex: 1, minWidth: 0, gap: 4 },
+  quantityRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  quantityValue: { minWidth: 48, textAlign: 'center' },
+  paymentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  checkout: { borderRadius: 22 },
+  checkoutContent: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  hero: { padding: 20, borderRadius: 24, gap: 4 },
+  heroAmount: { fontSize: 18, fontWeight: '800' },
+  heroAmountLarge: { fontSize: 20 },
+  saleIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  rightValue: { marginRight: 16 },
+  summary: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18, padding: 20, borderRadius: 24 },
+  compactSummary: { flexDirection: 'column', alignItems: 'stretch', padding: 16 },
+  summaryMetrics: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  summaryMetric: { flexGrow: 1, flexBasis: 130, minWidth: 0 },
+  compactMetric: { flexBasis: '45%' },
+  summaryValue: { fontSize: 11 },
+  tableHeader: { flexDirection: 'row', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1 },
+  tableRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  compactTableRow: { flexDirection: 'column', alignItems: 'stretch', gap: 6 },
+  compactValue: { minWidth: 0, width: '100%', textAlign: 'left' },
+  fullWidth: { minWidth: 0, width: '100%' },
+  productColumn: { flex: 2, minWidth: 100 },
+  storeColumn: { flex: 1.3, minWidth: 75 },
+  numberColumn: { flex: 1, minWidth: 65, textAlign: 'right' },
+  movement: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  movementIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  balance: { borderRadius: 24 },
+  transaction: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
+  transactionIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  transactionCopy: { flexGrow: 1, flexShrink: 1, flexBasis: 160, minWidth: 0 },
+  actionFooter: { flexShrink: 0, borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8 },
+  sidebar: { width: 264, flexShrink: 0, padding: 14, borderRightWidth: 1, gap: 12 },
+  brand: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  logo: { width: 46, height: 46, borderRadius: 14 },
+  brandTitle: { fontWeight: '900', color: design.colors.brand },
+  group: { gap: 4 },
+  groupLabel: { color: design.colors.muted, fontWeight: '800', paddingHorizontal: 12, marginBottom: 2 },
+  navItem: { minHeight: 44, borderRadius: design.radius.small, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  navItemActive: { backgroundColor: design.colors.brandSoft, borderLeftWidth: 3, borderLeftColor: design.colors.brand, paddingLeft: 9 },
+  navText: { minWidth: 0, fontWeight: '700' },
+  bottom: { minHeight: 64, flexDirection: 'row', alignItems: 'stretch', borderTopWidth: 1, paddingHorizontal: 2, paddingTop: 5 },
+  bottomItem: { flex: 1, minWidth: 0, minHeight: 54, paddingHorizontal: 1, gap: 2, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  bottomItemActive: { backgroundColor: design.colors.brandSoft },
+  bottomLabel: { fontSize: 11, textAlign: 'center', fontWeight: '700' },
 });
