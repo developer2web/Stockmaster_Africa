@@ -1,6 +1,5 @@
 import { useWindowDimensions } from 'react-native';
 import { hasAnyPermission } from '@/features/auth/permissions';
-import { canUseNotifications } from '@/features/notifications/access';
 import type { MembershipContext } from '@/types/database';
 
 // Même seuil que la navigation latérale de l'administrateur (AdminNavigation) : au-delà,
@@ -33,7 +32,7 @@ export function employeePrimaryLinks(membership: MembershipContext | null): Empl
 // le menu latéral (ordinateur) pour qu'elles ne divergent jamais.
 export function employeeToolLinks(membership: MembershipContext | null): EmployeeLink[] {
   const rules: Rule[] = [
-    { label: 'Notifications', description: 'Vos alertes et messages', icon: 'bell-outline', path: '/employee/notifications' },
+    // Pas d'entrée « Notifications » : la cloche de l'en-tête y mène déjà (demande du 26/09).
     { label: 'Fournisseurs', description: 'Consulter les partenaires', icon: 'truck-outline', path: '/employee/suppliers', permissions: ['suppliers.read', 'suppliers.write'] },
     { label: 'Catalogue', description: 'Produits et fournisseurs autorisés', icon: 'book-open-page-variant-outline', path: '/employee/catalog', permissions: ['products.read', 'suppliers.read'] },
     { label: 'Comptabilité', description: 'Achats, dépenses et paiements', icon: 'calculator-variant-outline', path: '/employee/accounting', permissions: ['purchases.read', 'payments.read', 'expenses.read'] },
@@ -42,7 +41,7 @@ export function employeeToolLinks(membership: MembershipContext | null): Employe
     { label: 'Scanner', description: 'Lire un code-barres ou QR code', icon: 'barcode-scan', path: '/employee/scanner', permissions: ['products.read', 'sales.write'] },
   ];
   return rules
-    .filter(rule => rule.path === '/employee/notifications' ? canUseNotifications(membership) : !rule.permissions || hasAnyPermission(membership, rule.permissions))
+    .filter(rule => !rule.permissions || hasAnyPermission(membership, rule.permissions))
     .map(strip);
 }
 
