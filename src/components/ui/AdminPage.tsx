@@ -165,8 +165,14 @@ export function AdminPage({ title, description, onDescriptionPress, action, floa
         )}
         {children}
       </ScrollView>
-      {!!floatingAction && <View style={[styles.actionFooter, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.outlineVariant, paddingBottom: employee && compact && !offlineAuthenticated ? 8 : Math.max(8, insets.bottom) }]}><View style={styles.footerContent}>{floatingAction}</View></View>}
-      {employee && compact && !offlineAuthenticated && <EmployeeBottomNavigation />}
+      {!!floatingAction && <View style={[styles.actionFooter, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.outlineVariant, paddingBottom: employee && !offlineAuthenticated ? 8 : Math.max(8, insets.bottom) }]}><View style={styles.footerContent}>{floatingAction}</View></View>}
+      {/* Revue du 26/09 : réservée jadis aux écrans étroits (compact) — un employé
+          ouvrant l'app dans un navigateur de bureau (constaté en direct : capture
+          d'un MacBook) n'avait alors STRICTEMENT aucun moyen d'atteindre Plus,
+          Vente, Produits ou Caisse. Toujours affichée désormais, quelle que soit
+          la largeur : c'est le seul chemin de navigation de tout l'espace
+          employé, il ne peut pas dépendre de la taille de l'écran. */}
+      {employee && !offlineAuthenticated && <EmployeeBottomNavigation />}
     </KeyboardAvoidingView>
   );
 }

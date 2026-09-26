@@ -192,8 +192,11 @@ export default function EmployeeEntry() {
       </ScrollView>
       {/* Retour testeur du 25/09 : la même barre d'icônes que sur les autres écrans employé
           (AdminPage), pour que l'Accueil ne soit pas la seule page sans elle — « Se
-          déconnecter » n'est plus ici, il est désormais dans Plus, comme demandé. */}
-      {compact && <EmployeeBottomNavigation />}
+          déconnecter » n'est plus ici, il est désormais dans Plus, comme demandé.
+          Revue du 26/09 : affichée quelle que soit la largeur (plus seulement en
+          compact) — sur un navigateur de bureau, c'était le seul chemin vers Plus/
+          Outils, et il manquait entièrement (capture d'écran MacBook à l'appui). */}
+      <EmployeeBottomNavigation />
     </View>
   );
 }
