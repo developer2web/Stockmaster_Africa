@@ -120,6 +120,13 @@ export async function saveCustomer(companyId: string, storeId: string | null, va
   return data!.id;
 }
 
+// Archiver plutôt que supprimer : l'ardoise, les ventes et les reçus du client restent
+// cohérents ; il disparaît seulement des listes et du choix client à la caisse (audit du 26/09).
+export async function setCustomerActive(id: string, active: boolean) {
+  const { error } = await supabase.from('customers').update({ is_active: active }).eq('id', id);
+  fail(error);
+}
+
 export async function getCustomerLedger(customerId: string): Promise<CustomerLedgerEntry[]> {
   const { data, error } = await supabase
     .from('customer_ledger')

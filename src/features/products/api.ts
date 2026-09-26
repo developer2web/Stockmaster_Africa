@@ -55,6 +55,12 @@ export async function saveSupplier(companyId: string, storeId: string, value: Su
     : supabase.from('suppliers').insert(payload));
   fail(error);
 }
+// Archiver plutôt que supprimer : les achats, paiements et reçus du fournisseur restent
+// cohérents ; il disparaît seulement des listes et des choix (audit du 26/09).
+export async function setSupplierActive(id: string, active: boolean) {
+  const { error } = await supabase.from('suppliers').update({ is_active: active }).eq('id', id);
+  fail(error);
+}
 export async function getSupplierStats(companyId: string, storeId: string) {
   const purchases = await fetchAllRows((from, to) => supabase.from('purchases')
     .select('supplier_id,total,amount_due,created_at')

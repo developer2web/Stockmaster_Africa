@@ -18,7 +18,7 @@ import { FormField } from '@/components/forms/FormField';
 import { SelectField } from '@/components/forms/SelectField';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
-import { getCustomer, getCustomerDebtSchedule, getCustomerLedger, getCustomerSales, recordCustomerEntry, saveCustomer, setCustomerDebtSchedule } from '@/features/customers/api';
+import { getCustomer, getCustomerDebtSchedule, getCustomerLedger, getCustomerSales, recordCustomerEntry, saveCustomer, setCustomerActive, setCustomerDebtSchedule } from '@/features/customers/api';
 import { customerSchema, type CustomerInput } from '@/schemas/customers';
 import { printPaymentReceipt, sharePaymentReceipt } from '@/features/payments/receipt';
 import { useReceiptAction } from '@/features/payments/useReceiptAction';
@@ -26,6 +26,7 @@ import { useReceiptBranding } from '@/features/payments/branding';
 import { parseDecimal } from '@/utils/number';
 import { invalidateOperationalSummaries } from '@/utils/queryInvalidation';
 import { AppFeedback } from '@/components/ui/AppFeedback';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { formatDate,formatDateTime,formatLocalDate } from '@/utils/format';
 import { readableError } from '@/utils/errors';
 
@@ -59,6 +60,7 @@ export default function CustomerDetails() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [message, setMessage] = useState(resolveNotice(notice));
   const [scheduleOpen,setScheduleOpen]=useState(false);
+  const [archiveOpen,setArchiveOpen]=useState(false);
   const [scheduleRows,setScheduleRows]=useState([{dueDate:businessDateValue(new Date(Date.now()+30*86400000)),amount:''}]);
 
   useEffect(() => { setDetailsOpen(false); }, [id]);
@@ -96,6 +98,11 @@ export default function CustomerDetails() {
   const saveSchedule=useMutation({mutationFn:()=>setCustomerDebtSchedule(id!,scheduleRows.map(row=>({dueDate:row.dueDate,amount:parseDecimal(row.amount)}))),onSuccess:async()=>{await schedule.refetch();setScheduleOpen(false);setMessage('Échéancier enregistré.')}});
 
   const balance = customer.data?.balance ?? 0;
+  const archived = customer.data?.is_active === false;
+  const toggleActive = useMutation({
+    mutationFn: () => setCustomerActive(id!, archived),
+    onSuccess: async () => { await refresh(); setArchiveOpen(false); setMessage(archived ? 'Client réactivé' : 'Client archivé'); },
+  });
   const scheduleTotal = scheduleRows.reduce((sum, row) => sum + (parseDecimal(row.amount) || 0), 0);
   const scheduleValid = scheduleRows.every(row => !!row.dueDate && Number.isFinite(parseDecimal(row.amount)) && parseDecimal(row.amount) > 0) && Math.abs(scheduleTotal - balance) <= 0.01;
   const owes = balance > 0;
@@ -155,6 +162,19 @@ export default function CustomerDetails() {
               {canWrite && <AppButton mode="outlined" icon="pencil" onPress={() => setEditing(true)}>Modifier la fiche</AppButton>}
             </Card.Content>}
           </Card>
+
+          {archived && <Chip icon="archive-outline">Client archivé : il n’apparaît plus dans la liste ni à la caisse.</Chip>}
+          {canWrite && <AppButton mode="outlined" destructive={!archived} icon={archived ? 'archive-arrow-up-outline' : 'archive-outline'} onPress={() => { toggleActive.reset(); setArchiveOpen(true); }}>{archived ? 'Réactiver le client' : 'Archiver le client'}</AppButton>}
+          <ConfirmDialog
+            visible={archiveOpen}
+            title={archived ? 'Réactiver ce client ?' : owes ? 'Archivage impossible' : 'Archiver ce client ?'}
+            message={toggleActive.error ? readableError(toggleActive.error) : archived ? 'Le client réapparaîtra dans la liste et pourra de nouveau être choisi à la caisse.' : owes ? `Ce client doit encore ${formatMoney(balance)}. Encaissez ou soldez sa dette avant de l’archiver.` : 'Le client disparaîtra de la liste et du choix client à la caisse. Ses achats, son ardoise et ses reçus sont conservés. Vous pourrez le réactiver.'}
+            destructive={!archived}
+            confirmLabel={archived ? 'Réactiver' : owes ? 'Compris' : 'Archiver'}
+            loading={toggleActive.isPending}
+            onCancel={() => setArchiveOpen(false)}
+            onConfirm={() => (!archived && owes ? setArchiveOpen(false) : toggleActive.mutate())}
+          />
 
           {schedule.data&&<Card mode="outlined"><Card.Title title="Échéancier actif" subtitle={`${schedule.data.customer_debt_installments.length} échéance${plural(schedule.data.customer_debt_installments.length)}`}/><Card.Content style={{gap:6}}>{schedule.data.customer_debt_installments.map(row=><Text key={row.id}>{formatLocalDate(row.due_date)} • {formatMoney(Number(row.amount)-Number(row.paid_amount))} restant • {row.status}</Text>)}</Card.Content></Card>}
           {membership?.role==='company_admin'&&balance>0&&<AppButton mode="outlined" icon="calendar-clock" onPress={()=>setScheduleOpen(true)}>Définir l’échéancier</AppButton>}

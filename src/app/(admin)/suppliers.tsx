@@ -16,7 +16,8 @@ import { AppSearchBar } from '@/components/ui/AppSearchBar';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCurrency } from '@/features/currency/CurrencyProvider';
 import { cancelPurchase, getSupplierAccount, recordSupplierPayment, type SupplierPayment } from '@/features/operations/api';
-import { getSuppliers, getSupplierStats, saveSupplier, SUPPLIER_PAGE_SIZE } from '@/features/products/api';
+import { getSuppliers, getSupplierStats, saveSupplier, setSupplierActive, SUPPLIER_PAGE_SIZE } from '@/features/products/api';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { supplierSchema, type SupplierInput } from '@/schemas/catalog';
 import type { Supplier } from '@/types/database';
@@ -75,7 +76,16 @@ export default function Suppliers() {
     queryFn: () => getSupplierAccount(company, store, selected!.id),
     enabled: !!company && !!store && !!selected,
   });
-  const shown = query.data?.pages.flat() ?? [];
+  const [showArchived, setShowArchived] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<Supplier | null>(null);
+  const allSuppliers = query.data?.pages.flat() ?? [];
+  const archivedCount = allSuppliers.filter(item => !item.is_active).length;
+  const shown = showArchived ? allSuppliers : allSuppliers.filter(item => item.is_active);
+  const archiveDue = archiveTarget ? stats.data?.[archiveTarget.id]?.due ?? 0 : 0;
+  const archiveMutation = useMutation({
+    mutationFn: () => setSupplierActive(archiveTarget!.id, !archiveTarget!.is_active),
+    onSuccess: async () => { await cache.invalidateQueries({ queryKey: ['suppliers', company, store] }); setArchiveTarget(null); },
+  });
 
   const { control, handleSubmit, reset, formState: { isDirty, isValid } } = useForm<SupplierInput>({
     resolver: zodResolver(supplierSchema),
@@ -139,6 +149,7 @@ export default function Suppliers() {
       <Text numberOfLines={1} style={[styles.heroValue, { color: theme.colors.onPrimaryContainer }]}>{formatMoney(totalDue)}</Text>
     </View>
     <AppSearchBar placeholder="Nom, email ou téléphone" value={search} onChangeText={setSearch} loading={search !== debouncedSearch} />
+    {archivedCount > 0 && <Chip style={{ alignSelf: 'flex-start' }} icon="archive-outline" selected={showArchived} showSelectedCheck onPress={() => setShowArchived(value => !value)}>Afficher les archivés ({archivedCount})</Chip>}
     {!!query.error && <HelperText type="error" visible>{(query.error as Error).message}</HelperText>}
     {!!stats.error && <HelperText type="error" visible>{stats.error.message}</HelperText>}
     {shown.map((item) => {
@@ -171,6 +182,7 @@ export default function Suppliers() {
             >
               <Menu.Item leadingIcon="pencil-outline" title="Modifier" onPress={() => { setMenuSupplierId(null); show(item); }} />
               <Menu.Item leadingIcon="card-account-details-outline" title="Coordonnées et détails" onPress={() => { setMenuSupplierId(null); setContactSupplier(item); }} />
+              <Menu.Item leadingIcon={item.is_active ? 'archive-outline' : 'archive-arrow-up-outline'} title={item.is_active ? 'Archiver' : 'Réactiver'} onPress={() => { setMenuSupplierId(null); archiveMutation.reset(); setArchiveTarget(item); }} />
             </Menu>
           </View>
         </Card.Content>
@@ -179,7 +191,7 @@ export default function Suppliers() {
     {query.hasNextPage && <AppButton mode="outlined" loading={query.isFetchingNextPage} onPress={() => void query.fetchNextPage()}>Charger plus de fournisseurs</AppButton>}
     <Text variant="labelLarge" style={[styles.sectionLabel, { color: theme.colors.onSurfaceVariant }]}>ACTIONS RAPIDES</Text>
     <AppButton icon="truck-check-outline" onPress={() => router.push('/purchases' as never)}>Nouvel approvisionnement</AppButton>
-    {!query.isLoading && !shown.length && <EmptyState icon={search ? 'magnify' : 'truck-plus'} title={search ? 'Aucun résultat' : 'Aucun fournisseur'} message={search ? 'Modifiez votre recherche.' : 'Ajoutez votre premier fournisseur.'} />}
+    {!query.isLoading && !shown.length && <EmptyState icon={search ? 'magnify' : 'truck-plus'} title={search ? 'Aucun résultat' : archivedCount ? 'Aucun fournisseur actif' : 'Aucun fournisseur'} message={search ? 'Modifiez votre recherche.' : archivedCount ? 'Vos fournisseurs sont archivés : utilisez « Afficher les archivés ».' : 'Ajoutez votre premier fournisseur.'} />}
     <Portal>
       <Dialog visible={!!contactSupplier} onDismiss={() => setContactSupplier(null)} style={[styles.contactDialog, { width: Math.min(440, width - 32) }]}>
         <Dialog.Title>{contactSupplier?.name}</Dialog.Title>
@@ -247,6 +259,16 @@ export default function Suppliers() {
         <Dialog.Actions style={{ flexWrap: 'wrap' }}><AppButton mode="text" onPress={()=>setPurchaseToCancel(null)}>Fermer</AppButton><AppButton buttonColor="#C92A2A" loading={cancellationMutation.isPending} disabled={cancellationReason.trim().length<3||cancellationMutation.isPending} onPress={()=>cancellationMutation.mutate()}>Confirmer l’annulation</AppButton></Dialog.Actions>
       </Dialog>
     </Portal>
+    <ConfirmDialog
+      visible={!!archiveTarget}
+      title={!archiveTarget?.is_active ? 'Réactiver ce fournisseur ?' : archiveDue > 0 ? 'Archivage impossible' : 'Archiver ce fournisseur ?'}
+      message={archiveMutation.error ? readableError(archiveMutation.error) : !archiveTarget?.is_active ? 'Le fournisseur réapparaîtra dans la liste et dans les choix.' : archiveDue > 0 ? `Il reste ${formatMoney(archiveDue)} à régler à ce fournisseur. Réglez sa dette avant de l’archiver.` : 'Le fournisseur disparaîtra de la liste et des choix. Ses achats, paiements et reçus sont conservés. Vous pourrez le réactiver.'}
+      destructive={!!archiveTarget?.is_active}
+      confirmLabel={!archiveTarget?.is_active ? 'Réactiver' : archiveDue > 0 ? 'Compris' : 'Archiver'}
+      loading={archiveMutation.isPending}
+      onCancel={() => setArchiveTarget(null)}
+      onConfirm={() => (archiveTarget?.is_active && archiveDue > 0 ? setArchiveTarget(null) : archiveMutation.mutate())}
+    />
     <AppFeedback message={receiptAction.error ? readableError(receiptAction.error) : ''} type="error" onDismiss={receiptAction.clearError} />
   </AdminPage>;
 }
