@@ -1,9 +1,8 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Appbar, Card, Chip, HelperText, Icon, Text, TextInput, useTheme } from 'react-native-paper';
-import { EmployeeModuleCard } from '@/components/employee/EmployeeModuleCard';
-import { plural } from '@/utils/plural';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppBackButton } from '@/components/ui/AppBackButton';
@@ -17,6 +16,9 @@ import { hasAnyPermission, hasPermission } from '@/features/auth/permissions';
 import { signInForPortal } from '@/features/auth/portalLogin';
 import { resolveNotice } from '@/constants/notices';
 import { usePortalLoginState } from '@/features/auth/portalLoginState';
+import { getCashSummary } from '@/features/cash/api';
+import { useCurrency } from '@/features/currency/CurrencyProvider';
+import { supabase } from '@/services/supabase/client';
 
 export default function EmployeeEntry() {
   const portalLoginPending = usePortalLoginState(state => state.pending);
@@ -24,9 +26,40 @@ export default function EmployeeEntry() {
   const { signOut } = useSignOutAction();
   const { width } = useWindowDimensions();
   const theme = useTheme();
+  const { formatMoney } = useCurrency();
   const compact = width < 600;
-  const wide = width >= 980;
   const employeeName = String(session?.user.user_metadata?.full_name ?? session?.user.email ?? 'Employé');
+  // Hooks appelés avant tout retour anticipé ci-dessous (règle de React) : hasAnyPermission/
+  // hasPermission tolèrent un membership encore nul, les requêtes restent désactivées tant
+  // qu'il ne l'est pas (enabled).
+  const hasAny = (permissions: string[]) => hasAnyPermission(membership, permissions);
+  const canCatalog = hasAny(['products.read', 'suppliers.read']);
+  const canSales = hasAny(['sales.read', 'sales.write']);
+  const canAccounting = hasAny(['purchases.read', 'payments.read', 'expenses.read']);
+  const canReports = hasAny(['daily_reports.read', 'monthly_reports.read']);
+  const canCash = hasAny(['cash_transactions.read', 'cash_transactions.write', 'expenses.read', 'expenses.write']);
+  const canCreateSale = hasPermission(membership, 'sales.write');
+  const companyId = membership?.companyId ?? '';
+  const storeId = membership?.storeId ?? '';
+  const userId = session?.user.id ?? '';
+  // Retour testeur du 25/09 : l'écran ne peut pas rester vide sous « Nouvelle vente »
+  // une fois les raccourcis en double retirés — de vraies infos du jour à la place,
+  // comme sur l'accueil admin (Solde de caisse), pas des liens. « Mes ventes », elle,
+  // est volontairement personnelle (created_by = cet employé) — sur demande explicite,
+  // donc différente de « Ventes du jour » du tableau de bord admin (toute la boutique) :
+  // le libellé le précise pour ne pas laisser croire au même chiffre.
+  const cash = useQuery({ queryKey: ['employee-home-cash', storeId], queryFn: () => getCashSummary(storeId), enabled: canCash && !!storeId });
+  const mySales = useQuery({
+    queryKey: ['employee-home-my-sales-today', companyId, storeId, userId],
+    queryFn: async () => {
+      const start = new Date(); start.setHours(0, 0, 0, 0);
+      const end = new Date(start); end.setDate(end.getDate() + 1);
+      const { data, error } = await supabase.from('sales').select('total').eq('company_id', companyId).eq('store_id', storeId).eq('created_by', userId).gte('created_at', start.toISOString()).lt('created_at', end.toISOString());
+      if (error) throw new Error(error.message);
+      return (data ?? []).reduce((sum, row) => sum + Number(row.total), 0);
+    },
+    enabled: canSales && !!companyId && !!storeId && !!userId,
+  });
 
   if (!session || portalLoginPending) return <EmployeeLogin />;
   // /employee is the one route exempt from RoleGuard (it doubles as the public
@@ -48,22 +81,6 @@ export default function EmployeeEntry() {
   }
   if (!membership) return <LoadingScreen label="Chargement de votre espace…" />;
   if (membership.role !== 'employee') return <ErrorState title="Espace employé non autorisé" message="Ce compte ne possède pas d’accès employé. Utilisez l’espace qui vous a été attribué." retryLabel="Retour à mon espace" onRetry={() => router.replace('/')} onCancel={() => void signOut()} />;
-
-  const hasAny = (permissions: string[]) => hasAnyPermission(membership, permissions);
-  const canCatalog = hasAny(['products.read', 'suppliers.read']);
-  const canProducts = hasAny(['products.read', 'products.write']);
-  const canSuppliers = hasAny(['suppliers.read', 'suppliers.write']);
-  const canSales = hasAny(['sales.read', 'sales.write']);
-  const canAccounting = hasAny(['purchases.read', 'payments.read', 'expenses.read']);
-  const canReports = hasAny(['daily_reports.read', 'monthly_reports.read']);
-  const canCash = hasAny(['cash_transactions.read', 'cash_transactions.write', 'expenses.read', 'expenses.write']);
-  const canCreateSale = hasPermission(membership, 'sales.write');
-  const modules = [
-    canProducts && { title: 'Produits', description: hasPermission(membership, 'products.write') ? 'Consulter, ajouter et modifier' : 'Consulter les produits', icon: 'package-variant-closed', accent: '#084B50', route: '/employee/products' },
-    canCash && { title: 'Caisse', description: hasAny(['cash_transactions.write', 'expenses.write']) ? 'Solde, entrées et sorties' : 'Consulter la caisse', icon: 'wallet-outline', accent: '#084B50', route: '/employee/cash' },
-    canSales && { title: 'Ventes', description: 'Panier, encaissement et historique', icon: 'cart-outline', accent: '#084B50', route: '/employee/sales' },
-  ].filter(Boolean) as { title: string; description: string; icon: string; accent: string; route: string }[];
-  const advancedCount = [canSuppliers, canCatalog && !canProducts && !canSuppliers, canAccounting, canReports, true].filter(Boolean).length;
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
@@ -99,16 +116,10 @@ export default function EmployeeEntry() {
           <Chip compact style={styles.heroChip}>{membership.roleName}</Chip>
         </View>
 
-        <View style={styles.sectionHeading}>
-          <View style={styles.sectionCopy}>
-            <Text variant="titleLarge" style={styles.sectionTitle}>Outils quotidiens</Text>
-            <Text style={{ color: theme.colors.onSurfaceVariant }}>
-              Choisissez l’action à effectuer.
-            </Text>
-          </View>
-
-        </View>
-
+        {/* Retour testeur du 25/09 : la grille Produits/Caisse/Ventes et « Autres outils »
+            retirées d'ici — doublons exacts de la barre d'icônes (Produits/Caisse/Plus)
+            juste en dessous, désormais présente sur cet écran aussi. « Nouvelle vente »
+            reste : une action (démarrer une vente), pas juste un raccourci vers un onglet. */}
         {canCreateSale && (
           <Card mode="contained" onPress={() => router.push('/employee/sales/new' as never)} style={[styles.saleShortcut, { backgroundColor: '#084B50' }]}>
             <Card.Content style={styles.saleShortcutContent}>
@@ -121,19 +132,34 @@ export default function EmployeeEntry() {
           </Card>
         )}
 
-        <View style={styles.grid}>
-          {modules.map((module) => (
-            <EmployeeModuleCard
-              key={module.title}
-              {...module}
-              compact={compact}
-              onPress={() => router.push(module.route as never)}
-              style={compact ? styles.cardSingle : wide ? styles.cardThird : styles.cardHalf}
-            />
-          ))}
-        </View>
-
-        <Card mode="outlined" onPress={() => router.push('/employee/more' as never)}><Card.Content style={styles.notice}><Icon source="dots-grid" size={30} color={theme.colors.primary}/><View style={styles.noticeCopy}><Text variant="titleMedium" style={styles.sectionTitle}>Autres outils</Text><Text style={{ color: theme.colors.onSurfaceVariant }}>Fournisseurs, comptabilité, rapports et paramètres · {advancedCount} module{plural(advancedCount)}</Text></View><Icon source="chevron-right" size={24} color={theme.colors.onSurfaceVariant}/></Card.Content></Card>
+        {(canSales || canCash) && (
+          <View style={styles.statsRow}>
+            {canSales && (
+              <Card mode="contained" onPress={() => router.push('/employee/sales' as never)} style={[styles.statCard, { backgroundColor: theme.colors.surface }]}>
+                <Card.Content style={styles.statContent}>
+                  <View style={[styles.statIcon, { backgroundColor: '#084B501F' }]}>
+                    <Icon source="cart-check" size={20} color="#084B50" />
+                  </View>
+                  <Text style={{ color: theme.colors.onSurfaceVariant }}>Mes ventes du jour</Text>
+                  {/* Retour testeur du 25/09 : adjustsFontSizeToFit n'a aucun effet sur le web
+                      (déjà rencontré) — texte petit fixe à la place. */}
+                  <Text numberOfLines={1} style={styles.statValue}>{mySales.error ? 'Indisponible' : mySales.data !== undefined ? formatMoney(mySales.data) : '…'}</Text>
+                </Card.Content>
+              </Card>
+            )}
+            {canCash && (
+              <Card mode="contained" onPress={() => router.push('/employee/cash' as never)} style={[styles.statCard, { backgroundColor: theme.colors.surface }]}>
+                <Card.Content style={styles.statContent}>
+                  <View style={[styles.statIcon, { backgroundColor: '#E677001F' }]}>
+                    <Icon source="wallet-outline" size={20} color="#E67700" />
+                  </View>
+                  <Text style={{ color: theme.colors.onSurfaceVariant }}>Solde de caisse</Text>
+                  <Text numberOfLines={1} style={[styles.statValue, cash.data && cash.data.balance < 0 && { color: theme.colors.error }]}>{cash.error ? 'Indisponible' : cash.data ? formatMoney(cash.data.balance) : '…'}</Text>
+                </Card.Content>
+              </Card>
+            )}
+          </View>
+        )}
 
         {!canCatalog && !canSales && !canAccounting && !canReports && !canCash && (
           <Card mode="outlined" style={{ backgroundColor: theme.colors.surface }}>
@@ -238,13 +264,11 @@ const styles = StyleSheet.create({
   hero: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 14 },
   heroText: { flex: 1, minWidth: 0, fontWeight: '700' },
   heroChip: { height: 28 },
-  sectionHeading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  sectionCopy: { flexGrow: 1, flexBasis: 230, minWidth: 0, gap: 3 },
-  sectionTitle: { fontWeight: '800' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
-  cardSingle: { width: '100%' },
-  cardHalf: { flexGrow: 1, flexBasis: '46%', minWidth: 0 },
-  cardThird: { flexGrow: 1, flexBasis: '30%', minWidth: 0 },
+  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  statCard: { flexGrow: 1, flexBasis: 160, minWidth: 0, borderRadius: 18 },
+  statContent: { gap: 6, paddingVertical: 16 },
+  statIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  statValue: { fontWeight: '800', fontSize: 18 },
   notice: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   noticeCopy: { flex: 1, gap: 3 },
   loginIcon: { width: 72, height: 72, borderRadius: 24, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-4deg' }] },
