@@ -1,6 +1,9 @@
 import { describe,expect,it } from 'vitest';
 import { edgeFunctionErrorMessage, errorKind, isExpectedUserError, userErrorMessage } from '../src/utils/errors';
 describe('messages utilisateur',()=>{
+  it('traduit un dépassement numérique Postgres', () => {
+    expect(userErrorMessage({ code: '22003', message: 'numeric field overflow' })).toBe('Le nombre saisi est trop grand. Vérifiez le montant ou la quantité.');
+  });
   it('ne confond pas une fonction access manquante avec un refus de droits', () => {
     const error = { code: 'PGRST202', message: 'Could not find the function public.get_account_access_status in the schema cache' };
     expect(errorKind(error)).toBe('configuration');

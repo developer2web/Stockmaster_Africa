@@ -65,9 +65,9 @@ export default function AdminDashboard() {
         <Text variant="bodySmall">Ce guide disparaît après votre première vente confirmée.</Text>
       </Card.Content></Card>}
       <View style={styles.metrics}>
-        <Metric title="Ventes du jour" value={report.error ? 'Indisponible' : report.data ? money(report.data.revenue) : '…'} hint="Montant des ventes, crédits compris" onPress={() => router.push('/sales')} />
+        <Metric title="Ventes du jour" value={report.error ? 'Indisponible' : report.data ? money(report.data.revenue) : '…'} hint="Crédits compris, retours déduits" onPress={() => router.push('/sales')} />
         <Metric title="Solde de caisse" value={cash.error ? 'Indisponible' : cash.data ? money(cash.data.balance) : '…'} hint="Entrées moins sorties enregistrées" onPress={() => router.push('/cash')} negative={!!cash.data && cash.data.balance < 0} />
-        {(!!overview.error || !overview.data || lowStock > 0) && <Metric title="À réapprovisionner" value={overview.error ? 'Indisponible' : overview.data ? String(lowStock) : '…'} hint="Produits dont le stock est faible" onPress={() => router.push('/stock')} />}
+        {(!!overview.error || !overview.data || lowStock > 0) && <Metric title="À réapprovisionner" value={overview.error ? 'Indisponible' : overview.data ? String(lowStock) : '…'} hint="Produits dont le stock est faible" onPress={() => router.push('/stock?filtre=faible' as never)} />}
       </View>
       {hasError && <Card mode="outlined"><Card.Content style={styles.intro}>
         <Text>Certains indicateurs ne sont pas disponibles. Vous pouvez continuer à utiliser les outils de la boutique.</Text>
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
       </Card.Content></Card>}
       {!overview.error && (lowStock > 0 || credit > 0) && <Card mode="outlined"><Card.Content style={styles.intro}>
         <Text variant="titleMedium" style={styles.bold}>À suivre</Text>
-        {lowStock > 0 && <AppButton mode="text" icon="package-variant" onPress={() => router.push('/stock')}>Voir les stocks à vérifier ({lowStock})</AppButton>}
+        {lowStock > 0 && <AppButton mode="text" icon="package-variant" onPress={() => router.push('/stock?filtre=faible' as never)}>Voir les stocks à vérifier ({lowStock})</AppButton>}
         {credit > 0 && <AppButton mode="text" icon="account-cash-outline" onPress={() => router.push('/customers')}>Crédits clients : {money(credit)}</AppButton>}
       </Card.Content></Card>}
       <View style={styles.shortcuts}>

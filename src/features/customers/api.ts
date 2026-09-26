@@ -45,6 +45,8 @@ export type CustomerSale = {
   payment_method: string | null;
   created_at: string;
   store: { name: string } | null;
+  /** Montant déjà retourné sur cette vente (0 si aucun retour, absent avant la migration 202609260009). */
+  returned_total?: number;
 };
 
 function fail(error: { message: string } | null) {

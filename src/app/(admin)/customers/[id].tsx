@@ -168,7 +168,7 @@ export default function CustomerDetails() {
 
           <Text variant="titleLarge" style={{ fontWeight: '800' }}>Historique d’achat</Text>
           {(sales.data ?? []).map((sale) => (
-            <Card key={sale.id} mode="outlined"><Card.Title title={sale.reference ?? 'Vente'} subtitle={`${sale.store?.name ?? 'Boutique'} • ${paymentLabels[sale.payment_method ?? ''] ?? sale.payment_method ?? 'Paiement'} • ${formatDate(sale.created_at)}`} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{formatMoney(Number(sale.total))}</Text>} /></Card>
+            <Card key={sale.id} mode="outlined"><Card.Title title={sale.reference ?? 'Vente'} subtitle={`${sale.store?.name ?? 'Boutique'} • ${paymentLabels[sale.payment_method ?? ''] ?? sale.payment_method ?? 'Paiement'} • ${formatDate(sale.created_at)}`} subtitleNumberOfLines={2} right={() => <Text variant="titleMedium" style={{ marginRight: 16 }}>{formatMoney(Number(sale.total))}</Text>} />{Number(sale.returned_total ?? 0) > 0 && <Card.Content><Text style={{ color: theme.colors.error, fontWeight: '700' }}>Retour : −{formatMoney(Number(sale.returned_total))}{Number(sale.returned_total) >= Number(sale.total) ? ' (vente entièrement retournée)' : ''}</Text></Card.Content>}</Card>
           ))}
           {!sales.isLoading && !(sales.data ?? []).length && <EmptyState icon="cart-outline" title="Aucun achat" message="Ce client n’a pas encore d’achat enregistré." />}
 

@@ -136,7 +136,7 @@ export async function getProduct(id: string): Promise<Product> {
 export async function findSimilarProduct(companyId:string,storeId:string,name:string,excludeId?:string):Promise<{id:string;name:string}|null>{
   const trimmed=name.trim();
   if(trimmed.length<2)return null;
-  let query=supabase.from('products').select('id,name').eq('company_id',companyId).eq('store_id',storeId).eq('is_active',true).ilike('name',trimmed).limit(1);
+  let query=supabase.from('products').select('id,name').eq('company_id',companyId).eq('store_id',storeId).eq('is_active',true).ilike('name',trimmed.replace(/[\\%_]/g,'\\$&')).limit(1); // égalité sans tenir compte de la casse ; % et _ pris littéralement
   if(excludeId)query=query.neq('id',excludeId);
   const{data,error}=await query;
   fail(error);

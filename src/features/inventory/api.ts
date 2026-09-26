@@ -129,6 +129,7 @@ export async function recordStockMovement(
     p_variant_id: values.variantId,
     p_operation_id: operationId,
   });
+  if (error && /Produit invalide/.test(error.message)) throw new Error('Ce produit est archivé : réactivez-le avant de modifier son stock.');
   fail(error);
   const row = Array.isArray(data) ? data[0] : data;
   return Number(row?.new_quantity ?? 0);

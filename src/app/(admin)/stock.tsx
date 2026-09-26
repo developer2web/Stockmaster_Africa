@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Card, HelperText, Icon, Text, useTheme } from 'react-native-paper';
+import { Card, Chip, HelperText, Icon, Text, useTheme } from 'react-native-paper';
 import { AdminPage } from '@/components/ui/AdminPage';
 import { AppButton } from '@/components/ui/AppButton';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -23,6 +23,11 @@ export default function StockScreen() {
   const [contentWidth, setContentWidth] = useState(0);
   const compact = contentWidth < 720 * Math.max(1, fontScale);
   const [search, setSearch] = useState('');
+  // « Voir les stocks à vérifier » du tableau de bord arrive avec ?filtre=faible (audit du 26/09 : la liste n'était pas filtrée).
+  const params = useLocalSearchParams<{ filtre?: string }>();
+  const [lowOnly, setLowOnly] = useState(params.filtre === 'faible');
+  // L'onglet Stock reste monté : réappliquer le filtre quand on y revient par le lien.
+  useEffect(() => { if (params.filtre === 'faible') setLowOnly(true); }, [params.filtre]);
   const company = membership?.companyId ?? '';
   const store = membership?.storeId ?? '';
   const canViewPurchaseValue = membership?.role === 'company_admin' || membership?.role === 'super_admin';
@@ -39,10 +44,12 @@ export default function StockScreen() {
   const costsPending = canViewPurchaseValue && rows.length > 0 && (levels.isLoading || costs.isLoading);
   const expectedRevenue = rows.reduce((sum, row) => sum + Number(row.quantity) * Number(row.product?.sale_price ?? 0), 0);
   const needle = search.trim().toLowerCase();
-  const visible = rows.filter((row) => !needle
+  // Même règle que le compteur « À réapprovisionner » du tableau de bord : quantité ≤ seuil.
+  const isLow = (row: (typeof rows)[number]) => Number(row.quantity) <= (row.product?.low_stock_threshold ?? 0);
+  const lowCount = rows.filter(isLow).length;
+  const visible = rows.filter((row) => (!lowOnly || isLow(row)) && (!needle
     || row.product?.name.toLowerCase().includes(needle)
-
-    || row.store?.name.toLowerCase().includes(needle));
+    || row.store?.name.toLowerCase().includes(needle)));
 
   return (
     <AdminPage
@@ -70,6 +77,7 @@ export default function StockScreen() {
           Ajouter un produit
         </AppButton>
       </View>
+      {(lowOnly || lowCount > 0) && <View style={styles.tools}><Chip icon="alert-outline" selected={lowOnly} showSelectedCheck onPress={() => setLowOnly(value => !value)} accessibilityLabel={`Stock faible uniquement${lowOnly ? ', activé' : ''}`}>Stock faible uniquement ({lowCount})</Chip></View>}
       {!!levels.error && <View><HelperText type="error" visible>{levels.error.message}</HelperText><AppButton mode="text" onPress={() => void levels.refetch()}>Réessayer le stock</AppButton></View>}
 
       {!compact && (
@@ -95,7 +103,7 @@ export default function StockScreen() {
           </Card.Content>
         </Card>
       ))}
-      {!levels.isLoading && !levels.error && !visible.length && <EmptyState icon="warehouse" title="Aucun stock trouvé" message="Scannez un produit, ajoutez-le ou modifiez votre recherche." />}
+      {!levels.isLoading && !levels.error && !visible.length && <EmptyState icon="warehouse" title={lowOnly ? 'Aucun stock faible' : 'Aucun stock trouvé'} message={lowOnly ? 'Tous les produits sont au-dessus de leur seuil d’alerte.' : 'Scannez un produit, ajoutez-le ou modifiez votre recherche.'} />}
 
       <Text variant="titleLarge" style={styles.bold}>Derniers mouvements</Text>
       {!!movements.error && <View><HelperText type="error" visible>{movements.error.message}</HelperText><AppButton mode="text" onPress={() => void movements.refetch()}>Réessayer les mouvements</AppButton></View>}

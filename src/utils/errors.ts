@@ -45,6 +45,8 @@ const rules:Rule[]=[
   // comme CurrencyProvider (voir todo.txt / commits SM-08).
   [/(?:montant|paiement) dépasse la dette restante\s*\(([\d.,]+)\)/i,(_technical,match)=>`Le montant dépasse la dette restante (${Math.round(Number(match[1].replace(',','.'))).toLocaleString('fr-CA')} GNF).`],
   [/not found|introuvable/i,()=>`La donnée demandée est introuvable.`],
+  // Postgres 22003 sur un montant ou une quantité absurde (audit du 26/09 : « numeric field overflow » affiché tel quel).
+  [/numeric field overflow|out of range for type|value out of range/i,()=>`Le nombre saisi est trop grand. Vérifiez le montant ou la quantité.`],
 ];
 function technicalMessage(error:unknown){return error instanceof Error?error.message:typeof error==='string'?error:error&&typeof error==='object'&&'message'in error&&typeof error.message==='string'?error.message:''}
 const rawTechnical=/\b(?:uncaught|typeerror|syntaxerror|referenceerror|invalid key|stack trace|schema cache|postgres|postgrest|sqlstate|error|failed|cannot|could not|undefined|promise)\b|\brelation\s+\S+\s+does not exist|\bfunction\s+\S+\s+.*schema/i;

@@ -98,7 +98,7 @@ export default function DemoScreen() {
     <PageIntro title="Votre boutique aujourd’hui" description={STORE} />
     <AppButton icon="cart-plus" onPress={() => go('sale')}>Nouvelle vente</AppButton>
     <View style={styles.metrics}>
-      <Metric title="Ventes du jour" value={money(todaySales)} hint="Montant des ventes, crédits compris" onPress={() => go('sales')} />
+      <Metric title="Ventes du jour" value={money(todaySales)} hint="Crédits compris, retours déduits" onPress={() => go('sales')} />
       <Metric title="Solde de caisse" value={money(balance)} hint="Entrées moins sorties enregistrées" onPress={() => go('cash')} />
       {lowStock > 0 && <Metric title="À réapprovisionner" value={String(lowStock)} hint="Produits dont le stock est faible" onPress={() => go('stock')} />}
     </View>

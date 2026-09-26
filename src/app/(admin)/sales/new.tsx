@@ -352,6 +352,8 @@ export default function NewSale() {
       {<View style={styles.paymentGrid}>{[
         ['cash','Espèces'],['mobile_money','Mobile Money'],['credit','Crédit'],['partial','Acompte'],
       ].map(([value,label])=><Chip key={value} selected={payment===value} accessibilityLabel={`${label}${payment===value?', sélectionné':''}`} disabled={(value==='credit'||value==='partial')&&companySettings.data?.allow_credit_sales===false} onPress={()=>setPayment(value)}>{label}</Chip>)}</View>}
+      {/* Audit du 26/09 : Crédit et Acompte étaient grisés sans explication quand le réglage de l'entreprise les désactive. */}
+      {companySettings.data?.allow_credit_sales===false&&<HelperText type="info" visible>{employee?'Crédit et Acompte sont désactivés pour votre entreprise. Demandez à votre administrateur de les activer.':'Crédit et Acompte sont désactivés pour votre entreprise. Activez-les dans Paramètres › Informations et règles de vente › « Autoriser les ventes à crédit et les acomptes ».'}</HelperText>}
       {(payment === 'credit' || payment === 'partial' || showCustomer || customerId) ? <View style={styles.list}>
         <SaleCustomerPicker companyId={company} value={customerId} onChange={setCustomerId} required={payment === 'credit' || payment === 'partial'} />
         {/* Une fois un client choisi, SaleCustomerPicker propose déjà "Retirer
